@@ -1,0 +1,243 @@
+Step 1 — Create the Basic Dashboard UI
+Text
+Copy code
+Create a professional, modern, responsive IoT dashboard for a Class 12 Informatics Practices project.
+
+Project Name:
+AI Smart Cricket Pitch Dashboard
+
+Requirements:
+• Only ONE page called Dashboard.
+• White background.
+• Blue and Green accent colors.
+• Glassmorphism cards.
+• Rounded corners.
+• Poppins font.
+• Soft shadows.
+• Clean spacing.
+• Responsive for laptop and mobile.
+• No sidebar.
+• No login.
+• No settings page.
+• No extra tabs.
+
+Header:
+• Cricket icon.
+• Title: AI Smart Cricket Pitch Dashboard
+• Subtitle: Real-Time Monitoring & Automation
+• Green animated "ESP32 Connected" indicator.
+• Wi-Fi icon.
+• Current Date and Time.
+
+Do not add graphs or buttons yet.
+Only generate the layout.
+Step 2 — Add Sensor Cards
+Text
+Copy code
+Now add three beautiful sensor cards below the header.
+
+Card 1
+Temperature
+Thermometer icon
+Large value (31.2°C)
+Small status
+Animated value
+
+Card 2
+Humidity
+Water Drop icon
+68%
+Status
+
+Card 3
+Soil Moisture
+Plant icon
+42%
+Status:
+Dry
+Balanced
+Wet
+
+Cards should have hover animation and smooth transitions.
+Step 3 — Add Graphs
+Text
+Copy code
+Below the sensor cards add two professional graphs.
+
+Graph 1
+Temperature Trend
+
+Graph 2
+Humidity Trend
+
+Requirements
+
+Animated line charts
+
+Last 30 readings
+
+Auto update every 2 seconds
+
+Rounded graph container
+
+Soft shadow
+
+Blue grid lines
+
+Responsive
+
+No chart legend
+
+Only graph title.
+Step 4 — Add Bottom Cards
+Text
+Copy code
+Now create four separate cards.
+
+Card 1
+Pitch Status
+
+Large Badge
+
+Balanced
+
+Dry
+
+Wet
+
+Green
+Orange
+Blue
+
+Card 2
+
+System Mode
+
+Large badge
+
+Automatic
+
+Manual
+
+Card 3
+
+Last Updated
+
+Current Time
+
+Auto Refresh
+
+Every 2 Seconds
+
+Card 4
+
+ESP32 Connection
+
+Green Pulsing Dot
+
+Connected
+
+Wi-Fi Icon
+Step 5 — Water Pump Card
+Text
+Copy code
+Now create a completely separate card.
+
+Title
+
+Water Pump
+
+Large water drop icon.
+
+Large ON/OFF Toggle Switch.
+
+Interactive.
+
+Blue animation when ON.
+
+Grey when OFF.
+
+Status Text
+
+Pump ON
+
+Pump OFF
+
+Manual Override Text
+
+This card must be independent from every other card.
+
+Rounded corners.
+
+Hover animation.
+
+Soft shadow.
+
+Professional UI.
+Step 6 — Drying Fan Card
+Text
+Copy code
+Create another independent card.
+
+Title
+
+Drying Fan
+
+Large fan icon.
+
+Fan icon rotates while ON.
+
+Large ON/OFF Toggle.
+
+Green animation.
+
+Status
+
+Fan ON
+
+Fan OFF
+
+Hover effect.
+
+Rounded card.
+
+Soft shadow.
+
+Professional style.
+Step 7 — Final Polish
+Text
+Copy code
+Now improve the entire dashboard.
+
+Add
+
+Smooth animations
+
+Card hover lift
+
+Number counting animation
+
+Graph animation
+
+Loading animation
+
+Connected indicator pulse
+
+Professional spacing
+
+Perfect alignment
+
+Consistent colors
+
+Beautiful footer
+
+Auto Refresh Every 2 Seconds
+
+Built for Class 12 IP Exhibition
+
+Modern IoT Dashboard
+
+Do not change the layout.
+
+Only improve the UI.
+This step-by-step approach produces a much better dashboard than using one very large prompt. Once the UI is complete, we can connect it to your get.php so the cards, graphs, pump, and fan update with live ESP32 data every 2 seconds.

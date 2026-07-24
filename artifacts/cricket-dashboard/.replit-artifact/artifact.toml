@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "AI Smart Cricket Pitch Dashboard"
+version = "1.0.0"
+id = "artifacts/cricket-dashboard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25954
+
+[services.development]
+run = "pnpm --filter @workspace/cricket-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/cricket-dashboard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/cricket-dashboard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25954"
+BASE_PATH = "/"

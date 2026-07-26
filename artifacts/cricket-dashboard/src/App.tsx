@@ -420,12 +420,19 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full pb-16 selection:bg-blue-200 selection:text-blue-900 relative overflow-hidden bg-[#F8FAFC]">
-      {/* Background Blobs */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-blue-400/10 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 pointer-events-none animate-[pulse_8s_ease-in-out_infinite]" />
-      <div className="absolute top-40 right-1/4 w-[500px] h-[500px] bg-green-400/10 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 pointer-events-none animate-[pulse_10s_ease-in-out_infinite]" />
+    <div
+      className="min-h-[100dvh] w-full pb-16 selection:bg-blue-200 selection:text-blue-900 relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(/cricket-bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* subtle dark overlay so cards read cleanly */}
+      <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 pt-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 pt-5 space-y-4">
         
         {/* 1. HEADER */}
         <header className="bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[22px] p-5 flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden">

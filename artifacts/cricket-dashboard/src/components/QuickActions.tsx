@@ -67,7 +67,7 @@ interface QuickActionsProps {
 }
 
 const CARD =
-  'bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.10)] hover:-translate-y-1 transition-all duration-300 rounded-[20px] p-6 flex flex-col';
+  'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.10)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.15)] hover:-translate-y-1 transition-all duration-300 rounded-[20px] p-4 flex flex-col';
 
 const BTN_BLUE =
   'flex items-center justify-center gap-2 w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 transition-all duration-200 text-sm';

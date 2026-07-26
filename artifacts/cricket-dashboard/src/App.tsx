@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { Switch } from '@/components/ui/switch';
-import QuickActions, { type Reading } from '@/components/QuickActions';
+import QuickActions, { type Reading, type TimelineEvent } from '@/components/QuickActions';
 
 // --- Types & Generators ---
 
@@ -215,6 +215,7 @@ export default function App() {
   const [readings, setReadings] = useState<Reading[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [now, setNow] = useState(new Date());
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
 
   // Refs for setInterval closures
   const systemModeRef = useRef(systemMode);
@@ -223,7 +224,9 @@ export default function App() {
   const manualPumpRef = useRef(manualPump);
   const manualFanRef = useRef(manualFan);
   const readingIdRef = useRef(0);
+  const timelineIdRef = useRef(0);
   const addNotifRef = useRef<any>(null);
+  const addEventRef = useRef<(type: TimelineEvent['type'], message: string) => void>(() => {});
 
   // Sync refs
   useEffect(() => { systemModeRef.current = systemMode; }, [systemMode]);
@@ -257,10 +260,25 @@ export default function App() {
     addNotif('success', 'ESP32 Connected', 'Connection established successfully');
   }, []);
 
+  // Timeline setup
+  useEffect(() => {
+    const addEvent = (type: TimelineEvent['type'], message: string) => {
+      setTimeline(prev => [{
+        id: ++timelineIdRef.current,
+        time: new Date().toLocaleTimeString('en-US', {hour12:false}),
+        type,
+        message,
+      }, ...prev].slice(0, 20));
+    };
+    addEventRef.current = addEvent;
+  }, []);
+
   // Simulation Interval
   useEffect(() => {
     let tick = 0;
     let prevCondition = 'Balanced';
+    let prevPumpOn = false;
+    let prevFanOn = false;
 
     const id = setInterval(() => {
       tick++;
@@ -285,10 +303,29 @@ export default function App() {
         return [...prev.slice(-29), { time: tick, value: nextSoil }];
       });
 
+      // Timeline event for sensor update
+      addEventRef.current('sensor', `Sensor updated — Temp:${nextTemp}°C H:${nextHum}% Soil:${nextSoil}%`);
+
       if (systemModeRef.current === 'auto') {
         const newCondition = nextSoil < 35 ? 'Dry' : nextSoil > 65 ? 'Wet' : 'Balanced';
-        setPumpOn(nextSoil < 35);
-        setFanOn(nextSoil > 65);
+        const nextPumpOn = nextSoil < 35;
+        const nextFanOn = nextSoil > 65;
+
+        // Pump state change event
+        if (nextPumpOn !== prevPumpOn) {
+          addEventRef.current('pump', nextPumpOn ? 'Water Pump turned ON' : 'Water Pump turned OFF');
+          prevPumpOn = nextPumpOn;
+        }
+        
+        // Fan state change event
+        if (nextFanOn !== prevFanOn) {
+          addEventRef.current('fan', nextFanOn ? 'Drying Fan turned ON' : 'Drying Fan turned OFF');
+          prevFanOn = nextFanOn;
+        }
+
+        setPumpOn(nextPumpOn);
+        setFanOn(nextFanOn);
+
         if (newCondition !== prevCondition) {
            if (newCondition === 'Dry') {
               addNotifRef.current?.('warning', 'Dry Soil Detected', 'Water Pump activated automatically');
@@ -320,8 +357,10 @@ export default function App() {
      setSystemMode(mode);
      if (mode === 'manual') {
         addNotifRef.current?.('info', 'Manual Mode Enabled', 'Automatic control paused');
+        addEventRef.current('mode', 'Manual Mode Enabled');
      } else {
         addNotifRef.current?.('success', 'Automatic Mode Enabled', 'ESP32 is now controlling the system');
+        addEventRef.current('mode', 'Automatic Mode Enabled');
      }
   };
 
@@ -329,12 +368,14 @@ export default function App() {
      if (systemMode === 'auto') return;
      setManualPump(val);
      setPumpOn(val);
+     addEventRef.current('pump', val ? 'Water Pump turned ON' : 'Water Pump turned OFF');
   };
 
   const handleFanToggle = (val: boolean) => {
      if (systemMode === 'auto') return;
      setManualFan(val);
      setFanOn(val);
+     addEventRef.current('fan', val ? 'Drying Fan turned ON' : 'Drying Fan turned OFF');
   };
 
   const handleReset = () => {
@@ -342,6 +383,7 @@ export default function App() {
      setHumHistory([]);
      setSoilHistory([]);
      setReadings([]);
+     addEventRef.current('sensor', 'Dashboard Reset — Data Cleared');
   };
 
   const removeNotif = (id: number) => {
@@ -615,6 +657,7 @@ export default function App() {
           pumpOn={pumpOn}
           fanOn={fanOn}
           onReset={handleReset}
+          timeline={timeline}
         />
 
         {/* 8. FOOTER */}

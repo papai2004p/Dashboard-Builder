@@ -1,0 +1,469 @@
+🎯 Prompt for Replit AI
+
+I want you to redesign my existing AI Smart Cricket Pitch Dashboard. Do NOT change my backend, PHP files, ESP32 communication, MySQL database, API routes, or automation logic. Only improve the UI/UX and frontend.
+
+Use the attached reference images as the design inspiration.
+
+1. Dashboard Design
+
+Redesign the dashboard to match the premium professional layout shown in the reference image.
+
+Requirements:
+
+Soft white background
+Blue + Green accent colors
+Glassmorphism cards
+Rounded corners (20px+)
+Soft shadows
+Smooth hover animations
+Professional spacing
+Clean typography
+Responsive layout
+Premium enterprise look
+
+The dashboard should feel similar to a professional IoT monitoring application.
+
+2. Rename Export PDF
+
+Currently there is a card named
+
+Download PDF
+
+Rename it everywhere to
+
+Export Report
+
+The card should contain:
+
+Title
+
+Export Report
+
+Subtitle
+
+Generate Professional Cricket Pitch Report
+
+Button
+
+Export Report
+
+Use a premium red gradient button.
+
+Do NOT use the words
+
+Download PDF
+
+anywhere in the application.
+
+3. Export Report Layout
+
+When the user clicks
+
+Export Report
+
+generate a professional PDF exactly inspired by the uploaded report.
+
+Include:
+
+• Project logo
+
+• Cricket illustration
+
+• Large project title
+
+AI Smart Cricket Pitch Monitoring Report
+
+• Report Information
+
+Date
+
+Time
+
+Report ID
+
+ESP32 Status
+
+WiFi Status
+
+Database Status
+
+• Beautiful Sensor Cards
+
+Temperature
+
+Humidity
+
+Soil Moisture
+
+• Pump Status
+
+• Fan Status
+
+• Pitch Health
+
+• Trend Charts
+
+Temperature Graph
+
+Humidity Graph
+
+• Recent 15 Readings Table
+
+• Statistical Summary
+
+Highest Temperature
+
+Lowest Temperature
+
+Average Temperature
+
+Highest Humidity
+
+Lowest Humidity
+
+Average Humidity
+
+Highest Moisture
+
+Lowest Moisture
+
+Average Moisture
+
+• System Analysis
+
+Overall Pitch Health
+
+Automatic Mode Status
+
+Manual Mode Status
+
+Recommendations
+
+• Attractive Footer
+
+Powered by ESP32 + PHP + MySQL
+
+Class XII Informatics Practices Project
+
+Page Number
+
+Generated Time
+
+The report should look presentation quality.
+
+4. Quick Action Cards
+
+Keep these cards exactly:
+
+Recent Reading History
+
+Export Report
+
+Export Excel
+
+View Analysis
+
+Refresh Data
+
+Each card should have:
+
+Large icon
+
+Gradient background
+
+Rounded corners
+
+Hover animation
+
+Glow effect
+
+Soft shadow
+
+Animated button
+
+5. View Analysis Popup
+
+When the user clicks
+
+View Analysis
+
+open a fullscreen modern modal similar to the second reference image.
+
+The modal must have:
+
+Dark professional background
+
+Rounded corners
+
+Blurred backdrop
+
+Close button
+
+Smooth opening animation
+
+6. Sensor Analytics Modal
+
+The popup should include:
+
+Large title
+
+Sensor Analytics
+
+Subtitle
+
+Live Snapshot
+
+Total readings evaluated
+
+Then show three premium statistic cards.
+
+Temperature
+
+Min
+
+Max
+
+Average
+
+Current
+
+Trend Arrow
+
+Humidity
+
+Min
+
+Max
+
+Average
+
+Current
+
+Trend Arrow
+
+Soil Moisture
+
+Min
+
+Max
+
+Average
+
+Current
+
+Trend Arrow
+
+Each card should have:
+
+Colored left border
+
+Icon
+
+Gradient background
+
+Glow
+
+Hover animation
+
+7. Interactive Analytics Charts
+
+Below the cards add multiple beautiful charts.
+
+Use Chart.js.
+
+Charts should include:
+
+Grouped Bar Chart
+
+Temperature
+
+Humidity
+
+Moisture
+
+Interactive Tooltips
+
+Hover Animation
+
+Legend
+
+Zoom
+
+Pan
+
+Smooth Animation
+
+Second Chart
+
+Multi-line Trend Graph
+
+Temperature
+
+Humidity
+
+Moisture
+
+Animated line drawing
+
+Hover values
+
+Third Chart
+
+Pie Chart
+
+Healthy
+
+Dry
+
+Wet
+
+Balanced
+
+Fourth Chart
+
+Radar Chart
+
+Overall System Performance
+
+Temperature
+
+Humidity
+
+Moisture
+
+Pump Activity
+
+Fan Activity
+
+8. Extra Analysis Tools
+
+Below the graphs create another section named
+
+Analysis Tools
+
+Include beautiful cards:
+
+Temperature Analysis
+
+Humidity Analysis
+
+Moisture Analysis
+
+Predict Pitch Condition
+
+Export Analysis
+
+Print Analysis
+
+Compare Readings
+
+9. AI Insights Section
+
+Add a section called
+
+AI Insights
+
+Generate intelligent summaries such as:
+
+Overall Pitch Health
+
+Sensor Stability
+
+Moisture Trend
+
+Temperature Stability
+
+Humidity Stability
+
+Pump Usage
+
+Fan Usage
+
+Recommended Action
+
+Overall System Score
+
+Display these inside premium glass cards.
+
+10. Smart Recommendations
+
+Automatically generate recommendations such as:
+
+Water required soon
+
+Pitch is too wet
+
+Temperature increasing
+
+Humidity decreasing
+
+Everything normal
+
+Show recommendation badges with colors.
+
+11. Timeline
+
+Add an Activity Timeline.
+
+Show events like:
+
+Sensor Updated
+
+Pump Turned ON
+
+Pump Turned OFF
+
+Fan Turned ON
+
+Fan Turned OFF
+
+Automatic Mode Enabled
+
+Manual Mode Enabled
+
+Export Report Generated
+
+12. Animations
+
+Use smooth animations everywhere.
+
+Cards should lift on hover.
+
+Buttons should glow.
+
+Charts animate when opened.
+
+Statistics count up from zero.
+
+Progress circles animate.
+
+Use subtle transitions.
+
+13. Professional UI
+
+The overall application should look similar to:
+
+Professional IoT Dashboard
+
+Industrial Monitoring System
+
+Enterprise Analytics Dashboard
+
+Premium SaaS Platform
+
+Everything should look polished, modern, clean, and presentation-ready.
+
+14. Important
+
+Do NOT modify:
+
+ESP32 code
+insert.php
+get.php
+command.php
+MySQL schema
+Database logic
+Automatic/Manual logic
+Existing APIs
+
+Only improve the frontend UI, UX, analytics, report design, animations, and user experience while keeping all current functionality working exactly as it does now.

@@ -1,24 +1,21 @@
-# [Project name]
+# AI Smart Cricket Pitch Dashboard
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A real-time IoT monitoring dashboard for cricket pitch conditions — temperature, humidity, and soil moisture — with automatic pump/fan control, live charts, sensor analytics, PDF/Excel export, and voice assistant. Built as a Class XII Informatics Practices project.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/cricket-dashboard run dev` — run the frontend dashboard (workflow: `artifacts/cricket-dashboard: web`)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- No database required — dashboard uses simulated ESP32 data
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- pnpm workspaces, Node.js 20, TypeScript 5.9
+- Frontend: React 18 + Vite + Tailwind CSS v4
+- Charts: Recharts
+- Export: jsPDF (PDF reports), xlsx (Excel spreadsheets)
+- UI components: Radix UI primitives + shadcn/ui patterns
 
 ## Where things live
 

@@ -39,7 +39,7 @@ export type { Reading, TimelineEvent };
 // ── Style constants ────────────────────────────────────────────────────────────
 
 const CARD =
-  'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgb(0,0,0,0.10)] hover:shadow-[0_14px_44px_rgb(0,0,0,0.14)] hover:-translate-y-1 transition-all duration-300 rounded-[26px] p-6 flex flex-col h-[220px]';
+  'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgb(0,0,0,0.10)] hover:shadow-[0_14px_44px_rgb(0,0,0,0.14)] hover:-translate-y-1 transition-all duration-300 rounded-[26px] p-6 flex flex-col';
 
 const BTN_RED_GRADIENT =
   'flex items-center justify-center gap-2 w-full py-3 px-6 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-bold rounded-xl shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-200 text-sm';
@@ -120,8 +120,8 @@ function ExportReportCard({
           <p className="text-xs text-slate-500 mt-0.5">Generate Professional PDF Report</p>
         </div>
       </div>
-      <p className="text-xs text-slate-500 flex-1 leading-relaxed">
-        Full sensor data, trend charts, system status, statistics, history table and system analysis in a polished PDF matching the reference design.
+      <p className="text-xs text-slate-500 flex-1 leading-relaxed line-clamp-3">
+        Full sensor data, trend charts, system status, statistics, history table and system analysis in a polished PDF.
       </p>
       <button onClick={handleExport} disabled={busy} className={BTN_RED_GRADIENT}>
         <FileText size={16} />
@@ -166,7 +166,7 @@ function ExportExcelCard({ readings, pumpOn, fanOn }: Pick<QuickActionsProps, 'r
           <p className="text-xs text-slate-500 mt-0.5">Spreadsheet with all readings</p>
         </div>
       </div>
-      <p className="text-xs text-slate-500 flex-1 leading-relaxed">
+      <p className="text-xs text-slate-500 flex-1 leading-relaxed line-clamp-3">
         Temperature, humidity, soil moisture, pitch status, pump & fan columns with project info on a separate sheet.
       </p>
       <button onClick={exportExcel} className={BTN_GREEN}>
@@ -377,7 +377,7 @@ function SensorAnalysisCard(props: Pick<QuickActionsProps, 'tempHistory' | 'humH
             <p className="text-xs text-slate-500 mt-0.5">Deep stats & interactive charts</p>
           </div>
         </div>
-        <p className="text-xs text-slate-500 flex-1 leading-relaxed">
+        <p className="text-xs text-slate-500 flex-1 leading-relaxed line-clamp-3">
           Min, max & average per sensor with Bar, Line, and Radar chart views inside a premium dark popup.
         </p>
         <button onClick={handleOpen} className={BTN_SLATE}>
@@ -415,7 +415,7 @@ function ResetDashboardCard({ onReset }: { onReset: () => void }) {
             <p className="text-xs text-slate-500 mt-0.5">Clear all data & history</p>
           </div>
         </div>
-        <p className="text-xs text-slate-500 flex-1 leading-relaxed">
+        <p className="text-xs text-slate-500 flex-1 leading-relaxed line-clamp-3">
           Clears all sensor readings, graphs, and history. The next ESP32 reading will auto-fill everything again.
         </p>
         <button onClick={() => setShowConfirm(true)} className={BTN_RED}>

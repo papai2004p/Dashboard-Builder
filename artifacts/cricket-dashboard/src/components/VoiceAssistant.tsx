@@ -14,7 +14,8 @@ type IdleAnim =
 
 type ThinkAnim =
   | 'handCheek' | 'eyebrow' | 'looklr' | 'blink' | 'scratch'
-  | 'question' | 'spin' | 'lookup' | 'cloud' | 'eyebrows' | 'chart' | 'dots';
+  | 'question' | 'spin' | 'lookup' | 'cloud' | 'eyebrows' | 'chart' | 'dots'
+  | 'lightbulb' | 'notebook' | 'gears' | 'sparkles';
 
 interface VoiceAssistantProps {
   readings: Reading[];
@@ -49,6 +50,7 @@ const IDLE_ANIMS: IdleAnim[] = [
 const THINK_ANIMS: ThinkAnim[] = [
   'handCheek', 'eyebrow', 'looklr', 'blink', 'scratch',
   'question', 'spin', 'lookup', 'cloud', 'eyebrows', 'chart', 'dots',
+  'lightbulb', 'notebook', 'gears', 'sparkles',
 ];
 
 // ── Cricket Ball Mascot SVG ───────────────────────────────────────────────────
@@ -319,6 +321,81 @@ function CricketBall({
             ))}
           </motion.g>
         )}
+        {isThinking && thinkAnim === 'lightbulb' && (
+          <motion.g initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
+            {/* Bulb glow */}
+            <motion.circle cx="70" cy="13" r="10" fill="rgba(251,191,36,0.25)"
+              animate={{ r: [8, 12, 8] }} transition={{ duration: 0.9, repeat: Infinity }}
+            />
+            <ellipse cx="70" cy="12" rx="6" ry="7" fill="#fbbf24" />
+            <path d="M 66 18 Q 66 22 70 23 Q 74 22 74 18 Z" fill="#f59e0b" />
+            <rect x="67.5" y="23" width="5" height="2.5" rx="1" fill="#92400e" />
+            <motion.circle cx="70" cy="8" r="2.5" fill="white" opacity="0.7"
+              animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.7, repeat: Infinity }}
+            />
+          </motion.g>
+        )}
+        {isThinking && thinkAnim === 'notebook' && (
+          <motion.g initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
+            <rect x="56" y="5" width="30" height="24" rx="3" fill="white" opacity="0.95" />
+            <rect x="56" y="5" width="5" height="24" rx="2" fill="#3b82f6" opacity="0.8" />
+            {[10, 14, 18, 22].map((cy, i) => (
+              <motion.rect key={i} x="64" y={cy} width={i % 2 === 0 ? 16 : 12} height="1.5" rx="0.8" fill="#94a3b8"
+                initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: i * 0.12 }}
+              />
+            ))}
+          </motion.g>
+        )}
+        {isThinking && thinkAnim === 'gears' && (
+          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.g animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+              style={{ transformOrigin: '66px 14px' }}>
+              <circle cx="66" cy="14" r="7" fill="none" stroke="#64748b" strokeWidth="2.5" />
+              <circle cx="66" cy="14" r="3" fill="#64748b" />
+              {[0,60,120,180,240,300].map((angle, i) => (
+                <rect key={i} x="64.2" y="5.5" width="3.6" height="3" rx="1" fill="#64748b"
+                  transform={`rotate(${angle} 66 14)`} />
+              ))}
+            </motion.g>
+            <motion.g animate={{ rotate: -360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              style={{ transformOrigin: '78px 22px' }}>
+              <circle cx="78" cy="22" r="5" fill="none" stroke="#94a3b8" strokeWidth="2" />
+              <circle cx="78" cy="22" r="2" fill="#94a3b8" />
+              {[0,72,144,216,288].map((angle, i) => (
+                <rect key={i} x="76.8" y="15.5" width="2.4" height="2.2" rx="0.8" fill="#94a3b8"
+                  transform={`rotate(${angle} 78 22)`} />
+              ))}
+            </motion.g>
+          </motion.g>
+        )}
+        {isThinking && thinkAnim === 'sparkles' && (
+          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {[
+              { cx: 65, cy: 10, r: 3, delay: 0 },
+              { cx: 75, cy: 6,  r: 2, delay: 0.2 },
+              { cx: 82, cy: 14, r: 2.5, delay: 0.4 },
+              { cx: 70, cy: 18, r: 1.8, delay: 0.15 },
+            ].map((s, i) => (
+              <motion.g key={i}>
+                <motion.circle cx={s.cx} cy={s.cy} r={s.r} fill="#fbbf24"
+                  animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
+                  transition={{ duration: 0.8, delay: s.delay, repeat: Infinity, repeatDelay: 0.3 }}
+                />
+                {/* Star cross */}
+                <motion.line x1={s.cx - s.r * 1.4} y1={s.cy} x2={s.cx + s.r * 1.4} y2={s.cy}
+                  stroke="#fbbf24" strokeWidth="1" strokeLinecap="round"
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ duration: 0.8, delay: s.delay, repeat: Infinity, repeatDelay: 0.3 }}
+                />
+                <motion.line x1={s.cx} y1={s.cy - s.r * 1.4} x2={s.cx} y2={s.cy + s.r * 1.4}
+                  stroke="#fbbf24" strokeWidth="1" strokeLinecap="round"
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ duration: 0.8, delay: s.delay, repeat: Infinity, repeatDelay: 0.3 }}
+                />
+              </motion.g>
+            ))}
+          </motion.g>
+        )}
       </AnimatePresence>
     </svg>
   );
@@ -484,7 +561,7 @@ function processCommand(
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return `Taking you to the top of the dashboard.`;
   }
-  if (/go to graph|show graph|view graph/.test(t)) {
+  if (/go to graph|show graph|view graph|show temperature|show humidity|show moisture|update graph/.test(t)) {
     document.querySelector('[data-section="charts"]')?.scrollIntoView({ behavior: 'smooth' });
     window.scrollBy({ top: -80, behavior: 'smooth' });
     return `Navigating to the sensor graphs.`;
@@ -498,16 +575,16 @@ function processCommand(
     return `The reading history is displayed below. The latest reading shows temperature ${ctx.currentTemp}°C and soil moisture ${ctx.currentSoil}%.`;
   }
   if (/close popup|close modal|close analytics|close panel/.test(t)) {
-    ctx.onOpenAnalysis(); // will be handled as toggle; just acknowledge
+    ctx.onOpenAnalysis();
     return `Closing the analytics panel.`;
   }
 
   // ── Mode ──
-  if (/auto(matic)?(\s+mode)?$|switch.*auto|enable.*auto|set.*auto/.test(t) && !/manual/.test(t)) {
+  if ((/auto(matic)?(\s+mode)?|switch.*auto|enable.*auto|set.*auto|disable.*auto.*off/.test(t)) && !/manual/.test(t)) {
     ctx.onModeChange('auto');
     return `Automatic mode activated! The ESP32 will now manage the pump and fan based on live soil moisture. You can relax — I've got it covered.`;
   }
-  if (/manual(\s+mode)?$|switch.*manual|enable.*manual|set.*manual/.test(t)) {
+  if (/manual(\s+mode)?|switch.*manual|enable.*manual|set.*manual|switch to manual|disable automatic/.test(t)) {
     ctx.onModeChange('manual');
     return `Switched to manual mode. You're now in full control of the water pump and drying fan.`;
   }
@@ -516,12 +593,12 @@ function processCommand(
   }
 
   // ── Pump ──
-  if (/turn on pump|pump on|start (pump|water|irrig)|water the pitch|enable pump|enable irrig/.test(t)) {
+  if (/turn on pump|pump on|start (pump|water|irrig)|water the pitch|enable pump|enable irrig|pump start|switch pump on/.test(t)) {
     if (ctx.mode === 'auto') return `The system is in automatic mode. Please switch to manual mode first, and then I can turn the pump on for you.`;
     ctx.onPumpToggle(true);
     return `Water pump switched ON! Irrigation has started. The pitch is now being watered.`;
   }
-  if (/turn off pump|pump off|stop (pump|water|irrig)|disable pump|stop watering/.test(t)) {
+  if (/turn off pump|pump off|stop (pump|water|irrig)|disable pump|stop watering|pump stop|switch pump off/.test(t)) {
     if (ctx.mode === 'auto') return `I'm in automatic mode. Please switch to manual mode to control the pump directly.`;
     ctx.onPumpToggle(false);
     return `Water pump switched OFF. Irrigation stopped successfully.`;
@@ -531,18 +608,18 @@ function processCommand(
   }
 
   // ── Fan ──
-  if (/turn on fan|fan on|start fan|start dry|enable fan|dry the pitch|switch fan on/.test(t)) {
+  if (/turn on fan|fan on|start fan|start dry|enable fan|dry the pitch|switch fan on|fan start/.test(t)) {
     if (ctx.mode === 'auto') return `I'm in automatic mode. Please switch to manual mode to control the fan manually.`;
     ctx.onFanToggle(true);
     return `Sure! Switching the drying fan ON now. The pitch will begin drying.`;
   }
-  if (/turn off fan|fan off|stop fan|stop dry|disable fan|switch fan off/.test(t)) {
+  if (/turn off fan|fan off|stop fan|stop dry|disable fan|switch fan off|fan stop/.test(t)) {
     if (ctx.mode === 'auto') return `I'm in automatic mode. Switch to manual mode to stop the fan manually.`;
     ctx.onFanToggle(false);
-    return `Drying fan switched OFF.`;
+    return `Drying fan switched OFF. The pitch will retain its current moisture level.`;
   }
   if (/fan status|is the fan/.test(t)) {
-    return `The drying fan is currently ${ctx.fanOn ? 'ON and drying the pitch' : 'OFF'}.`;
+    return `The drying fan is currently ${ctx.fanOn ? 'ON and actively drying the pitch' : 'OFF'}.`;
   }
 
   // ── Sensor stat queries ──
@@ -572,7 +649,10 @@ function processCommand(
     return `All systems are fully operational. ESP32 microcontroller is online, Wi-Fi is connected, and the database is syncing perfectly.`;
   }
   if (/last update|last reading/.test(t)) {
-    return `The last reading came in just now with temperature ${ctx.currentTemp}°C, humidity ${ctx.currentHum}%, and soil moisture ${ctx.currentSoil}%.`;
+    return `The last reading came in just now — temperature ${ctx.currentTemp}°C, humidity ${ctx.currentHum}%, and soil moisture ${ctx.currentSoil}%.`;
+  }
+  if (/who are you|what are you|introduce/.test(t)) {
+    return `I'm Pitch — your AI cricket pitch assistant! I can read live sensor data, control the pump and fan, export reports, analyse the pitch, and navigate the dashboard. Just tell me what you need.`;
   }
 
   // ── Pitch condition ──

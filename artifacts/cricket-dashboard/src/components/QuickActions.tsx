@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   FileSpreadsheet,
@@ -11,8 +11,6 @@ import {
   Leaf,
   TrendingUp,
   TrendingDown,
-  Mic,
-  MicOff,
 } from 'lucide-react';
 import {
   LineChart,
@@ -31,40 +29,12 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
+import { generatePDF } from '@/lib/generatePDF';
+import type { Reading, TimelineEvent } from '@/lib/types';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-export interface Reading {
-  id: number;
-  time: string;
-  temp: number;
-  humidity: number;
-  soil: number;
-  pitchStatus: string;
-  pumpOn: boolean;
-  fanOn: boolean;
-  mode: 'auto' | 'manual';
-}
-
-export interface TimelineEvent {
-  id: number;
-  time: string;
-  type: 'sensor' | 'pump' | 'fan' | 'mode' | 'export';
-  message: string;
-}
-
-interface QuickActionsProps {
-  readings: Reading[];
-  tempHistory: { time: number; value: number }[];
-  humHistory:  { time: number; value: number }[];
-  soilHistory: { time: number; value: number }[];
-  pumpOn: boolean;
-  fanOn:  boolean;
-  onReset: () => void;
-  timeline: TimelineEvent[];
-}
+// Re-export for App.tsx consumers
+export type { Reading, TimelineEvent };
 
 // ── Style constants ────────────────────────────────────────────────────────────
 
@@ -83,8 +53,22 @@ const BTN_SLATE =
 const BTN_RED =
   'flex items-center justify-center gap-2 w-full py-3 px-6 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-200 text-sm';
 
-const BTN_INDIGO =
-  'flex items-center justify-center gap-2 w-full py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/40 transition-all duration-200 text-sm';
+// ── Props ──────────────────────────────────────────────────────────────────────
+
+interface QuickActionsProps {
+  readings: Reading[];
+  tempHistory: { time: number; value: number }[];
+  humHistory: { time: number; value: number }[];
+  soilHistory: { time: number; value: number }[];
+  pumpOn: boolean;
+  fanOn: boolean;
+  mode: 'auto' | 'manual';
+  onReset: () => void;
+  timeline: TimelineEvent[];
+  onOpenAnalysis?: () => void;
+  analysisOpen?: boolean;
+  onAnalysisClose?: () => void;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -98,192 +82,48 @@ function calcStats(history: { value: number }[]) {
   };
 }
 
-function pitchLabel(soil: number) {
-  if (soil < 35) return 'Dry';
-  if (soil > 65) return 'Wet';
-  return 'Balanced';
-}
-
 // ── Card 1: Export Report ──────────────────────────────────────────────────────
 
 function ExportReportCard({
-  readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn,
-}: Omit<QuickActionsProps, 'onReset' | 'timeline'>) {
+  readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode,
+}: {
+  readings: Reading[];
+  tempHistory: { time: number; value: number }[];
+  humHistory: { time: number; value: number }[];
+  soilHistory: { time: number; value: number }[];
+  pumpOn: boolean;
+  fanOn: boolean;
+  mode: 'auto' | 'manual';
+}) {
   const [busy, setBusy] = useState(false);
 
-  function generatePDF() {
+  const handleExport = async () => {
+    if (busy) return;
     setBusy(true);
     try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const W = 210;
-      const now = new Date();
-      const tStats = calcStats(tempHistory);
-      const hStats = calcStats(humHistory);
-      const sStats = calcStats(soilHistory);
-      const currentTemp  = tempHistory.length  ? tempHistory[tempHistory.length - 1].value   : 0;
-      const currentHum   = humHistory.length   ? humHistory[humHistory.length - 1].value     : 0;
-      const currentSoil  = soilHistory.length  ? soilHistory[soilHistory.length - 1].value   : 42;
-      const condition    = pitchLabel(currentSoil);
-
-      // Header band
-      doc.setFillColor(26, 58, 107);
-      doc.rect(0, 0, W, 60, 'F');
-
-      doc.setFillColor(255, 255, 255);
-      doc.setGState(new (doc as any).GState({ opacity: 0.12 }));
-      doc.triangle(W - 70, 0, W, 0, W, 60, 'F');
-      doc.setGState(new (doc as any).GState({ opacity: 1 }));
-
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('AI Smart Cricket Pitch Monitoring Report', 15, 22);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(147, 197, 253);
-      doc.text('Class XII Informatics Practices Project', 15, 30);
-
-      // Cricket ball
-      doc.setFillColor(220, 38, 38);
-      doc.circle(W - 20, 25, 8, 'F');
-
-      // Info bar
-      let y = 60;
-      doc.setFillColor(240, 244, 248);
-      doc.rect(0, y, W, 16, 'F');
-      const reportId = `ASCP-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 900 + 100)}`;
-      const infoBlocks = [
-        { label: 'Date',     value: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
-        { label: 'Time',     value: now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit' }) },
-        { label: 'Report ID', value: reportId },
-        { label: 'ESP32',    value: 'Connected' },
-        { label: 'Wi-Fi',    value: 'Connected' },
-        { label: 'Database', value: 'Connected' },
-      ];
-      const blockW = W / 6;
-      infoBlocks.forEach((block, i) => {
-        const bx = i * blockW + 5;
-        doc.setTextColor(100, 116, 139);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text(block.label, bx + blockW / 2, y + 6, { align: 'center' });
-        doc.setTextColor(30, 41, 59);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        doc.text(block.value, bx + blockW / 2, y + 12, { align: 'center' });
-      });
-      y += 24;
-
-      // Sensor cards row
-      const cardData = [
-        { label: 'Temperature',  value: `${currentTemp}°C`,  accent: [249, 115, 22] as [number,number,number], status: currentTemp > 34 ? 'High' : currentTemp < 30 ? 'Low' : 'Normal' },
-        { label: 'Humidity',     value: `${currentHum}%`,    accent: [59, 130, 246] as [number,number,number], status: currentHum > 75 ? 'High' : currentHum < 60 ? 'Low' : 'Optimal' },
-        { label: 'Soil Moisture', value: `${currentSoil}%`, accent: [34, 197, 94]  as [number,number,number], status: condition },
-      ];
-      const cW = 55, gap = 5, startX = (W - (cW * 3 + gap * 2)) / 2;
-      cardData.forEach((card, i) => {
-        const cx = startX + i * (cW + gap);
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(cx, y, cW, 28, 2, 2, 'F');
-        doc.setFillColor(card.accent[0], card.accent[1], card.accent[2]);
-        doc.rect(cx, y, 4, 28, 'F');
-        doc.setTextColor(100, 116, 139);
-        doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-        doc.text(card.label, cx + cW / 2, y + 8, { align: 'center' });
-        doc.setTextColor(card.accent[0], card.accent[1], card.accent[2]);
-        doc.setFontSize(16);
-        doc.text(card.value, cx + cW / 2, y + 18, { align: 'center' });
-        doc.setFontSize(7); doc.setTextColor(100, 116, 139);
-        doc.text(card.status, cx + cW / 2, y + 24, { align: 'center' });
-      });
-      y += 36;
-
-      // System status row
-      const row2Cards = [
-        { label: 'Pitch Condition', value: condition, color: condition === 'Balanced' ? [34, 197, 94] : condition === 'Dry' ? [249, 115, 22] : [59, 130, 246] as [number,number,number] },
-        { label: 'Water Pump',     value: pumpOn ? 'ON' : 'OFF', color: pumpOn ? [59, 130, 246] : [100, 116, 139] as [number,number,number] },
-        { label: 'Drying Fan',     value: fanOn  ? 'ON' : 'OFF', color: fanOn  ? [34, 197, 94]  : [100, 116, 139] as [number,number,number] },
-      ];
-      row2Cards.forEach((card, i) => {
-        const cx = startX + i * (cW + gap);
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(cx, y, cW, 22, 2, 2, 'F');
-        doc.setTextColor(100, 116, 139);
-        doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-        doc.text(card.label, cx + cW / 2, y + 6, { align: 'center' });
-        const c = Array.isArray(card.color) ? card.color : [100, 116, 139];
-        doc.setTextColor(c[0], c[1], c[2]);
-        doc.setFontSize(13);
-        doc.text(card.value, cx + cW / 2, y + 15, { align: 'center' });
-      });
-      y += 30;
-
-      // Statistics summary
-      doc.setTextColor(30, 41, 59); doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-      doc.text('STATISTICAL SUMMARY', 15, y);
-      y += 6;
-      const summaryRows = [
-        `Highest Temp: ${tStats.max}°C   Lowest Temp: ${tStats.min}°C   Avg Temp: ${tStats.avg}°C`,
-        `Highest Hum: ${hStats.max}%     Lowest Hum: ${hStats.min}%    Avg Hum: ${hStats.avg}%`,
-        `Highest Soil: ${sStats.max}%    Lowest Soil: ${sStats.min}%   Avg Soil: ${sStats.avg}%`,
-      ];
-      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 80, 100);
-      summaryRows.forEach(row => { doc.text(row, 15, y); y += 6; });
-      y += 4;
-
-      // Reading table
-      doc.setTextColor(30, 41, 59); doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-      doc.text('RECENT READING HISTORY (Latest 5)', 15, y);
-      y += 4;
-      const tableHeaders = ['Time', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)', 'Pitch Condition'];
-      const colWidths = [22, 24, 20, 26, 24];
-      const rowH = 7, tableX = 15;
-      const tableW = colWidths.reduce((a, b) => a + b, 0);
-      doc.setFillColor(37, 99, 235);
-      doc.rect(tableX, y, tableW, rowH, 'F');
-      doc.setTextColor(255, 255, 255); doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-      let cx2 = tableX;
-      tableHeaders.forEach((h, i) => { doc.text(h, cx2 + colWidths[i] / 2, y + 5, { align: 'center' }); cx2 += colWidths[i]; });
-      y += rowH;
-      readings.slice(0, 5).forEach((r, idx) => {
-        doc.setFillColor(idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 250, idx % 2 === 0 ? 255 : 252);
-        doc.rect(tableX, y, tableW, rowH, 'F');
-        doc.setTextColor(30, 41, 59); doc.setFontSize(7); doc.setFont('helvetica', 'normal');
-        cx2 = tableX;
-        [r.time, `${r.temp}`, `${r.humidity}`, `${r.soil}`, r.pitchStatus].forEach((cell, i) => {
-          doc.text(cell, cx2 + colWidths[i] / 2, y + 5, { align: 'center' }); cx2 += colWidths[i];
-        });
-        y += rowH;
-      });
-      y += 4;
-
-      // Footer
-      doc.setFillColor(26, 58, 107);
-      doc.rect(0, 285, W, 12, 'F');
-      doc.setTextColor(186, 230, 253); doc.setFontSize(7); doc.setFont('helvetica', 'normal');
-      doc.text('AI Smart Cricket Pitch Dashboard', 15, 290);
-      doc.text('Class XII Informatics Practices Project', 15, 294);
-      doc.text('Powered by ESP32 + PHP + MySQL', W / 2, 291, { align: 'center' });
-      doc.text(`Generated: ${now.toLocaleDateString('en-IN')} ${now.toLocaleTimeString('en-US', { hour12: false })}`, W - 15, 291, { align: 'right' });
-      doc.text('Page 1', W - 15, 295, { align: 'right' });
-
-      doc.save('Cricket-Pitch-Report.pdf');
+      generatePDF({ readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode });
+    } catch (e) {
+      console.error('PDF generation error:', e);
     } finally {
       setBusy(false);
     }
-  }
+  };
 
   return (
     <div className={CARD}>
       <div className="flex items-center gap-3 mb-3">
-        <div className="p-2.5 rounded-xl bg-red-50 text-red-500 shadow-sm ring-1 ring-red-100"><FileText size={22} /></div>
+        <div className="p-2.5 rounded-xl bg-red-50 text-red-500 shadow-sm ring-1 ring-red-100">
+          <FileText size={22} />
+        </div>
         <div>
           <h3 className="font-bold text-slate-800 text-base">Export Report</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Generate Professional Cricket Pitch Report</p>
+          <p className="text-xs text-slate-500 mt-0.5">Generate Professional PDF Report</p>
         </div>
       </div>
-      <p className="text-xs text-slate-500 flex-1 leading-relaxed">Full sensor data, trend charts, system status, statistical summary and reading history in a polished PDF.</p>
-      <button onClick={generatePDF} disabled={busy} className={BTN_RED_GRADIENT}>
+      <p className="text-xs text-slate-500 flex-1 leading-relaxed">
+        Full sensor data, trend charts, system status, statistics, history table and system analysis in a polished PDF matching the reference design.
+      </p>
+      <button onClick={handleExport} disabled={busy} className={BTN_RED_GRADIENT}>
         <FileText size={16} />
         {busy ? 'Generating…' : 'Export Report'}
       </button>
@@ -296,15 +136,18 @@ function ExportReportCard({
 function ExportExcelCard({ readings, pumpOn, fanOn }: Pick<QuickActionsProps, 'readings' | 'pumpOn' | 'fanOn'>) {
   function exportExcel() {
     const header = ['Time', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)', 'Pitch Status', 'Pump', 'Fan', 'Mode'];
-    const rows = readings.map(r => [r.time, r.temp, r.humidity, r.soil, r.pitchStatus, pumpOn ? 'ON' : 'OFF', fanOn ? 'ON' : 'OFF', 'Automatic']);
+    const rows = readings.map(r => [
+      r.time, r.temp, r.humidity, r.soil, r.pitchStatus,
+      r.pumpOn ? 'ON' : 'OFF', r.fanOn ? 'ON' : 'OFF', r.mode,
+    ]);
     const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
     ws['!cols'] = [14, 18, 14, 18, 14, 10, 10, 12].map(w => ({ wch: w }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Readings');
     const metaWs = XLSX.utils.aoa_to_sheet([
       ['Report Title', 'AI Smart Cricket Pitch Dashboard'],
-      ['Export Date',  new Date().toLocaleDateString()],
-      ['Export Time',  new Date().toLocaleTimeString()],
+      ['Export Date', new Date().toLocaleDateString()],
+      ['Export Time', new Date().toLocaleTimeString()],
       ['Total Readings', readings.length],
     ]);
     metaWs['!cols'] = [{ wch: 16 }, { wch: 36 }];
@@ -315,13 +158,17 @@ function ExportExcelCard({ readings, pumpOn, fanOn }: Pick<QuickActionsProps, 'r
   return (
     <div className={CARD}>
       <div className="flex items-center gap-3 mb-3">
-        <div className="p-2.5 rounded-xl bg-green-50 text-green-600 shadow-sm ring-1 ring-green-100"><FileSpreadsheet size={22} /></div>
+        <div className="p-2.5 rounded-xl bg-green-50 text-green-600 shadow-sm ring-1 ring-green-100">
+          <FileSpreadsheet size={22} />
+        </div>
         <div>
           <h3 className="font-bold text-slate-800 text-base">Export Excel</h3>
           <p className="text-xs text-slate-500 mt-0.5">Spreadsheet with all readings</p>
         </div>
       </div>
-      <p className="text-xs text-slate-500 flex-1 leading-relaxed">Temperature, humidity, soil moisture, pitch status, pump & fan columns with project info on a separate sheet.</p>
+      <p className="text-xs text-slate-500 flex-1 leading-relaxed">
+        Temperature, humidity, soil moisture, pitch status, pump & fan columns with project info on a separate sheet.
+      </p>
       <button onClick={exportExcel} className={BTN_GREEN}>
         <FileSpreadsheet size={16} />
         Download Excel
@@ -337,10 +184,10 @@ function AnalysisModal({
 }: {
   onClose: () => void;
   tempHistory: { time: number; value: number }[];
-  humHistory:  { time: number; value: number }[];
+  humHistory: { time: number; value: number }[];
   soilHistory: { time: number; value: number }[];
   pumpOn: boolean;
-  fanOn:  boolean;
+  fanOn: boolean;
 }) {
   const [chartTab, setChartTab] = useState<'bar' | 'trend' | 'radar'>('trend');
 
@@ -354,7 +201,6 @@ function AnalysisModal({
 
   const trendDiff = (h: { value: number }[]) => h.length < 2 ? 0 : h[h.length - 1].value - h[0].value;
 
-  // Close on ESC
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
@@ -364,13 +210,13 @@ function AnalysisModal({
   const barData = tempHistory.slice(-10).map((t, i) => ({
     index: i + 1,
     temperature: t.value,
-    humidity:    humHistory.slice(-10)[i]?.value ?? 0,
-    soil:        soilHistory.slice(-10)[i]?.value ?? 0,
+    humidity: humHistory.slice(-10)[i]?.value ?? 0,
+    soil: soilHistory.slice(-10)[i]?.value ?? 0,
   }));
 
   const radarData = [
     { metric: 'Temp Performance', value: Math.min(100, Math.max(0, ((currentTemp - 28) / (35 - 28)) * 100)) },
-    { metric: 'Humidity',         value: currentHum  },
+    { metric: 'Humidity',         value: currentHum },
     { metric: 'Soil Moisture',    value: currentSoil },
     { metric: 'Pump Activity',    value: pumpOn ? 80 : 20 },
     { metric: 'Fan Activity',     value: fanOn  ? 80 : 20 },
@@ -378,9 +224,9 @@ function AnalysisModal({
   ];
 
   const statCards = [
-    { label: 'Temperature',  icon: Thermometer, borderColor: 'border-orange-500', iconBg: 'bg-orange-500/20', iconText: 'text-orange-400', stats: tStats, unit: '°C', trend: trendDiff(tempHistory) },
-    { label: 'Humidity',     icon: Droplets,    borderColor: 'border-blue-500',   iconBg: 'bg-blue-500/20',   iconText: 'text-blue-400',   stats: hStats, unit: '%',  trend: trendDiff(humHistory)  },
-    { label: 'Soil Moisture', icon: Leaf,       borderColor: 'border-green-500',  iconBg: 'bg-green-500/20',  iconText: 'text-green-400',  stats: sStats, unit: '%',  trend: trendDiff(soilHistory) },
+    { label: 'Temperature',   icon: Thermometer, borderColor: 'border-orange-500', iconBg: 'bg-orange-500/20', iconText: 'text-orange-400', stats: tStats, unit: '°C', trend: trendDiff(tempHistory) },
+    { label: 'Humidity',      icon: Droplets,    borderColor: 'border-blue-500',   iconBg: 'bg-blue-500/20',   iconText: 'text-blue-400',   stats: hStats, unit: '%',  trend: trendDiff(humHistory)  },
+    { label: 'Soil Moisture', icon: Leaf,        borderColor: 'border-green-500',  iconBg: 'bg-green-500/20',  iconText: 'text-green-400',  stats: sStats, unit: '%',  trend: trendDiff(soilHistory) },
   ];
 
   const tooltipStyle = { backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '10px', color: '#fff' };
@@ -395,7 +241,6 @@ function AnalysisModal({
         className="bg-slate-900 rounded-[28px] shadow-2xl w-full max-w-[900px] max-h-[90vh] flex flex-col overflow-hidden"
         style={{ animation: 'fadeScaleIn 0.25s ease-out' }}
       >
-        {/* Header */}
         <div className="bg-slate-900 border-b border-slate-700/50 px-8 py-6 flex items-center justify-between shrink-0">
           <div>
             <h2 className="font-bold text-white text-2xl bg-gradient-to-r from-blue-400 to-violet-500 bg-clip-text text-transparent">
@@ -414,7 +259,6 @@ function AnalysisModal({
         </div>
 
         <div className="overflow-y-auto p-8 space-y-8">
-          {/* Stat Cards — Min / Max / Average only */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {statCards.map(card => {
               const Icon = card.icon;
@@ -445,13 +289,12 @@ function AnalysisModal({
             })}
           </div>
 
-          {/* Chart area with toggle */}
           <div className="bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-6 flex-wrap">
               {([
-                { key: 'bar',   label: 'Bar Chart'   },
-                { key: 'trend', label: 'Line Chart'   },
-                { key: 'radar', label: 'Radar Chart'  },
+                { key: 'bar',   label: 'Bar Chart'  },
+                { key: 'trend', label: 'Line Chart'  },
+                { key: 'radar', label: 'Radar Chart' },
               ] as const).map(({ key, label }) => (
                 <button
                   key={key}
@@ -482,7 +325,6 @@ function AnalysisModal({
                   </BarChart>
                 </ResponsiveContainer>
               )}
-
               {chartTab === 'trend' && (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={tempHistory}>
@@ -497,7 +339,6 @@ function AnalysisModal({
                   </LineChart>
                 </ResponsiveContainer>
               )}
-
               {chartTab === 'radar' && (
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
@@ -520,8 +361,12 @@ function AnalysisModal({
 
 // ── Card 3: Sensor Analysis ────────────────────────────────────────────────────
 
-function SensorAnalysisCard(props: Pick<QuickActionsProps, 'tempHistory' | 'humHistory' | 'soilHistory' | 'pumpOn' | 'fanOn'>) {
-  const [open, setOpen] = useState(false);
+function SensorAnalysisCard(props: Pick<QuickActionsProps, 'tempHistory' | 'humHistory' | 'soilHistory' | 'pumpOn' | 'fanOn' | 'analysisOpen' | 'onAnalysisClose' | 'onOpenAnalysis'>) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = props.analysisOpen ?? internalOpen;
+  const handleOpen = () => { props.onOpenAnalysis?.(); setInternalOpen(true); };
+  const handleClose = () => { props.onAnalysisClose?.(); setInternalOpen(false); };
+
   return (
     <>
       <div className={CARD}>
@@ -532,8 +377,10 @@ function SensorAnalysisCard(props: Pick<QuickActionsProps, 'tempHistory' | 'humH
             <p className="text-xs text-slate-500 mt-0.5">Deep stats & interactive charts</p>
           </div>
         </div>
-        <p className="text-xs text-slate-500 flex-1 leading-relaxed">Min, max & average per sensor with Bar, Line, and Radar chart views inside a premium dark popup.</p>
-        <button onClick={() => setOpen(true)} className={BTN_SLATE}>
+        <p className="text-xs text-slate-500 flex-1 leading-relaxed">
+          Min, max & average per sensor with Bar, Line, and Radar chart views inside a premium dark popup.
+        </p>
+        <button onClick={handleOpen} className={BTN_SLATE}>
           <BarChart2 size={16} />
           Open Analysis
         </button>
@@ -541,7 +388,7 @@ function SensorAnalysisCard(props: Pick<QuickActionsProps, 'tempHistory' | 'humH
 
       {open && (
         <AnalysisModal
-          onClose={() => setOpen(false)}
+          onClose={handleClose}
           tempHistory={props.tempHistory}
           humHistory={props.humHistory}
           soilHistory={props.soilHistory}
@@ -568,7 +415,9 @@ function ResetDashboardCard({ onReset }: { onReset: () => void }) {
             <p className="text-xs text-slate-500 mt-0.5">Clear all data & history</p>
           </div>
         </div>
-        <p className="text-xs text-slate-500 flex-1 leading-relaxed">Clears all sensor readings, graphs, and history. The next ESP32 reading will auto-fill everything again.</p>
+        <p className="text-xs text-slate-500 flex-1 leading-relaxed">
+          Clears all sensor readings, graphs, and history. The next ESP32 reading will auto-fill everything again.
+        </p>
         <button onClick={() => setShowConfirm(true)} className={BTN_RED}>
           <RotateCcw size={16} />
           Reset Dashboard
@@ -597,66 +446,11 @@ function ResetDashboardCard({ onReset }: { onReset: () => void }) {
   );
 }
 
-// ── Card 5: Voice Assistant ────────────────────────────────────────────────────
-
-function VoiceAssistantCard() {
-  const [listening, setListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const recognitionRef = useRef<any>(null);
-
-  const toggle = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setTranscript('Voice not supported in this browser.');
-      return;
-    }
-    if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
-      return;
-    }
-    const rec = new SpeechRecognition();
-    rec.lang = 'en-US';
-    rec.interimResults = false;
-    rec.onresult = (e: any) => {
-      setTranscript(e.results[0][0].transcript);
-    };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => { setListening(false); setTranscript('Could not capture voice.'); };
-    recognitionRef.current = rec;
-    rec.start();
-    setListening(true);
-    setTranscript('');
-  };
-
-  return (
-    <div className={CARD}>
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`p-2.5 rounded-xl shadow-sm ring-1 transition-colors duration-300 ${listening ? 'bg-indigo-100 text-indigo-600 ring-indigo-200' : 'bg-indigo-50 text-indigo-500 ring-indigo-100'}`}>
-          {listening ? <Mic size={22} className="animate-pulse" /> : <MicOff size={22} />}
-        </div>
-        <div>
-          <h3 className="font-bold text-slate-800 text-base">Voice Assistant</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Speak a command or query</p>
-        </div>
-      </div>
-      <p className="text-xs flex-1 leading-relaxed">
-        {transcript
-          ? <span className="text-slate-700 font-medium">"{transcript}"</span>
-          : <span className="text-slate-400">Tap the button and speak — e.g. "What is the soil moisture?"</span>
-        }
-      </p>
-      <button onClick={toggle} className={BTN_INDIGO}>
-        {listening ? <><Mic size={16} className="animate-pulse" /> Listening…</> : <><Mic size={16} /> Start Voice</>}
-      </button>
-    </div>
-  );
-}
-
 // ── Main QuickActions Component ────────────────────────────────────────────────
 
 export default function QuickActions({
-  readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, onReset,
+  readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode,
+  onReset, onOpenAnalysis, analysisOpen, onAnalysisClose,
 }: QuickActionsProps) {
   return (
     <div className="w-full">
@@ -665,18 +459,28 @@ export default function QuickActions({
         Quick Actions
       </h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <ExportReportCard
-          readings={readings} tempHistory={tempHistory} humHistory={humHistory}
-          soilHistory={soilHistory} pumpOn={pumpOn} fanOn={fanOn}
+          readings={readings}
+          tempHistory={tempHistory}
+          humHistory={humHistory}
+          soilHistory={soilHistory}
+          pumpOn={pumpOn}
+          fanOn={fanOn}
+          mode={mode}
         />
         <ExportExcelCard readings={readings} pumpOn={pumpOn} fanOn={fanOn} />
         <SensorAnalysisCard
-          tempHistory={tempHistory} humHistory={humHistory}
-          soilHistory={soilHistory} pumpOn={pumpOn} fanOn={fanOn}
+          tempHistory={tempHistory}
+          humHistory={humHistory}
+          soilHistory={soilHistory}
+          pumpOn={pumpOn}
+          fanOn={fanOn}
+          onOpenAnalysis={onOpenAnalysis}
+          analysisOpen={analysisOpen}
+          onAnalysisClose={onAnalysisClose}
         />
         <ResetDashboardCard onReset={onReset} />
-        <VoiceAssistantCard />
       </div>
     </div>
   );

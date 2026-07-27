@@ -1,0 +1,552 @@
+Prompt for Replit
+
+Do not redesign the dashboard. Keep the existing Samsung One UI style, colors, glassmorphism, rounded cards and layout. Only implement the following features. The entire voice assistant must look premium and production-ready.
+
+AI Voice Assistant Integration (Hands-Free)
+
+I want to integrate a fully hands-free AI voice assistant into my AI Smart Cricket Pitch Dashboard.
+
+The voice assistant must behave like Samsung Bixby + PW AI Guru, not like a chatbot.
+
+1. Wake Word (No Button)
+
+Remove the Voice Assistant button/card from Quick Actions completely.
+
+The assistant should NEVER require clicking.
+
+Instead continuously listen for wake words.
+
+Supported wake words:
+
+Hi Pitch
+Hello Pitch
+Hey Pitch
+Hi Coach
+Hello Coach
+Hey Coach
+Hi Assistant
+Hello Assistant
+Hey Assistant
+Smart Pitch
+Cricket Assistant
+
+As soon as anyone says one of these wake words:
+
+Immediately
+
+Freeze the dashboard
+Blur the background
+Show the animated assistant
+Start listening
+
+without pressing any button.
+
+2. Listening Window
+
+After wake word:
+
+Display
+
+Listening...
+
+Play microphone animation.
+
+Assistant listens for
+
+7 seconds
+
+If no command is detected:
+
+Assistant should politely say
+
+"I didn't catch that."
+
+or
+
+"Anything else?"
+
+Then automatically close.
+
+Dashboard returns to normal.
+
+3. Conversation Mode
+
+After answering,
+
+keep listening again for another command for 7 seconds.
+
+If user speaks again
+
+continue conversation.
+
+If no speech
+
+close automatically.
+
+No button required.
+
+4. Animated Cricket Ball Assistant
+
+Instead of robot,
+
+generate a cute premium cricket ball assistant.
+
+Style inspiration:
+
+Samsung Bixby
+
+PW AI Guru
+
+Google Gemini
+
+Characteristics:
+
+Cute cricket ball
+
+Big expressive eyes
+
+Small eyebrows
+
+Small smiling mouth
+
+Tiny hands
+
+No legs
+
+Premium 3D cartoon
+
+Soft shadows
+
+Glossy leather texture
+
+Floating
+
+Always appears bottom-right corner.
+
+5. Thinking Animation
+
+While processing command
+
+play RANDOM thinking animations.
+
+Examples:
+
+Animation 1
+
+One eyebrow raised
+
+Hand on cheek
+
+Looking upward
+
+Animation 2
+
+Both eyes moving left-right
+
+Animation 3
+
+Blinking rapidly
+
+Animation 4
+
+Hand scratching head
+
+Animation 5
+
+Small question mark floating
+
+Animation 6
+
+Spinning slowly
+
+Animation 7
+
+Eyes looking upward
+
+Animation 8
+
+Thinking cloud
+
+Animation 9
+
+Eyebrows moving
+
+Animation 10
+
+Looking at charts
+
+Choose randomly every request.
+
+Never repeat same animation continuously.
+
+6. Speaking Animation
+
+When assistant speaks
+
+Synchronize mouth movement with speech.
+
+The mouth should
+
+Open
+
+Close
+
+Stretch
+
+Smile
+
+naturally with TTS.
+
+Eyes blink occasionally.
+
+Head slightly bobs.
+
+Must look alive.
+
+7. Grass Ripple Effect
+
+When wake word activates
+
+dashboard freezes.
+
+Entire screen receives
+
+grass-themed ripple effect.
+
+Inspired by
+
+Google Circle to Search
+
+Instead of blue waves,
+
+make it green.
+
+Looks like
+
+grass
+
+wind
+
+cricket field energy
+
+green circular ripple
+
+originating from the assistant.
+
+Background slightly darkens.
+
+Very premium.
+
+8. Voice Commands
+
+Support natural language.
+
+Not exact sentence matching.
+
+Examples:
+
+Pump
+
+Turn on pump
+
+Turn off pump
+
+Start watering
+
+Stop watering
+
+Enable irrigation
+
+Disable irrigation
+
+Pump on
+
+Pump off
+
+Water the pitch
+
+Stop watering the pitch
+
+Fan
+
+Turn on fan
+
+Turn off fan
+
+Start fan
+
+Stop fan
+
+Cooling on
+
+Cooling off
+
+Dry the pitch
+
+Stop drying
+
+Fan on
+
+Fan off
+
+Modes
+
+Automatic mode
+
+Manual mode
+
+Enable auto
+
+Disable auto
+
+Switch to automatic
+
+Switch to manual
+
+Auto mode
+
+Manual mode
+
+Sensor Queries
+
+Current temperature
+
+Current humidity
+
+Current soil moisture
+
+Latest readings
+
+Show temperature
+
+Show humidity
+
+Show moisture
+
+What is today's reading
+
+Sensor status
+
+ESP32 status
+
+WiFi status
+
+Database status
+
+Statistics
+
+Highest temperature
+
+Lowest temperature
+
+Average temperature
+
+Highest humidity
+
+Lowest humidity
+
+Average humidity
+
+Highest moisture
+
+Lowest moisture
+
+Average moisture
+
+Analysis
+
+Analyze pitch
+
+Open analysis
+
+Pitch condition
+
+Health report
+
+How is the pitch
+
+Current condition
+
+Prediction
+
+Future condition
+
+Downloads
+
+Export report
+
+Download report
+
+Generate report
+
+Download PDF
+
+Export PDF
+
+Download Excel
+
+Export Excel
+
+Save report
+
+Create report
+
+Dashboard
+
+Refresh dashboard
+
+Reload
+
+Update readings
+
+Reset dashboard
+
+Clear readings
+
+Refresh sensors
+
+History
+
+Open history
+
+Reading history
+
+Last 15 readings
+
+Show history
+
+Latest readings
+
+Greetings
+
+Hi
+
+Hello
+
+Good morning
+
+Good afternoon
+
+Good evening
+
+Who are you
+
+What can you do
+
+Thank you
+
+Bye
+
+Goodbye
+
+9. Smart Replies
+
+Instead of robotic responses.
+
+Examples:
+
+User:
+
+Turn on fan.
+
+Assistant:
+
+"The drying fan has been turned ON."
+
+User:
+
+Automatic mode.
+
+Assistant:
+
+"Automatic mode activated. The ESP32 will now manage the fan and water pump automatically."
+
+User:
+
+How is the pitch?
+
+Assistant:
+
+"The current pitch condition is balanced. Temperature, humidity and soil moisture are within acceptable ranges."
+
+User:
+
+Download report.
+
+Assistant:
+
+"Generating the latest monitoring report."
+
+10. Dashboard Integration
+
+Voice assistant can perform every dashboard function.
+
+Including
+
+Generate Report
+
+Export Excel
+
+Open Analysis
+
+Refresh Dashboard
+
+Change Modes
+
+Pump Control
+
+Fan Control
+
+Open History
+
+Everything should happen exactly like clicking the buttons.
+
+11. Voice Recognition
+
+Use browser Speech Recognition API with continuous listening.
+
+Automatically restart listening after idle.
+
+Noise suppression.
+
+Ignore random background sounds.
+
+Only respond after wake word.
+
+12. Text-to-Speech
+
+Use browser SpeechSynthesis API.
+
+Natural English voice.
+
+Medium speed.
+
+Warm tone.
+
+Synchronize animation with speech.
+
+13. Floating Assistant
+
+Assistant always stays in bottom-right.
+
+Small when idle.
+
+Expands only during interaction.
+
+Never covers important dashboard information.
+
+Smooth open/close animations.
+
+14. Performance
+
+Animations must remain smooth at 60 FPS.
+
+No lag.
+
+No memory leaks.
+
+No repeated event listeners.
+
+No freezing except intentional dashboard blur during interaction.
+
+The entire experience should feel like a premium Samsung One UI AI assistant integrated into the Cricket Pitch Dashboard, with natural conversations, expressive animations, hands-free activation, and full dashboard control through voice alone.

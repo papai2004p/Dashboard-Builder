@@ -1,0 +1,330 @@
+Fix Export Report (PDF) and Make it Match the Reference Exactly
+
+Do NOT redesign the application.
+
+Do NOT modify any backend APIs.
+
+Do NOT change ESP32, PHP, MySQL, automation, voice assistant or dashboard.
+
+Only fix the Export Report feature.
+
+1. Fix the Export Report Button
+
+The Export Report button currently does nothing.
+
+Fix it.
+
+When the user clicks Export Report:
+
+Collect the latest sensor readings.
+Collect the latest system status.
+Collect the latest graph images.
+Generate a professional PDF.
+Automatically download the PDF.
+
+The button must work every time.
+
+2. Use the Uploaded Image as the PDF Template
+
+I have uploaded a reference image.
+
+Use that image as the design reference.
+
+I want the generated PDF to look almost identical.
+
+Do NOT simplify it.
+
+Do NOT redesign it.
+
+Match everything as closely as possible.
+
+3. Copy the Entire Layout
+
+The PDF should have the exact same layout.
+
+Copy:
+
+• Header
+
+• Background decorations
+
+• Top information row
+
+• Sensor cards
+
+• Temperature card
+
+• Humidity card
+
+• Soil Moisture card
+
+• Pitch Condition card
+
+• Pump card
+
+• Fan card
+
+• Temperature graph
+
+• Humidity graph
+
+• Quick Action style
+
+• Recent Reading History table
+
+• Data Summary
+
+• System Analysis
+
+• Footer
+
+Everything should match the uploaded design.
+
+4. Copy the Icons Too
+
+Use the same icon positions and style.
+
+Include:
+
+Thermometer
+
+Water Drop
+
+Plant
+
+Pump
+
+Fan
+
+Calendar
+
+Clock
+
+Wi-Fi
+
+Database
+
+ESP32
+
+Clipboard
+
+PDF
+
+Excel
+
+Graph
+
+History
+
+Refresh
+
+All icons should be placed exactly where they appear in the reference.
+
+5. Copy the Header Exactly
+
+Generate a professional report header similar to the reference.
+
+Include:
+
+AI Smart Cricket Pitch Monitoring Report
+
+Class XII Informatics Practices Project
+
+Report ID
+
+Current Date
+
+Current Time
+
+ESP32 Status
+
+Wi-Fi Status
+
+Database Status
+
+Everything should align exactly like the uploaded design.
+
+6. Live Data
+
+Do NOT use dummy values.
+
+Populate the PDF using live data.
+
+Insert:
+
+Temperature
+
+Humidity
+
+Soil Moisture
+
+Pump Status
+
+Fan Status
+
+Automatic/Manual Mode
+
+Pitch Condition
+
+Latest Timestamp
+
+ESP32 Status
+
+Wi-Fi Status
+
+Database Status
+
+Everything must come from the current dashboard.
+
+7. Charts
+
+Instead of placeholders,
+
+capture the current charts from the dashboard and place them inside the PDF.
+
+Include:
+
+Temperature Trend
+
+Humidity Trend
+
+Soil Moisture Trend (if available)
+
+Maintain high resolution.
+
+No blurry images.
+
+8. Recent Reading History
+
+Insert the latest 15 readings.
+
+Columns:
+
+Time
+
+Temperature
+
+Humidity
+
+Soil Moisture
+
+Pitch Condition
+
+Pump
+
+Fan
+
+Mode
+
+Newest reading first.
+
+Match the table style from the reference.
+
+9. Data Summary
+
+Automatically calculate:
+
+Highest Temperature
+
+Lowest Temperature
+
+Average Temperature
+
+Highest Humidity
+
+Lowest Humidity
+
+Average Humidity
+
+Highest Soil Moisture
+
+Lowest Soil Moisture
+
+Average Soil Moisture
+
+Exactly like the uploaded report.
+
+10. System Analysis
+
+Automatically generate a summary.
+
+Example:
+
+Overall Pitch Health
+
+Overall Condition
+
+Temperature Stability
+
+Humidity Stability
+
+Moisture Stability
+
+Pump Activity
+
+Fan Activity
+
+Current Mode
+
+Overall Recommendation
+
+Make it look exactly like the reference section.
+
+11. Footer
+
+Copy the footer layout.
+
+Include:
+
+AI Smart Cricket Dashboard
+
+Class XII Informatics Practices Project
+
+Auto Refresh Every 2 Seconds
+
+Powered by ESP32 + PHP + MySQL
+
+Report Generated Date & Time
+
+Page Number
+
+Same alignment as the uploaded report.
+
+12. Professional Quality
+
+Generate the PDF in A4 Portrait.
+
+High resolution.
+
+Proper margins.
+
+Rounded cards.
+
+Professional typography.
+
+No overlapping elements.
+
+No clipped charts.
+
+No missing icons.
+
+No broken alignment.
+
+Everything should be centered and printable.
+
+13. Dynamic Content Only
+
+Only the values should change.
+
+The report layout should remain fixed.
+
+Every new report should automatically insert the latest live sensor data into the predefined template while preserving the exact design.
+
+14. Technical Requirements
+Fix the non-working Export Report button so it generates and downloads the PDF.
+Use the uploaded reference image as the design blueprint.
+Use a reliable PDF generation library (such as jsPDF with html2canvas or an equivalent solution) so gradients, icons, tables, and charts render correctly.
+Capture the current dashboard charts at high resolution before embedding them into the PDF.
+Ensure the PDF opens correctly in standard PDF viewers and prints without layout issues.
+
+The final result should look like a professional enterprise monitoring report that is visually almost identical to the uploaded reference, with only the sensor values, timestamps, charts, and status information changing dynamically based on the latest live data.

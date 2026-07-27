@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { Switch } from '@/components/ui/switch';
-import QuickActions, { type Reading, type TimelineEvent } from '@/components/QuickActions';
+import QuickActions from '@/components/QuickActions';
+import type { Reading, TimelineEvent } from '@/lib/types';
+import VoiceAssistant from '@/components/VoiceAssistant';
 
 // --- Types & Generators ---
 
@@ -471,6 +473,8 @@ export default function App() {
 
   const removeNotif = (id: number) => setNotifications(prev => prev.filter(n => n.id !== id));
 
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+
   // Derived values
   const currentTemp  = tempHistory.length  ? tempHistory[tempHistory.length - 1].value   : 0;
   const currentHum   = humHistory.length   ? humHistory[humHistory.length - 1].value     : 0;
@@ -500,6 +504,7 @@ export default function App() {
   };
 
   return (
+    <>
     <div
       className="min-h-[100dvh] w-full pb-16 selection:bg-blue-200 selection:text-blue-900 relative overflow-hidden"
       style={{
@@ -689,8 +694,12 @@ export default function App() {
           soilHistory={soilHistory}
           pumpOn={pumpOn}
           fanOn={fanOn}
+          mode={systemMode}
           onReset={handleReset}
           timeline={timeline}
+          onOpenAnalysis={() => setAnalysisOpen(true)}
+          analysisOpen={analysisOpen}
+          onAnalysisClose={() => setAnalysisOpen(false)}
         />
 
         {/* ── 9. FOOTER ── */}
@@ -702,5 +711,25 @@ export default function App() {
 
       </div>
     </div>
+
+    {/* ── AI Voice Assistant (global, floating) ── */}
+    <VoiceAssistant
+      readings={readings}
+      tempHistory={tempHistory}
+      humHistory={humHistory}
+      soilHistory={soilHistory}
+      pumpOn={pumpOn}
+      fanOn={fanOn}
+      systemMode={systemMode}
+      onPumpToggle={handlePumpToggle}
+      onFanToggle={handleFanToggle}
+      onModeChange={handleModeChange}
+      onReset={handleReset}
+      onOpenAnalysis={() => setAnalysisOpen(true)}
+      onExportExcel={() => {
+        // VoiceAssistant handles excel export internally via its own xlsx import
+      }}
+    />
+    </>
   );
 }

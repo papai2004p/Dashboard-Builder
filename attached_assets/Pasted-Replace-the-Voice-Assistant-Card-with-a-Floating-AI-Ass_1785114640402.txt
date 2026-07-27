@@ -1,0 +1,473 @@
+Replace the Voice Assistant Card with a Floating AI Assistant
+
+Do NOT modify the backend logic, ESP32 communication, PHP APIs, MySQL integration, automation, Export Report, Export Excel, or dashboard functionality.
+
+Only redesign the Voice Assistant experience.
+
+1. Remove Voice Assistant from Quick Actions
+
+Remove the Voice Assistant card completely from the Quick Actions section.
+
+There should no longer be a Voice Assistant card.
+
+2. Add a Floating AI Assistant
+
+Instead of a Quick Action card, create a floating AI assistant located at the bottom-right corner of the application.
+
+The behaviour should be inspired by:
+
+Samsung Bixby
+Google Gemini Live
+PW AI Guru
+Microsoft Copilot
+
+It should always stay visible while scrolling.
+
+It should slightly float above the dashboard.
+
+It should have a beautiful shadow.
+
+Soft glow.
+
+Glassmorphism.
+
+Modern premium animations.
+
+3. Assistant Character
+
+Instead of a human avatar,
+
+generate a cute animated cricket ball mascot.
+
+The cricket ball should become the application's AI Assistant.
+
+Design requirements:
+
+Cute face
+Large expressive eyes
+Small smiling mouth
+Soft eyebrows
+Small hands
+Small legs
+Slight bounce animation while idle
+Premium vector illustration
+High quality
+Minimal style
+
+The cricket ball should immediately become recognizable as the assistant of this project.
+
+The mascot should feel similar to:
+
+Samsung Bixby
+
+PW AI Guru
+
+Google Assistant
+
+but themed around cricket.
+
+4. Idle Animation
+
+When waiting,
+
+the cricket ball should continuously perform random idle animations.
+
+Examples:
+
+Small bounce
+
+Blink
+
+Look left
+
+Look right
+
+Smile
+
+Wave
+
+Tilt slightly
+
+Small breathing animation
+
+Tiny rotation
+
+Gentle floating
+
+Random eye movement
+
+The animation should never become repetitive.
+
+Choose randomly every few seconds.
+
+5. Listening Animation
+
+When the microphone starts,
+
+freeze the dashboard.
+
+Blur the background.
+
+Darken the screen slightly.
+
+Keep only the assistant active.
+
+The assistant should move to the center-bottom.
+
+A glowing green microphone ring should appear.
+
+The cricket ball should:
+
+Open eyes wider
+
+Smile
+
+Look attentive
+
+Slightly bounce
+
+Glow softly
+
+6. Thinking Animation
+
+After the user finishes speaking,
+
+show a thinking animation instead of a loading spinner.
+
+The cricket ball should randomly perform thinking poses.
+
+Examples:
+
+Hand on cheek
+
+One eyebrow raised
+
+Both eyebrows moving
+
+Looking upward
+
+Looking left
+
+Looking right
+
+Scratching head
+
+Thinking face
+
+Small question mark bubble
+
+Light bulb briefly appears
+
+Looking at imaginary data
+
+Tiny notebook appears
+
+Small rotating gears
+
+Animated dots
+
+Tiny sparkles
+
+The thinking animation should be randomly selected each time.
+
+Do not always play the same animation.
+
+This makes processing appear intelligent and engaging.
+
+7. Speaking Animation
+
+When the assistant starts speaking,
+
+synchronize the face with speech.
+
+Requirements:
+
+The mouth must animate according to speech.
+
+Open and close naturally.
+
+Smile while talking.
+
+Blink occasionally.
+
+Head should move slightly.
+
+Hands can gesture naturally.
+
+Eye movement should continue.
+
+Speaking animation should stop exactly when voice playback finishes.
+
+Do not continue talking after speech ends.
+
+Perfect synchronization between Text-to-Speech and the mascot.
+
+8. Screen Effect
+
+When voice mode is activated,
+
+create a premium full-screen visual effect inspired by:
+
+Google Circle to Search
+
+Gemini Live
+
+Samsung Galaxy AI
+
+Instead of rainbow colors,
+
+use a grass-themed wave effect.
+
+The wave should spread smoothly across the screen.
+
+Use shades of:
+
+Light Green
+
+Grass Green
+
+Nature Green
+
+White
+
+Soft Blue
+
+The effect should radiate from the assistant and gently travel across the screen.
+
+It should feel alive, smooth, and premium without distracting the user.
+
+9. Assistant Panel
+
+When activated,
+
+a modern floating assistant panel should appear above the mascot.
+
+It should show:
+
+Listening...
+
+Thinking...
+
+Speaking...
+
+Recognized Command
+
+Assistant Response
+
+Voice Waveform Animation
+
+Microphone Status
+
+Use smooth transitions between these states.
+
+10. Supported Voice Commands
+
+Expand voice recognition so the assistant understands natural language.
+
+Examples:
+
+Fan Control
+
+Turn on fan
+
+Turn off fan
+
+Start fan
+
+Stop fan
+
+Enable fan
+
+Disable fan
+
+Fan on
+
+Fan off
+
+Switch fan on
+
+Switch fan off
+
+Pump Control
+
+Turn on pump
+
+Turn off pump
+
+Start watering
+
+Stop watering
+
+Enable pump
+
+Disable pump
+
+Water the pitch
+
+Stop watering
+
+Mode
+
+Automatic mode
+
+Manual mode
+
+Enable automatic
+
+Disable automatic
+
+Switch to manual
+
+Switch to automatic
+
+Dashboard
+
+Refresh dashboard
+
+Reload data
+
+Refresh readings
+
+Reset dashboard
+
+Clear history
+
+Update graphs
+
+Reports
+
+Export report
+
+Generate PDF
+
+Download report
+
+Export Excel
+
+Download Excel
+
+Generate spreadsheet
+
+Analytics
+
+Open sensor analysis
+
+Show graphs
+
+Show temperature
+
+Show humidity
+
+Show moisture
+
+Close analytics
+
+Status
+
+What's the temperature?
+
+Current humidity?
+
+Soil moisture?
+
+Pump status?
+
+Fan status?
+
+ESP32 status?
+
+Database status?
+
+Wi-Fi status?
+
+Current mode?
+
+Pitch condition?
+
+Last update?
+
+Greetings
+
+Hello
+
+Hi
+
+Good morning
+
+Good afternoon
+
+Good evening
+
+Who are you?
+
+What can you do?
+
+Help me
+
+Thank you
+
+Goodbye
+
+Navigation
+
+Scroll up
+
+Scroll down
+
+Go to top
+
+Go to graphs
+
+Go to quick actions
+
+Open history
+
+Close popup
+
+11. Intelligent Responses
+
+Instead of robotic replies,
+
+respond conversationally.
+
+Example:
+
+User:
+
+Turn on fan.
+
+Assistant:
+
+Sure! Switching the drying fan ON now.
+
+User:
+
+Generate report.
+
+Assistant:
+
+Your professional cricket pitch monitoring report is ready. Downloading now.
+
+User:
+
+Current humidity?
+
+Assistant:
+
+The current humidity is 67 percent, which is within the optimal range.
+
+12. Performance
+
+The assistant must not reduce dashboard performance.
+
+Use lightweight animations.
+
+Pause unnecessary animations while processing.
+
+Resume after speaking finishes.
+
+Maintain smooth 60 FPS where possible.
+
+13. Overall Goal
+
+The final assistant should feel like a premium AI companion built into the dashboard, inspired by Samsung Bixby, Google Gemini Live, and PW AI Guru, but uniquely themed for this project as an animated cricket ball. It should have expressive idle, listening, thinking, and speaking animations, natural voice interactions, synchronized speech animation, and a beautiful grass-inspired screen effect, making the Class XII IP project feel polished, interactive, and memorable.

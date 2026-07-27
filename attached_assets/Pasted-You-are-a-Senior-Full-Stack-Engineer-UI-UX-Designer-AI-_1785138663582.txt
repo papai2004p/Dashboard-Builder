@@ -1,0 +1,714 @@
+You are a Senior Full Stack Engineer, UI/UX Designer, AI Engineer, Performance Engineer, and Voice Assistant Developer.
+
+IMPORTANT:
+I have uploaded my COMPLETE project source code.
+
+DO NOT rewrite the application from scratch.
+
+FIRST inspect the entire project, understand its architecture, dependencies, frontend, backend, database, APIs, voice module, animations, Flask server, ESP32 communication, charts, Quick Actions, and dashboard.
+
+Preserve everything that already works.
+
+Only fix, improve, optimize and upgrade the existing project.
+
+Generate production-quality code.
+
+=====================================================
+PROJECT GOAL
+=====================================================
+
+Convert my project into a premium Samsung One UI + Google Material Design inspired smart dashboard with an interactive AI Cricket Ball Assistant called "Pitch".
+
+Everything must feel smooth, modern, premium and professional.
+
+No bugs.
+
+No lag.
+
+No freezing.
+
+No broken animations.
+
+No unnecessary rerender.
+
+Maintain 60 FPS animations.
+
+Optimize CPU and RAM usage.
+
+=====================================================
+STEP 1
+PROJECT ANALYSIS
+=====================================================
+
+Inspect every file.
+
+Understand project structure.
+
+Find
+
+Frontend bugs
+
+Backend bugs
+
+Performance issues
+
+Animation issues
+
+Voice recognition issues
+
+Database issues
+
+ESP32 API issues
+
+Speech issues
+
+Memory leaks
+
+Duplicate logic
+
+Unused code
+
+Broken imports
+
+Broken event listeners
+
+Broken API routes
+
+Broken animations
+
+Generate an inspection report internally before modifying anything.
+
+=====================================================
+STEP 2
+VOICE ASSISTANT
+=====================================================
+
+Completely redesign the voice assistant.
+
+Wake word:
+
+"Hey Pitch"
+
+The application must continuously listen ONLY for the wake word.
+
+No button should be required.
+
+When user says
+
+Hey Pitch
+
+Immediately
+
+Open eyes
+
+Smile
+
+Glow
+
+Bounce slightly
+
+Play activation sound
+
+Display
+
+Listening...
+
+Start listening for commands.
+
+The assistant stays active for 7 seconds.
+
+Every new command resets the timer.
+
+If silence is detected for 7 seconds
+
+Return to idle automatically.
+
+Never freeze.
+
+Never require clicking Voice Mode.
+
+Voice should always be available.
+
+=====================================================
+VOICE ENGINE
+=====================================================
+
+Improve recognition accuracy.
+
+Support
+
+background noise
+
+slow speech
+
+fast speech
+
+different accents
+
+continuous listening
+
+partial speech
+
+duplicate prevention
+
+command interruption
+
+debouncing
+
+confidence score
+
+error recovery
+
+automatic restart
+
+browser compatibility
+
+=====================================================
+CONVERSATIONAL AI
+=====================================================
+
+The assistant must understand natural English.
+
+Examples
+
+Hi
+
+Hello
+
+Hey
+
+Good morning
+
+Good evening
+
+Good night
+
+How are you
+
+Who are you
+
+What's your name
+
+Thank you
+
+Thanks
+
+Good job
+
+Awesome
+
+Nice
+
+Can you help me
+
+Help
+
+Tell me about yourself
+
+What can you do
+
+Are you there
+
+Wake up
+
+Sleep
+
+Stop listening
+
+Resume listening
+
+Repeat
+
+Cancel
+
+Go back
+
+Open dashboard
+
+Close dashboard
+
+=====================================================
+FULL APP VOICE CONTROL
+=====================================================
+
+The assistant must control the ENTIRE application.
+
+Commands include
+
+Switch to manual mode
+
+Switch to automatic mode
+
+Enable manual mode
+
+Enable automatic mode
+
+Turn on fan
+
+Turn off fan
+
+Start fan
+
+Stop fan
+
+Enable fan
+
+Disable fan
+
+Turn on pump
+
+Turn off pump
+
+Start pump
+
+Stop pump
+
+Enable pump
+
+Disable pump
+
+Emergency stop
+
+Show readings
+
+Show current readings
+
+Refresh readings
+
+Refresh dashboard
+
+Update dashboard
+
+Reload dashboard
+
+Download report
+
+Export report
+
+Generate report
+
+Open analysis
+
+Close analysis
+
+Show graphs
+
+Hide graphs
+
+Open history
+
+Close history
+
+Show temperature
+
+Show humidity
+
+Show soil moisture
+
+Current temperature
+
+Current humidity
+
+Current soil moisture
+
+Today's report
+
+Latest reading
+
+Next page
+
+Previous page
+
+Open settings
+
+Close settings
+
+Dark mode
+
+Light mode
+
+Zoom in
+
+Zoom out
+
+=====================================================
+VOICE RESPONSES
+=====================================================
+
+Pitch should reply naturally.
+
+Examples
+
+Hello!
+
+Hi there!
+
+I'm Pitch.
+
+How can I help?
+
+Everything is running perfectly.
+
+Manual mode activated.
+
+Automatic mode activated.
+
+Fan has been switched on.
+
+Fan has been switched off.
+
+Pump is now running.
+
+Pump has stopped.
+
+Generating report.
+
+Downloading report.
+
+Refreshing dashboard.
+
+Opening analysis.
+
+Closing analysis.
+
+Temperature is ...
+
+Humidity is ...
+
+Soil moisture is ...
+
+ESP32 is connected.
+
+Database connected successfully.
+
+Operation completed.
+
+Sorry, I didn't understand that.
+
+Could you repeat?
+
+=====================================================
+BALL ASSISTANT
+=====================================================
+
+Current cricket ball assistant is not responding properly.
+
+Redesign completely.
+
+Make it adorable and premium.
+
+Features
+
+Cute eyes
+
+Blink animation
+
+Eyebrows
+
+Smile
+
+Talking mouth
+
+Cheeks
+
+Glow
+
+Shadow
+
+Floating animation
+
+Idle breathing
+
+Micro bounce
+
+Listening pulse
+
+Thinking animation
+
+Speaking animation
+
+Happy animation
+
+Sad animation
+
+Error animation
+
+Loading animation
+
+Sleep animation
+
+Wave animation
+
+Head tilt
+
+Eye movement
+
+Mouth sync with speech
+
+=====================================================
+BALL STATES
+=====================================================
+
+Idle
+
+Sleeping
+
+Wake
+
+Listening
+
+Thinking
+
+Processing
+
+Speaking
+
+Happy
+
+Excited
+
+Error
+
+Success
+
+Sad
+
+Loading
+
+=====================================================
+SMART GESTURES
+=====================================================
+
+When user says
+
+Turn on fan
+
+Ball should look toward fan card.
+
+When user says
+
+Pump on
+
+Ball looks toward pump.
+
+Download report
+
+Look toward report button.
+
+Show analysis
+
+Look toward analysis.
+
+Refresh dashboard
+
+Look toward refresh.
+
+Manual mode
+
+Look toward manual switch.
+
+Automatic mode
+
+Look toward automatic switch.
+
+=====================================================
+VOICE VISUALS
+=====================================================
+
+Listening waveform
+
+Glowing ring
+
+Voice pulse
+
+Animated microphone
+
+Sound ripple
+
+Animated particles
+
+Smooth transitions
+
+=====================================================
+PERFORMANCE
+=====================================================
+
+Fix all lag.
+
+Optimize
+
+React rendering
+
+JavaScript
+
+Animation loop
+
+Speech Recognition
+
+DOM updates
+
+Backend API
+
+Flask
+
+WebSocket
+
+Database queries
+
+Memory usage
+
+CPU usage
+
+Image loading
+
+Lazy loading
+
+Caching
+
+Debouncing
+
+Throttling
+
+GPU acceleration
+
+CSS transforms
+
+requestAnimationFrame
+
+=====================================================
+UI IMPROVEMENTS
+=====================================================
+
+Maintain current UI.
+
+Improve only.
+
+Samsung One UI style.
+
+Google Material Design.
+
+Rounded cards.
+
+Soft shadows.
+
+Better spacing.
+
+Glassmorphism.
+
+Smooth animations.
+
+Professional icons.
+
+Beautiful typography.
+
+Responsive layout.
+
+=====================================================
+CODE QUALITY
+=====================================================
+
+Refactor all duplicated code.
+
+Improve readability.
+
+Reusable components.
+
+Better folder structure.
+
+Proper comments.
+
+Production ready.
+
+No unnecessary libraries.
+
+=====================================================
+ERROR HANDLING
+=====================================================
+
+Handle every possible error.
+
+Voice permission denied.
+
+Microphone unavailable.
+
+ESP32 offline.
+
+Database disconnected.
+
+API timeout.
+
+Internet disconnected.
+
+Unknown command.
+
+Animation error.
+
+Speech error.
+
+Recover automatically.
+
+=====================================================
+TESTING
+=====================================================
+
+Before finishing
+
+Test every button.
+
+Test every voice command.
+
+Test wake word.
+
+Test speech recognition.
+
+Test animations.
+
+Test API.
+
+Test Flask.
+
+Test ESP32.
+
+Test Database.
+
+Test Export Report.
+
+Test Graphs.
+
+Test Manual Mode.
+
+Test Automatic Mode.
+
+Test Fan.
+
+Test Pump.
+
+Test Reading updates.
+
+Fix every issue found.
+
+=====================================================
+FINAL REQUIREMENTS
+=====================================================
+
+Do NOT rewrite my project.
+
+Do NOT remove any feature.
+
+Keep all existing functionality.
+
+Upgrade everything.
+
+Fix every bug.
+
+Make every animation smooth.
+
+Make Pitch feel alive.
+
+Make the assistant fully conversational.
+
+Allow complete voice control of the application.
+
+Ensure the entire project feels like a premium production-quality smart dashboard.
+
+Finally, provide the complete updated code with all fixes integrated into my existing project while preserving the current architecture and functionality.

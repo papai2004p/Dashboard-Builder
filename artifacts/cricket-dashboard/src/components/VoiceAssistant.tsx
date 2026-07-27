@@ -6,7 +6,9 @@ import * as XLSX from 'xlsx';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type AssistantState = 'idle' | 'woken' | 'listening' | 'thinking' | 'speaking';
+type AssistantState =
+  | 'idle' | 'sleeping' | 'woken' | 'listening'
+  | 'thinking' | 'speaking' | 'excited' | 'error' | 'success';
 
 type IdleAnim =
   | 'bounce' | 'blink' | 'lookLeft' | 'lookRight' | 'smile'
@@ -16,6 +18,8 @@ type ThinkAnim =
   | 'handCheek' | 'eyebrow' | 'looklr' | 'blink' | 'scratch'
   | 'question' | 'spin' | 'lookup' | 'cloud' | 'eyebrows' | 'chart' | 'dots'
   | 'lightbulb' | 'notebook' | 'gears' | 'sparkles';
+
+type GestureDir = 'none' | 'left' | 'right' | 'up' | 'down';
 
 interface VoiceAssistantProps {
   readings: Reading[];
@@ -36,10 +40,12 @@ interface VoiceAssistantProps {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const WAKE_WORDS = [
-  'hi pitch', 'hello pitch', 'hey pitch',
-  'hi coach', 'hello coach', 'hey coach',
-  'hi assistant', 'hello assistant', 'hey assistant',
+  'hey pitch', 'hi pitch', 'hello pitch',
+  'hey coach', 'hi coach', 'hello coach',
+  'hey assistant', 'hi assistant', 'hello assistant',
   'smart pitch', 'cricket assistant',
+  'okay pitch', 'ok pitch', 'yo pitch',
+  'wake up pitch', 'pitch help',
 ];
 
 const IDLE_ANIMS: IdleAnim[] = [
@@ -63,6 +69,7 @@ function CricketBall({
   eyeX,
   eyeY,
   blinkNow,
+  gesture,
 }: {
   state: AssistantState;
   idleAnim: IdleAnim;
@@ -71,69 +78,104 @@ function CricketBall({
   eyeX: number;
   eyeY: number;
   blinkNow: boolean;
+  gesture: GestureDir;
 }) {
-  const isIdle = state === 'idle';
+  const isIdle     = state === 'idle';
+  const isSleeping = state === 'sleeping';
   const isThinking = state === 'thinking';
   const isSpeaking = state === 'speaking';
   const isListening = state === 'listening' || state === 'woken';
+  const isExcited  = state === 'excited';
+  const isError    = state === 'error';
+  const isSuccess  = state === 'success';
+  const isHappy    = isExcited || isSuccess;
 
-  // Eye offset computation
+  // ── Eye offsets ──────────────────────────────────────────────────────────────
+  const gestureEyeX =
+    gesture === 'left'  ? -5 :
+    gesture === 'right' ?  5 : 0;
+  const gestureEyeY =
+    gesture === 'up'   ? -3 :
+    gesture === 'down' ?  3 : 0;
+
   const eyeOffX =
-    (isIdle && idleAnim === 'lookLeft') ? -3 :
-    (isIdle && idleAnim === 'lookRight') ? 3 :
-    (isThinking && thinkAnim === 'looklr') ? eyeX * 4 : 0;
+    gestureEyeX !== 0 ? gestureEyeX :
+    (isIdle && idleAnim === 'lookLeft')  ? -3 :
+    (isIdle && idleAnim === 'lookRight') ?  3 :
+    (isThinking && thinkAnim === 'looklr') ? eyeX * 4 : eyeX;
 
   const eyeOffY =
+    gestureEyeY !== 0 ? gestureEyeY :
     (isIdle && idleAnim === 'lookUp') ? -3 :
     (isThinking && (thinkAnim === 'lookup' || thinkAnim === 'eyebrow')) ? -2 : eyeY;
 
-  const blinkScale = blinkNow || (isIdle && idleAnim === 'blink') ||
-    (isThinking && thinkAnim === 'blink') ? 0.15 : 1;
+  // Blink
+  const blinkScale =
+    isSleeping ? 0.08 :
+    blinkNow || (isIdle && idleAnim === 'blink') || (isThinking && thinkAnim === 'blink') ? 0.12 : 1;
 
-  // Eyebrow offsets
+  // Eyebrows
   const lbrowY =
-    (isThinking && thinkAnim === 'eyebrow') ? -4 :
+    (isThinking && thinkAnim === 'eyebrow')  ? -4 :
     (isThinking && thinkAnim === 'eyebrows') ? -3 :
-    (isListening) ? -2 :
-    (isIdle && idleAnim === 'happy') ? -2 : 0;
+    isListening || isExcited ? -3 :
+    (isIdle && idleAnim === 'happy') ? -2 :
+    isError ? 3 : 0;
   const rbrowY =
-    (isThinking && thinkAnim === 'eyebrow') ? 0 :
+    (isThinking && thinkAnim === 'eyebrow')  ?  0 :
     (isThinking && thinkAnim === 'eyebrows') ? -3 :
-    (isListening) ? -2 :
-    (isIdle && idleAnim === 'happy') ? -2 : 0;
+    isListening || isExcited ? -3 :
+    (isIdle && idleAnim === 'happy') ? -2 :
+    isError ? 3 : 0;
+  const lbrowRot = isError ? 15 : 0;
+  const rbrowRot = isError ? -15 : 0;
 
-  // Mouth shape
+  // Mouth
   const mouthCY =
-    isSpeaking ? 72 + mouthOpen * 14 :
+    isSpeaking  ? 72 + mouthOpen * 14 :
     isListening ? 78 :
+    isHappy     ? 83 :
+    isError     ? 64 :
+    isSleeping  ? 71 :
     (isIdle && idleAnim === 'smile') ? 80 :
     (isIdle && idleAnim === 'happy') ? 82 :
-    isThinking ? 70 : 76;
+    isThinking  ? 70 : 76;
   const mouthPath = `M 38 70 Q 50 ${mouthCY.toFixed(1)} 62 70`;
 
-  // Right hand position (wave, handCheek, scratch)
-  const rHandX = (isIdle && idleAnim === 'wave') ? 88 :
-    (isThinking && thinkAnim === 'handCheek') ? 72 :
-    (isThinking && thinkAnim === 'scratch') ? 76 : 92;
-  const rHandY = (isIdle && idleAnim === 'wave') ? 40 :
-    (isThinking && thinkAnim === 'handCheek') ? 55 :
-    (isThinking && thinkAnim === 'scratch') ? 48 : 55;
+  // Right hand
+  const rHandX =
+    (isIdle && idleAnim === 'wave')              ? 88 :
+    (isThinking && thinkAnim === 'handCheek')    ? 72 :
+    (isThinking && thinkAnim === 'scratch')      ? 76 : 92;
+  const rHandY =
+    (isIdle && idleAnim === 'wave')              ? 40 :
+    (isThinking && thinkAnim === 'handCheek')    ? 55 :
+    (isThinking && thinkAnim === 'scratch')      ? 48 : 55;
+
+  // Ball gradient based on state
+  const ballStop1 = isError ? '#f87171' : isHappy ? '#fca5a5' : '#f87171';
+  const ballStop2 = isError ? '#b91c1c' : isHappy ? '#ef4444' : '#dc2626';
+  const ballStop3 = isError ? '#450a0a' : isHappy ? '#7f1d1d' : '#7f1d1d';
 
   return (
     <svg viewBox="-15 -10 130 130" xmlns="http://www.w3.org/2000/svg" style={{ overflow: 'visible' }}>
       <defs>
         <radialGradient id="va-ballGrad" cx="35%" cy="28%" r="65%">
-          <stop offset="0%" stopColor="#f87171" />
-          <stop offset="45%" stopColor="#dc2626" />
-          <stop offset="100%" stopColor="#7f1d1d" />
+          <stop offset="0%"   stopColor={ballStop1} />
+          <stop offset="45%"  stopColor={ballStop2} />
+          <stop offset="100%" stopColor={ballStop3} />
         </radialGradient>
         <radialGradient id="va-highlight" cx="28%" cy="22%" r="50%">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.55)" />
+          <stop offset="0%"   stopColor="rgba(255,255,255,0.55)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0)" />
         </radialGradient>
         <radialGradient id="va-skinGrad" cx="40%" cy="35%" r="60%">
-          <stop offset="0%" stopColor="#fca5a5" />
+          <stop offset="0%"   stopColor="#fca5a5" />
           <stop offset="100%" stopColor="#dc2626" />
+        </radialGradient>
+        <radialGradient id="va-cheekGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor="rgba(251,113,133,0.55)" />
+          <stop offset="100%" stopColor="rgba(251,113,133,0)" />
         </radialGradient>
         <filter id="va-shadow" x="-25%" y="-25%" width="150%" height="150%">
           <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="rgba(0,0,0,0.30)" />
@@ -146,45 +188,66 @@ function CricketBall({
           <feGaussianBlur stdDeviation="3" result="blur" />
           <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
+        <filter id="va-redGlow">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
       </defs>
 
-      {/* Glow ring when listening */}
+      {/* ── State glow rings ── */}
       {isListening && (
-        <motion.circle
-          cx="50" cy="50" r="48"
-          fill="none" stroke="#22c55e" strokeWidth="3"
-          opacity={0.6}
+        <motion.circle cx="50" cy="50" r="48"
+          fill="none" stroke="#22c55e" strokeWidth="3" opacity={0.6}
           filter="url(#va-greenGlow)"
-          animate={{ r: [46, 50, 46], opacity: [0.4, 0.8, 0.4] }}
+          animate={{ r: [46, 51, 46], opacity: [0.4, 0.9, 0.4] }}
           transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
         />
       )}
-      {/* Glow ring when speaking */}
       {isSpeaking && (
-        <motion.circle
-          cx="50" cy="50" r="48"
-          fill="none" stroke="#3b82f6" strokeWidth="3"
-          opacity={0.5} filter="url(#va-glow)"
-          animate={{ r: [45, 49, 45], opacity: [0.3, 0.7, 0.3] }}
+        <motion.circle cx="50" cy="50" r="48"
+          fill="none" stroke="#3b82f6" strokeWidth="3" opacity={0.5}
+          filter="url(#va-glow)"
+          animate={{ r: [45, 50, 45], opacity: [0.3, 0.7, 0.3] }}
           transition={{ duration: 0.6, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
+      {isExcited && (
+        <motion.circle cx="50" cy="50" r="48"
+          fill="none" stroke="#f59e0b" strokeWidth="3" opacity={0.5}
+          filter="url(#va-glow)"
+          animate={{ r: [44, 52, 44], opacity: [0.3, 0.8, 0.3] }}
+          transition={{ duration: 0.4, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
+      {isError && (
+        <motion.circle cx="50" cy="50" r="48"
+          fill="none" stroke="#ef4444" strokeWidth="3" opacity={0.5}
+          filter="url(#va-redGlow)"
+          animate={{ r: [46, 50, 46], opacity: [0.4, 0.7, 0.4] }}
+          transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
+      {isSuccess && (
+        <motion.circle cx="50" cy="50" r="48"
+          fill="none" stroke="#10b981" strokeWidth="3" opacity={0.6}
+          filter="url(#va-greenGlow)"
+          animate={{ r: [46, 52, 46], opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
         />
       )}
 
       {/* ── Legs ── */}
-      {/* Left leg */}
       <motion.ellipse cx="38" cy="97" rx="7" ry="5" fill="url(#va-skinGrad)"
-        animate={isIdle ? { y: [0, -1, 0] } : {}}
+        animate={isIdle && !isSleeping ? { y: [0, -1, 0] } : {}}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
       />
-      {/* Right leg */}
       <motion.ellipse cx="62" cy="97" rx="7" ry="5" fill="url(#va-skinGrad)"
-        animate={isIdle ? { y: [0, -1, 0] } : {}}
+        animate={isIdle && !isSleeping ? { y: [0, -1, 0] } : {}}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
       />
 
       {/* ── Left hand ── */}
-      <motion.ellipse
-        cx="8" cy="55" rx="7" ry="5"
+      <motion.ellipse cx="8" cy="55" rx="7" ry="5"
         fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.4"
         animate={
           (isIdle && idleAnim === 'wave') ? { y: [0, -3, 0] } :
@@ -198,15 +261,20 @@ function CricketBall({
         cx={rHandX} cy={rHandY} rx="7" ry="5"
         fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.4"
         animate={
-          (isIdle && idleAnim === 'wave') ? { y: [-8, 0, -8], rotate: [-15, 15, -15] } :
-          (isThinking && thinkAnim === 'scratch') ? { x: [-2, 2, -2], y: [-2, 2, -2] } :
+          (isIdle && idleAnim === 'wave')           ? { y: [-8, 0, -8], rotate: [-15, 15, -15] } :
+          (isThinking && thinkAnim === 'scratch')   ? { x: [-2, 2, -2], y: [-2, 2, -2] } :
           isIdle ? { y: [0, 2, 0] } : {}
         }
         transition={{ duration: (isIdle && idleAnim === 'wave') ? 0.5 : 1.5, repeat: Infinity }}
       />
 
       {/* ── Main ball ── */}
-      <circle cx="50" cy="50" r="44" fill="url(#va-ballGrad)" filter="url(#va-shadow)" />
+      <motion.circle
+        cx="50" cy="50" r="44"
+        fill="url(#va-ballGrad)" filter="url(#va-shadow)"
+        animate={isSleeping ? { scaleX: [1, 1.02, 1] } : {}}
+        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+      />
 
       {/* ── Glossy highlight ── */}
       <ellipse cx="36" cy="31" rx="18" ry="12" fill="url(#va-highlight)" />
@@ -229,58 +297,109 @@ function CricketBall({
         />
       ))}
 
+      {/* ── Cheeks (always visible, more prominent when happy/excited) ── */}
+      <ellipse cx="22" cy="57" rx="9" ry="6" fill="url(#va-cheekGrad)"
+        opacity={isHappy || (isIdle && idleAnim === 'happy') ? 0.9 : isListening ? 0.6 : 0.35}
+      />
+      <ellipse cx="78" cy="57" rx="9" ry="6" fill="url(#va-cheekGrad)"
+        opacity={isHappy || (isIdle && idleAnim === 'happy') ? 0.9 : isListening ? 0.6 : 0.35}
+      />
+
       {/* ── Eyebrows ── */}
       <motion.path d="M 28 33 Q 36 28 44 32"
         fill="none" stroke="#1c1917" strokeWidth="2.5" strokeLinecap="round"
-        animate={{ y: lbrowY }} transition={{ duration: 0.3 }}
+        animate={{ y: lbrowY, rotate: lbrowRot }}
+        transition={{ duration: 0.3 }}
+        style={{ transformOrigin: '36px 30px' }}
       />
       <motion.path d="M 56 32 Q 64 28 72 33"
         fill="none" stroke="#1c1917" strokeWidth="2.5" strokeLinecap="round"
-        animate={{ y: rbrowY }} transition={{ duration: 0.3 }}
+        animate={{ y: rbrowY, rotate: rbrowRot }}
+        transition={{ duration: 0.3 }}
+        style={{ transformOrigin: '64px 30px' }}
       />
 
       {/* ── Eyes ── */}
-      <motion.g animate={{ x: eyeOffX, y: eyeOffY }} transition={{ duration: 0.4 }}>
-        {/* Left eye white — scaleY blink (CSS transform, Framer-safe) */}
+      <motion.g animate={{ x: eyeOffX, y: eyeOffY }} transition={{ duration: 0.35, ease: 'easeOut' }}>
+        {/* Left eye */}
         <motion.ellipse cx="36" cy="46" rx="8.5" ry="8"
           style={{ transformOrigin: '36px 46px' }}
-          animate={{ scaleY: blinkScale < 0.5 ? 0.15 : 1 }}
+          animate={{ scaleY: blinkScale }}
           transition={{ duration: 0.1 }}
           fill="white"
         />
-        {/* Left pupil */}
         <motion.g
           style={{ transformOrigin: '36px 46px' }}
           animate={{ scaleY: blinkScale < 0.5 ? 0 : 1, opacity: blinkScale < 0.5 ? 0 : 1 }}
           transition={{ duration: 0.08 }}
         >
-          <circle cx={36 + eyeOffX * 0.2} cy="47" r="4.5" fill="#1c1917" />
+          <circle cx={36 + eyeOffX * 0.2} cy="47" r={isExcited ? 5.5 : 4.5} fill="#1c1917" />
           <circle cx={37.5 + eyeOffX * 0.2} cy="44.5" r="1.6" fill="white" />
           <circle cx={36 + eyeOffX * 0.2} cy="49" r="0.8" fill="white" opacity="0.5" />
         </motion.g>
 
-        {/* Right eye white — scaleY blink */}
+        {/* Right eye */}
         <motion.ellipse cx="64" cy="46" rx="8.5" ry="8"
           style={{ transformOrigin: '64px 46px' }}
-          animate={{ scaleY: blinkScale < 0.5 ? 0.15 : 1 }}
+          animate={{ scaleY: blinkScale }}
           transition={{ duration: 0.1 }}
           fill="white"
         />
-        {/* Right pupil */}
         <motion.g
           style={{ transformOrigin: '64px 46px' }}
           animate={{ scaleY: blinkScale < 0.5 ? 0 : 1, opacity: blinkScale < 0.5 ? 0 : 1 }}
           transition={{ duration: 0.08 }}
         >
-          <circle cx={64 + eyeOffX * 0.2} cy="47" r="4.5" fill="#1c1917" />
+          <circle cx={64 + eyeOffX * 0.2} cy="47" r={isExcited ? 5.5 : 4.5} fill="#1c1917" />
           <circle cx={65.5 + eyeOffX * 0.2} cy="44.5" r="1.6" fill="white" />
           <circle cx={64 + eyeOffX * 0.2} cy="49" r="0.8" fill="white" opacity="0.5" />
         </motion.g>
       </motion.g>
 
+      {/* ── Sleeping ZZZs ── */}
+      <AnimatePresence>
+        {isSleeping && (
+          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {['z', 'Z', 'Z'].map((z, i) => (
+              <motion.text key={i}
+                x={62 + i * 8} y={20 - i * 10}
+                fontSize={8 + i * 3} fill="#94a3b8" fontWeight="bold"
+                animate={{ y: [20 - i * 10, 14 - i * 10, 20 - i * 10], opacity: [0.4, 0.9, 0.4] }}
+                transition={{ duration: 2, delay: i * 0.5, repeat: Infinity, ease: 'easeInOut' }}
+              >{z}</motion.text>
+            ))}
+          </motion.g>
+        )}
+      </AnimatePresence>
+
+      {/* ── Error X overlay ── */}
+      <AnimatePresence>
+        {isError && (
+          <motion.g initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+            <motion.text x="56" y="14" fontSize="20" fill="#ef4444" fontWeight="bold"
+              animate={{ rotate: [-5, 5, -5] }}
+              transition={{ duration: 0.3, repeat: Infinity }}
+            >!</motion.text>
+          </motion.g>
+        )}
+      </AnimatePresence>
+
+      {/* ── Success tick ── */}
+      <AnimatePresence>
+        {isSuccess && (
+          <motion.g initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+            <circle cx="72" cy="14" r="9" fill="#10b981" opacity="0.9" />
+            <motion.path d="M 66 14 L 71 19 L 79 9"
+              fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"
+              initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
+              transition={{ duration: 0.4 }}
+            />
+          </motion.g>
+        )}
+      </AnimatePresence>
+
       {/* ── Mouth ── */}
       <path d={mouthPath} fill="none" stroke="#1c1917" strokeWidth="2.8" strokeLinecap="round" />
-      {/* Mouth open fill when speaking */}
       {isSpeaking && mouthOpen > 0.3 && (
         <path d={`M 38 70 Q 50 ${(72 + mouthOpen * 14).toFixed(1)} 62 70 Z`}
           fill="#7f1d1d" opacity="0.6"
@@ -297,7 +416,7 @@ function CricketBall({
         {isThinking && thinkAnim === 'cloud' && (
           <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <circle cx="62" cy="18" r="5.5" fill="white" opacity="0.9" />
-            <circle cx="70" cy="13" r="7" fill="white" opacity="0.9" />
+            <circle cx="70" cy="13" r="7"   fill="white" opacity="0.9" />
             <circle cx="79" cy="18" r="5.5" fill="white" opacity="0.9" />
             <circle cx="66" cy="24" r="5.5" fill="white" opacity="0.9" />
             <circle cx="75" cy="24" r="5.5" fill="white" opacity="0.9" />
@@ -307,7 +426,8 @@ function CricketBall({
         {isThinking && thinkAnim === 'chart' && (
           <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <rect x="56" y="8" width="32" height="22" rx="3" fill="white" opacity="0.95" />
-            <polyline points="59,27 63,20 68,23 73,14 78,17 85,11" fill="none" stroke="#22c55e" strokeWidth="1.5" />
+            <polyline points="59,27 63,20 68,23 73,14 78,17 85,11"
+              fill="none" stroke="#22c55e" strokeWidth="1.5" />
             <text x="60" y="14" fontSize="5" fill="#94a3b8">📊</text>
           </motion.g>
         )}
@@ -323,14 +443,13 @@ function CricketBall({
         )}
         {isThinking && thinkAnim === 'lightbulb' && (
           <motion.g initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-            {/* Bulb glow */}
-            <motion.circle cx="70" cy="13" r="10" fill="rgba(251,191,36,0.25)"
-              animate={{ r: [8, 12, 8] }} transition={{ duration: 0.9, repeat: Infinity }}
+            <motion.circle cx="70" cy="12" r="10" fill="rgba(251,191,36,0.25)"
+              animate={{ r: [8, 13, 8] }} transition={{ duration: 0.9, repeat: Infinity }}
             />
-            <ellipse cx="70" cy="12" rx="6" ry="7" fill="#fbbf24" />
-            <path d="M 66 18 Q 66 22 70 23 Q 74 22 74 18 Z" fill="#f59e0b" />
-            <rect x="67.5" y="23" width="5" height="2.5" rx="1" fill="#92400e" />
-            <motion.circle cx="70" cy="8" r="2.5" fill="white" opacity="0.7"
+            <ellipse cx="70" cy="11" rx="6" ry="7" fill="#fbbf24" />
+            <path d="M 66 17 Q 66 21 70 22 Q 74 21 74 17 Z" fill="#f59e0b" />
+            <rect x="67.5" y="22" width="5" height="2.5" rx="1" fill="#92400e" />
+            <motion.circle cx="70" cy="7" r="2.5" fill="white" opacity="0.7"
               animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.7, repeat: Infinity }}
             />
           </motion.g>
@@ -371,9 +490,9 @@ function CricketBall({
         {isThinking && thinkAnim === 'sparkles' && (
           <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {[
-              { cx: 65, cy: 10, r: 3, delay: 0 },
-              { cx: 75, cy: 6,  r: 2, delay: 0.2 },
-              { cx: 82, cy: 14, r: 2.5, delay: 0.4 },
+              { cx: 65, cy: 10, r: 3,   delay: 0    },
+              { cx: 75, cy: 6,  r: 2,   delay: 0.2  },
+              { cx: 82, cy: 14, r: 2.5, delay: 0.4  },
               { cx: 70, cy: 18, r: 1.8, delay: 0.15 },
             ].map((s, i) => (
               <motion.g key={i}>
@@ -381,7 +500,6 @@ function CricketBall({
                   animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
                   transition={{ duration: 0.8, delay: s.delay, repeat: Infinity, repeatDelay: 0.3 }}
                 />
-                {/* Star cross */}
                 <motion.line x1={s.cx - s.r * 1.4} y1={s.cy} x2={s.cx + s.r * 1.4} y2={s.cy}
                   stroke="#fbbf24" strokeWidth="1" strokeLinecap="round"
                   animate={{ opacity: [0, 1, 0] }}
@@ -405,11 +523,11 @@ function CricketBall({
 
 function GrassWaveEffect({ active }: { active: boolean }) {
   const WAVE_COLORS = [
-    'rgba(134,239,172,0.18)',  // light green
-    'rgba(34,197,94,0.14)',    // grass green
-    'rgba(21,128,61,0.10)',    // dark green
-    'rgba(186,230,253,0.12)',  // soft blue
-    'rgba(255,255,255,0.08)',  // white
+    'rgba(134,239,172,0.18)',
+    'rgba(34,197,94,0.14)',
+    'rgba(21,128,61,0.10)',
+    'rgba(186,230,253,0.12)',
+    'rgba(255,255,255,0.08)',
   ];
 
   return (
@@ -422,7 +540,6 @@ function GrassWaveEffect({ active }: { active: boolean }) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.6 } }}
         >
-          {/* Dark overlay */}
           <motion.div
             className="absolute inset-0 bg-slate-950"
             initial={{ opacity: 0 }}
@@ -430,8 +547,6 @@ function GrassWaveEffect({ active }: { active: boolean }) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
           />
-
-          {/* Background blur */}
           <motion.div
             className="absolute inset-0"
             style={{ backdropFilter: 'blur(3px)' }}
@@ -439,35 +554,26 @@ function GrassWaveEffect({ active }: { active: boolean }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           />
-
-          {/* Grass waves radiating from bottom-center */}
           {WAVE_COLORS.map((color, i) => (
             <motion.div
               key={i}
               className="absolute rounded-full"
               style={{
-                bottom: '72px',
-                left: '50%',
-                width: 30,
-                height: 30,
-                marginLeft: -15,
-                marginBottom: -15,
+                bottom: '72px', left: '50%',
+                width: 30, height: 30,
+                marginLeft: -15, marginBottom: -15,
                 background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
                 border: `2px solid ${color.replace('0.', '0.4')}`,
               }}
               initial={{ scale: 0, opacity: 0.8 }}
               animate={{ scale: 22 + i * 6, opacity: 0 }}
               transition={{
-                duration: 2.2,
-                delay: i * 0.28,
-                repeat: Infinity,
-                repeatDelay: 0.8,
+                duration: 2.2, delay: i * 0.28,
+                repeat: Infinity, repeatDelay: 0.8,
                 ease: [0.25, 0.46, 0.45, 0.94],
               }}
             />
           ))}
-
-          {/* Radial green shimmer */}
           <motion.div
             className="absolute inset-0 pointer-events-none"
             style={{
@@ -494,9 +600,7 @@ function VoiceWaveform({ active }: { active: boolean }) {
           key={i}
           className="w-[3px] rounded-full bg-gradient-to-t from-green-600 to-green-400"
           style={{ height: `${h * 100}%` }}
-          animate={active ? {
-            scaleY: [h, h * 0.3 + Math.random() * 0.7, h],
-          } : { scaleY: 0.2 }}
+          animate={active ? { scaleY: [h, h * 0.3 + 0.7 * Math.sin(i), h] } : { scaleY: 0.2 }}
           transition={{
             duration: 0.3 + (i % 4) * 0.07,
             repeat: active ? Infinity : 0,
@@ -516,7 +620,10 @@ function processCommand(
   ctx: {
     pumpOn: boolean; fanOn: boolean; mode: 'auto' | 'manual';
     currentTemp: number; currentHum: number; currentSoil: number;
-    condition: string; tStats: any; hStats: any; sStats: any;
+    condition: string;
+    tStats: { max: string; min: string; avg: string };
+    hStats: { max: string; min: string; avg: string };
+    sStats: { max: string; min: string; avg: string };
     readings: Reading[];
     onPumpToggle: (v: boolean) => void;
     onFanToggle: (v: boolean) => void;
@@ -525,171 +632,229 @@ function processCommand(
     onOpenAnalysis: () => void;
     onExportPDF: () => void;
     onExportExcel: () => void;
-  }
-): string {
+  },
+  setGesture: (d: GestureDir) => void,
+  goIdle: () => void,
+): { response: string; stateHint?: AssistantState } {
   const t = raw.toLowerCase().trim();
 
+  const resp = (r: string, hint?: AssistantState) => ({ response: r, stateHint: hint });
+
+  // ── Sleep / dismiss ──
+  if (/\b(sleep|stop listening|go to sleep|bye|goodbye|see you|dismiss|close|quiet)\b/.test(t)) {
+    setTimeout(goIdle, 800);
+    return resp(`Goodnight! I'll keep watching the pitch while you rest. Say "Hey Pitch" when you need me!`);
+  }
+
   // ── Greetings ──
-  if (/^(hi|hello|hey|good morning|good afternoon|good evening)(\s|$)/.test(t)) {
+  if (/^(hi|hello|hey|good morning|good afternoon|good evening|good night|howdy)(\s|$)/.test(t)) {
     const h = new Date().getHours();
     const gr = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-    return `${gr}! I'm Pitch, your AI cricket companion. I'm watching all your sensors in real-time. How can I help you today?`;
+    return resp(`${gr}! I'm Pitch, your AI cricket companion. How can I help you today?`, 'excited');
   }
-  if (/who are you|what are you|introduce/.test(t)) {
-    return `I'm Pitch — your AI cricket pitch assistant! I can read live sensor data, control the pump and fan, export reports, analyse the pitch, and navigate the dashboard. Just tell me what you need.`;
+  if (/how are you|are you okay|you good/.test(t)) {
+    return resp(`I'm doing great! All sensors are green and the pitch is in ${ctx.condition} condition. What can I do for you?`, 'excited');
   }
-  if (/what can you do|how can you help|help me|capabilities/.test(t)) {
-    return `I can check temperature, humidity, and soil moisture; control the water pump and drying fan; switch between automatic and manual mode; export a PDF report or Excel spreadsheet; open sensor analytics; and navigate the dashboard. What would you like?`;
+  if (/who are you|what are you|introduce|your name|tell me about yourself/.test(t)) {
+    return resp(`I'm Pitch — your AI cricket pitch assistant! I monitor temperature, humidity, and soil moisture in real-time, and I can control the pump and fan, export reports, and navigate the dashboard. What would you like?`);
   }
-  if (/thank/.test(t)) {
-    return `You're most welcome! I'm always here keeping your cricket pitch in perfect condition.`;
+  if (/what can you do|how can you help|capabilities|help me|help/.test(t)) {
+    return resp(`I can check sensor readings, control the water pump and drying fan, switch between automatic and manual mode, export PDF reports and Excel spreadsheets, open sensor analytics, and navigate the dashboard. What do you need?`);
   }
-  if (/bye|goodbye|see you|dismiss/.test(t)) {
-    return `Goodbye! I'll keep a close eye on the pitch while you're away. Come back anytime!`;
+  if (/thank|good job|awesome|nice|great|well done|perfect/.test(t)) {
+    return resp(`You're very welcome! Always here to keep your cricket pitch in perfect shape.`, 'success');
+  }
+  if (/are you there|wake up|you there/.test(t)) {
+    return resp(`I'm right here! Ready and listening. What can I do for you?`, 'excited');
   }
 
   // ── Navigation ──
   if (/scroll up|go up/.test(t)) {
     window.scrollBy({ top: -350, behavior: 'smooth' });
-    return `Scrolled up for you.`;
+    return resp(`Scrolled up.`);
   }
   if (/scroll down|go down/.test(t)) {
     window.scrollBy({ top: 350, behavior: 'smooth' });
-    return `Scrolled down for you.`;
+    return resp(`Scrolled down.`);
   }
-  if (/go to top|scroll to top|top of page/.test(t)) {
+  if (/go to top|scroll to top|top of page|open dashboard/.test(t)) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    return `Taking you to the top of the dashboard.`;
+    return resp(`Taking you to the top of the dashboard.`);
   }
-  if (/go to graph|show graph|view graph|show temperature|show humidity|show moisture|update graph/.test(t)) {
+  if (/go to graph|show graph|view graph|show temperature|show humidity|show moisture|show soil|update graph|show readings|show current/.test(t)) {
+    setGesture('up');
     document.querySelector('[data-section="charts"]')?.scrollIntoView({ behavior: 'smooth' });
-    window.scrollBy({ top: -80, behavior: 'smooth' });
-    return `Navigating to the sensor graphs.`;
+    return resp(`Navigating to the sensor graphs.`);
   }
   if (/go to quick action|quick action/.test(t)) {
     document.querySelector('[data-section="quickactions"]')?.scrollIntoView({ behavior: 'smooth' });
-    return `Navigating to Quick Actions.`;
+    return resp(`Navigating to Quick Actions.`);
   }
   if (/go to history|open history|show history|reading history/.test(t)) {
     document.querySelector('[data-section="history"]')?.scrollIntoView({ behavior: 'smooth' });
-    return `The reading history is displayed below. The latest reading shows temperature ${ctx.currentTemp}°C and soil moisture ${ctx.currentSoil}%.`;
+    return resp(`Opening the reading history. Latest: ${ctx.currentTemp}°C, ${ctx.currentHum}% humidity, ${ctx.currentSoil}% soil moisture.`);
   }
-  if (/close popup|close modal|close analytics|close panel/.test(t)) {
+  if (/close popup|close modal|close analytics|close panel|close analysis|close settings|close history/.test(t)) {
     ctx.onOpenAnalysis();
-    return `Closing the analytics panel.`;
+    return resp(`Closed.`);
+  }
+  if (/zoom in/.test(t)) {
+    document.body.style.zoom = `${Math.min(2, parseFloat(document.body.style.zoom || '1') + 0.1)}`;
+    return resp(`Zoomed in.`);
+  }
+  if (/zoom out/.test(t)) {
+    document.body.style.zoom = `${Math.max(0.5, parseFloat(document.body.style.zoom || '1') - 0.1)}`;
+    return resp(`Zoomed out.`);
+  }
+  if (/dark mode/.test(t)) {
+    document.documentElement.classList.add('dark');
+    return resp(`Dark mode activated.`);
+  }
+  if (/light mode/.test(t)) {
+    document.documentElement.classList.remove('dark');
+    return resp(`Light mode activated.`);
+  }
+  if (/next page/.test(t)) {
+    window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+    return resp(`Going to the next section.`);
+  }
+  if (/previous page|prev page/.test(t)) {
+    window.scrollBy({ top: -window.innerHeight, behavior: 'smooth' });
+    return resp(`Going to the previous section.`);
   }
 
   // ── Mode ──
-  if ((/auto(matic)?(\s+mode)?|switch.*auto|enable.*auto|set.*auto|disable.*auto.*off/.test(t)) && !/manual/.test(t)) {
+  if ((/auto(matic)?(\s+mode)?|switch.*auto|enable.*auto|set.*auto/.test(t)) && !/manual/.test(t)) {
+    setGesture('left');
     ctx.onModeChange('auto');
-    return `Automatic mode activated! The ESP32 will now manage the pump and fan based on live soil moisture. You can relax — I've got it covered.`;
+    return resp(`Automatic mode activated! The ESP32 will now manage the pump and fan based on live soil moisture. You can relax — I've got it covered.`, 'success');
   }
   if (/manual(\s+mode)?|switch.*manual|enable.*manual|set.*manual|switch to manual|disable automatic/.test(t)) {
+    setGesture('left');
     ctx.onModeChange('manual');
-    return `Switched to manual mode. You're now in full control of the water pump and drying fan.`;
+    return resp(`Switched to manual mode. You're now in full control of the water pump and drying fan.`, 'success');
   }
   if (/current mode|what.*mode|which mode/.test(t)) {
-    return `You're currently in ${ctx.mode === 'auto' ? 'Automatic' : 'Manual'} mode. ${ctx.mode === 'auto' ? 'The ESP32 is managing things automatically.' : 'You have manual control of the pump and fan.'}`;
+    return resp(`You're in ${ctx.mode === 'auto' ? 'Automatic' : 'Manual'} mode. ${ctx.mode === 'auto' ? 'The ESP32 is managing things automatically.' : 'You have manual control of the pump and fan.'}`);
+  }
+
+  // ── Emergency stop ──
+  if (/emergency stop|stop everything|stop all|kill all|shut down everything/.test(t)) {
+    if (ctx.mode === 'auto') return resp(`I'm in automatic mode. Please switch to manual mode first for emergency control.`);
+    ctx.onPumpToggle(false);
+    ctx.onFanToggle(false);
+    return resp(`Emergency stop executed! Both the water pump and drying fan have been turned off immediately.`, 'error');
   }
 
   // ── Pump ──
   if (/turn on pump|pump on|start (pump|water|irrig)|water the pitch|enable pump|enable irrig|pump start|switch pump on/.test(t)) {
-    if (ctx.mode === 'auto') return `The system is in automatic mode. Please switch to manual mode first, and then I can turn the pump on for you.`;
+    setGesture('right');
+    if (ctx.mode === 'auto') return resp(`The system is in automatic mode. Please switch to manual mode first to control the pump.`);
     ctx.onPumpToggle(true);
-    return `Water pump switched ON! Irrigation has started. The pitch is now being watered.`;
+    return resp(`Water pump switched ON! Irrigation has started. The pitch is now being watered.`, 'success');
   }
   if (/turn off pump|pump off|stop (pump|water|irrig)|disable pump|stop watering|pump stop|switch pump off/.test(t)) {
-    if (ctx.mode === 'auto') return `I'm in automatic mode. Please switch to manual mode to control the pump directly.`;
+    setGesture('right');
+    if (ctx.mode === 'auto') return resp(`I'm in automatic mode. Please switch to manual mode to control the pump.`);
     ctx.onPumpToggle(false);
-    return `Water pump switched OFF. Irrigation stopped successfully.`;
+    return resp(`Water pump switched OFF. Irrigation stopped successfully.`, 'success');
   }
   if (/pump status|is the pump/.test(t)) {
-    return `The water pump is currently ${ctx.pumpOn ? 'ON and actively irrigating the pitch' : 'OFF'}.`;
+    return resp(`The water pump is currently ${ctx.pumpOn ? 'ON and actively irrigating the pitch' : 'OFF'}.`);
   }
 
   // ── Fan ──
   if (/turn on fan|fan on|start fan|start dry|enable fan|dry the pitch|switch fan on|fan start/.test(t)) {
-    if (ctx.mode === 'auto') return `I'm in automatic mode. Please switch to manual mode to control the fan manually.`;
+    setGesture('right');
+    if (ctx.mode === 'auto') return resp(`I'm in automatic mode. Please switch to manual mode to control the fan manually.`);
     ctx.onFanToggle(true);
-    return `Sure! Switching the drying fan ON now. The pitch will begin drying.`;
+    return resp(`Sure! Switching the drying fan ON now. The pitch will begin drying.`, 'success');
   }
   if (/turn off fan|fan off|stop fan|stop dry|disable fan|switch fan off|fan stop/.test(t)) {
-    if (ctx.mode === 'auto') return `I'm in automatic mode. Switch to manual mode to stop the fan manually.`;
+    setGesture('right');
+    if (ctx.mode === 'auto') return resp(`I'm in automatic mode. Switch to manual mode to stop the fan manually.`);
     ctx.onFanToggle(false);
-    return `Drying fan switched OFF. The pitch will retain its current moisture level.`;
+    return resp(`Drying fan switched OFF. The pitch will retain its current moisture level.`, 'success');
   }
   if (/fan status|is the fan/.test(t)) {
-    return `The drying fan is currently ${ctx.fanOn ? 'ON and actively drying the pitch' : 'OFF'}.`;
+    return resp(`The drying fan is currently ${ctx.fanOn ? 'ON and actively drying the pitch' : 'OFF'}.`);
   }
 
-  // ── Sensor stat queries ──
-  if (/highest temp/.test(t)) return `The highest recorded temperature is ${ctx.tStats.max}°C.`;
-  if (/lowest temp/.test(t)) return `The lowest recorded temperature is ${ctx.tStats.min}°C.`;
-  if (/average temp/.test(t)) return `The average temperature is ${ctx.tStats.avg}°C.`;
-  if (/highest hum/.test(t)) return `The highest recorded humidity is ${ctx.hStats.max}%.`;
-  if (/lowest hum/.test(t)) return `The lowest recorded humidity is ${ctx.hStats.min}%.`;
-  if (/average hum/.test(t)) return `The average humidity is ${ctx.hStats.avg}%.`;
-  if (/highest (soil|moist)/.test(t)) return `The highest soil moisture recorded is ${ctx.sStats.max}%.`;
-  if (/lowest (soil|moist)/.test(t)) return `The lowest soil moisture recorded is ${ctx.sStats.min}%.`;
-  if (/average (soil|moist)/.test(t)) return `The average soil moisture is ${ctx.sStats.avg}%.`;
+  // ── Sensor stats ──
+  if (/highest temp/.test(t)) return resp(`The highest recorded temperature is ${ctx.tStats.max}°C.`);
+  if (/lowest temp/.test(t))  return resp(`The lowest recorded temperature is ${ctx.tStats.min}°C.`);
+  if (/average temp/.test(t)) return resp(`The average temperature is ${ctx.tStats.avg}°C.`);
+  if (/highest hum/.test(t))  return resp(`The highest recorded humidity is ${ctx.hStats.max}%.`);
+  if (/lowest hum/.test(t))   return resp(`The lowest recorded humidity is ${ctx.hStats.min}%.`);
+  if (/average hum/.test(t))  return resp(`The average humidity is ${ctx.hStats.avg}%.`);
+  if (/highest (soil|moist)/.test(t)) return resp(`The highest soil moisture recorded is ${ctx.sStats.max}%.`);
+  if (/lowest (soil|moist)/.test(t))  return resp(`The lowest soil moisture recorded is ${ctx.sStats.min}%.`);
+  if (/average (soil|moist)/.test(t)) return resp(`The average soil moisture is ${ctx.sStats.avg}%.`);
 
   // ── Live sensor reads ──
-  if (/temperature|temp/.test(t)) {
-    const s = ctx.currentTemp > 34 ? 'slightly high' : ctx.currentTemp < 29 ? 'on the lower side' : 'within the normal range';
-    return `The current temperature is ${ctx.currentTemp}°C — ${s} for an ideal cricket pitch.`;
+  if (/current temperature|temperature|what.*temp/.test(t)) {
+    setGesture('up');
+    const s = ctx.currentTemp > 34 ? 'slightly high — monitor carefully' : ctx.currentTemp < 29 ? 'on the cooler side' : 'within the normal range';
+    return resp(`The current temperature is ${ctx.currentTemp}°C, which is ${s} for a cricket pitch.`);
   }
-  if (/humidity|humid/.test(t)) {
-    const s = ctx.currentHum > 75 ? 'high — consider drying' : ctx.currentHum < 60 ? 'low — the pitch may be drying out' : 'within the optimal range';
-    return `The current humidity is ${ctx.currentHum}%, which is ${s}.`;
+  if (/current humidity|humidity|what.*humid/.test(t)) {
+    setGesture('up');
+    const s = ctx.currentHum > 75 ? 'high — consider activating the drying fan' : ctx.currentHum < 60 ? 'low — the pitch may be drying out' : 'within the optimal range';
+    return resp(`The current humidity is ${ctx.currentHum}%, which is ${s}.`);
   }
-  if (/soil|moisture/.test(t)) {
-    return `The current soil moisture is ${ctx.currentSoil}%. The pitch condition is ${ctx.condition}.`;
+  if (/current soil|soil|moisture|what.*soil/.test(t)) {
+    setGesture('up');
+    return resp(`The current soil moisture is ${ctx.currentSoil}%. The pitch condition is ${ctx.condition}.`);
   }
   if (/esp32|wifi|wi-fi|database|connection|system status/.test(t)) {
-    return `All systems are fully operational. ESP32 microcontroller is online, Wi-Fi is connected, and the database is syncing perfectly.`;
+    return resp(`All systems operational. ESP32 microcontroller is online, Wi-Fi is connected, and the database is syncing perfectly.`);
   }
-  if (/last update|last reading/.test(t)) {
-    return `The last reading came in just now — temperature ${ctx.currentTemp}°C, humidity ${ctx.currentHum}%, and soil moisture ${ctx.currentSoil}%.`;
-  }
-  if (/who are you|what are you|introduce/.test(t)) {
-    return `I'm Pitch — your AI cricket pitch assistant! I can read live sensor data, control the pump and fan, export reports, analyse the pitch, and navigate the dashboard. Just tell me what you need.`;
+  if (/last update|last reading|latest reading/.test(t)) {
+    return resp(`The latest reading — temperature ${ctx.currentTemp}°C, humidity ${ctx.currentHum}%, and soil moisture ${ctx.currentSoil}%.`);
   }
 
   // ── Pitch condition ──
-  if (/how is the pitch|pitch condition|pitch health|current condition/.test(t)) {
-    const advice = ctx.condition === 'Balanced' ? 'The pitch is in excellent condition — ready for play!'
-      : ctx.condition === 'Dry' ? 'The pitch is dry. I recommend activating the water pump.'
-      : 'The pitch is too wet. I recommend switching on the drying fan.';
-    return `The pitch condition is "${ctx.condition}". Temperature: ${ctx.currentTemp}°C, Humidity: ${ctx.currentHum}%, Soil: ${ctx.currentSoil}%. ${advice}`;
+  if (/how is the pitch|pitch condition|pitch health|current condition|today.*report/.test(t)) {
+    const advice =
+      ctx.condition === 'Balanced' ? 'The pitch is in excellent condition — ready for play!' :
+      ctx.condition === 'Dry' ? 'The pitch is dry. I recommend activating the water pump.' :
+      'The pitch is too wet. Consider switching on the drying fan.';
+    return resp(`Pitch condition is "${ctx.condition}". Temp: ${ctx.currentTemp}°C, Humidity: ${ctx.currentHum}%, Soil: ${ctx.currentSoil}%. ${advice}`);
   }
   if (/predict|forecast|trend/.test(t)) {
-    return `Based on current sensor trends, the pitch is likely to remain ${ctx.condition} for the next 20–30 minutes. Keep monitoring soil moisture closely.`;
+    return resp(`Based on current trends, the pitch is likely to remain ${ctx.condition} for the next 20–30 minutes. Keep monitoring soil moisture closely.`);
   }
 
   // ── Exports ──
   if (/pdf|export report|download report|generate report|save report|create report/.test(t)) {
+    setGesture('down');
     ctx.onExportPDF();
-    return `Your professional cricket pitch monitoring report is being generated. The PDF will download in just a moment.`;
+    return resp(`Your professional cricket pitch monitoring report is being generated. The PDF will download in just a moment.`);
   }
   if (/excel|spreadsheet|export excel|download excel|generate spreadsheet/.test(t)) {
+    setGesture('down');
     ctx.onExportExcel();
-    return `Exporting all sensor readings to Excel. The file will download shortly.`;
+    return resp(`Exporting all sensor readings to Excel. The file will download shortly.`);
   }
 
   // ── Analytics ──
   if (/analys|open analys|visual analys|show graph|view data|show chart/.test(t)) {
+    setGesture('down');
     ctx.onOpenAnalysis();
-    return `Opening the sensor analytics panel with live charts and statistics.`;
+    return resp(`Opening the sensor analytics panel with live charts and statistics.`);
   }
 
   // ── Reset / Refresh ──
-  if (/reset|refresh|reload|clear|update reading|update graph/.test(t)) {
+  if (/reset|refresh|reload|clear|update reading|update graph|refresh dashboard|reload dashboard|update dashboard/.test(t)) {
     ctx.onReset();
-    return `Dashboard refreshed! Sensor data will update with the next ESP32 reading cycle.`;
+    return resp(`Dashboard refreshed! Sensor data will update with the next ESP32 reading cycle.`, 'success');
   }
 
   // ── Unknown ──
-  return `I didn't quite catch that. You can ask me things like "What's the temperature?", "Turn on the fan", "Export PDF", or "Switch to auto mode". What would you like to know?`;
+  return resp(
+    `I didn't quite catch that. You can ask me things like "What's the temperature?", "Turn on the fan", "Export PDF", or "Switch to auto mode". What would you like?`,
+    'error'
+  );
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -699,103 +864,71 @@ export default function VoiceAssistant({
   pumpOn, fanOn, systemMode,
   onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel,
 }: VoiceAssistantProps) {
-  const [state, setState] = useState<AssistantState>('idle');
-  const [idleAnim, setIdleAnim] = useState<IdleAnim>('bounce');
-  const [thinkAnim, setThinkAnim] = useState<ThinkAnim>('eyebrow');
-  const [mouthOpen, setMouthOpen] = useState(0);
-  const [eyeX, setEyeX] = useState(0);
-  const [eyeY, setEyeY] = useState(0);
-  const [blinkNow, setBlinkNow] = useState(false);
-  const [statusText, setStatusText] = useState('');
+
+  // ── Core state ──
+  const [state, setState]             = useState<AssistantState>('idle');
+  const [idleAnim, setIdleAnim]       = useState<IdleAnim>('bounce');
+  const [thinkAnim, setThinkAnim]     = useState<ThinkAnim>('eyebrow');
+  const [mouthOpen, setMouthOpen]     = useState(0);
+  const [eyeX, setEyeX]               = useState(0);
+  const [eyeY, setEyeY]               = useState(0);
+  const [blinkNow, setBlinkNow]       = useState(false);
+  const [statusText, setStatusText]   = useState('');
   const [commandText, setCommandText] = useState('');
   const [responseText, setResponseText] = useState('');
   const [isSupported, setIsSupported] = useState(true);
+  const [gesture, setGestureState]    = useState<GestureDir>('none');
+  const [permDenied, setPermDenied]   = useState(false);
 
-  const recRef = useRef<any>(null);
-  const shouldListenRef = useRef(true);
-  const stateRef = useRef<AssistantState>('idle');
-  const commandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mouthIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const eyeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const idleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const blinkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ── Refs (stable across renders — key for single-instance SpeechRecognition) ──
+  const stateRef            = useRef<AssistantState>('idle');
+  const ctxRef              = useRef({ readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel });
+  const recRef              = useRef<any>(null);
+  const shouldListenRef     = useRef(true);
+  const wakeDebounceRef     = useRef(false);       // prevents double-fire on interim+final
+  const lastFinalRef        = useRef('');           // persists between renders, unlike local let
+  const lastResponseRef     = useRef('');           // for "repeat" command
+  const commandTimeoutRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mouthIntervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const eyeIntervalRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const idleIntervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const blinkTimeoutRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thinkIntervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const gestureTimeoutRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restartDelayRef     = useRef(200);
 
+  // Keep stateRef and ctxRef in sync
   useEffect(() => { stateRef.current = state; }, [state]);
-
-  const ctxRef = useRef({
-    readings, tempHistory, humHistory, soilHistory,
-    pumpOn, fanOn, systemMode,
-    onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel,
-  });
   useEffect(() => {
-    ctxRef.current = {
-      readings, tempHistory, humHistory, soilHistory,
-      pumpOn, fanOn, systemMode,
-      onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel,
-    };
+    ctxRef.current = { readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel };
   });
 
-  // ── Idle animation cycle ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (idleIntervalRef.current) clearInterval(idleIntervalRef.current);
-    if (state !== 'idle') return;
-
-    const pickIdle = () => {
-      const next = IDLE_ANIMS[Math.floor(Math.random() * IDLE_ANIMS.length)];
-      setIdleAnim(next);
-    };
-    pickIdle();
-    idleIntervalRef.current = setInterval(pickIdle, 3500);
-    return () => { if (idleIntervalRef.current) clearInterval(idleIntervalRef.current); };
-  }, [state]);
-
-  // ── Idle blink (independent of idle anim) ───────────────────────────────────
-  useEffect(() => {
-    if (state !== 'idle') return;
-    const scheduleBlink = () => {
-      const delay = 3000 + Math.random() * 5000;
-      blinkTimeoutRef.current = setTimeout(() => {
-        setBlinkNow(true);
-        setTimeout(() => setBlinkNow(false), 150);
-        scheduleBlink();
-      }, delay);
-    };
-    scheduleBlink();
-    return () => { if (blinkTimeoutRef.current) clearTimeout(blinkTimeoutRef.current); };
-  }, [state]);
-
-  // ── Eye wander ───────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (eyeIntervalRef.current) clearInterval(eyeIntervalRef.current);
-    if (state === 'idle') {
-      eyeIntervalRef.current = setInterval(() => {
-        setEyeX((Math.random() - 0.5) * 2.5);
-        setEyeY((Math.random() - 0.5) * 1.5);
-      }, 2800);
-    }
-    return () => { if (eyeIntervalRef.current) clearInterval(eyeIntervalRef.current); };
-  }, [state]);
-
-  // ── Thinking animation cycle ─────────────────────────────────────────────────
-  useEffect(() => {
-    if (state !== 'thinking') return;
-    const pick = () => setThinkAnim(THINK_ANIMS[Math.floor(Math.random() * THINK_ANIMS.length)]);
-    pick();
-    const id = setInterval(pick, 700);
-    return () => clearInterval(id);
-  }, [state]);
+  // ── Gesture helper (auto-clears after 2s) ───────────────────────────────────
+  const setGesture = useCallback((dir: GestureDir) => {
+    setGestureState(dir);
+    if (gestureTimeoutRef.current) clearTimeout(gestureTimeoutRef.current);
+    gestureTimeoutRef.current = setTimeout(() => setGestureState('none'), 2000);
+  }, []);
 
   // ── TTS ──────────────────────────────────────────────────────────────────────
   const speak = useCallback((text: string, onDone?: () => void) => {
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 0.92;
+    utter.rate = 0.93;
     utter.pitch = 1.08;
     utter.volume = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v => /samantha|karen|moira|google uk/i.test(v.name))
-      || voices.find(v => v.lang.startsWith('en'));
-    if (preferred) utter.voice = preferred;
+
+    // Defer voice selection to ensure voices are loaded
+    const assignVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => /samantha|karen|moira|google uk/i.test(v.name))
+        || voices.find(v => v.lang.startsWith('en'));
+      if (preferred) utter.voice = preferred;
+    };
+    assignVoice();
+    if (!window.speechSynthesis.getVoices().length) {
+      window.speechSynthesis.onvoiceschanged = assignVoice;
+    }
 
     if (mouthIntervalRef.current) clearInterval(mouthIntervalRef.current);
     mouthIntervalRef.current = setInterval(() => setMouthOpen(Math.random()), 110);
@@ -805,125 +938,156 @@ export default function VoiceAssistant({
       setMouthOpen(0);
       onDone?.();
     };
+    utter.onerror = () => {
+      if (mouthIntervalRef.current) clearInterval(mouthIntervalRef.current);
+      setMouthOpen(0);
+      onDone?.();
+    };
     window.speechSynthesis.speak(utter);
   }, []);
 
-  // ── Wake word check ──────────────────────────────────────────────────────────
-  const checkForWakeWord = useCallback((transcript: string): boolean =>
-    WAKE_WORDS.some(w => transcript.toLowerCase().includes(w)), []);
+  // ── Go idle ──────────────────────────────────────────────────────────────────
+  const goIdle = useCallback(() => {
+    window.speechSynthesis.cancel();
+    if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
+    setState('idle');
+    setStatusText('');
+    setCommandText('');
+    setResponseText('');
+    lastFinalRef.current = '';
+  }, []);
+
+  // ── Wake word check ───────────────────────────────────────────────────────────
+  const checkForWakeWord = (transcript: string): boolean => {
+    const t = transcript.toLowerCase();
+    return WAKE_WORDS.some(w => t.includes(w));
+  };
 
   const stripWakeWord = (transcript: string): string => {
     let t = transcript.toLowerCase();
     for (const w of WAKE_WORDS) t = t.replace(w, '').trim();
+    // Also strip "pitch" alone at start if followed by a command
+    t = t.replace(/^pitch[,\s]+/, '').trim();
     return t;
   };
 
-  // ── Wake assistant ───────────────────────────────────────────────────────────
+  // ── Wake assistant ────────────────────────────────────────────────────────────
+  const wakeAssistantRef = useRef<() => void>(() => {});
   const wakeAssistant = useCallback(() => {
-    if (stateRef.current !== 'idle') return;
+    if (stateRef.current !== 'idle' && stateRef.current !== 'sleeping') return;
+    lastFinalRef.current = '';
     setState('woken');
-    setStatusText('Waking up...');
+    setStatusText('Waking up…');
     setCommandText('');
     setResponseText('');
 
-    speak('Yes? I\'m listening!', () => {
+    speak(`Yes? I'm listening!`, () => {
+      if (stateRef.current !== 'woken') return;
       setState('listening');
-      setStatusText('Listening...');
+      setStatusText('Listening…');
+      if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
       commandTimeoutRef.current = setTimeout(() => {
         if (stateRef.current === 'listening') {
-          setState('thinking');
-          speak("I didn't catch that. Anything else you need?", () => {
-            setState('idle');
-            setStatusText('');
-          });
+          goIdle();
         }
       }, 8000);
     });
-  }, [speak]);
+  }, [speak, goIdle]);
 
-  // ── Handle command ───────────────────────────────────────────────────────────
+  useEffect(() => { wakeAssistantRef.current = wakeAssistant; }, [wakeAssistant]);
+
+  // ── Handle command ────────────────────────────────────────────────────────────
+  const handleCommandRef = useRef<(t: string) => void>(() => {});
   const handleCommand = useCallback((transcript: string) => {
     if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
     setState('thinking');
     setCommandText(`"${transcript}"`);
-    setStatusText('Thinking...');
+    setStatusText('Thinking…');
 
     const ctx = ctxRef.current;
-    const currentTemp = ctx.tempHistory.length ? ctx.tempHistory[ctx.tempHistory.length - 1].value : 31.2;
-    const currentHum = ctx.humHistory.length ? ctx.humHistory[ctx.humHistory.length - 1].value : 68;
-    const currentSoil = ctx.soilHistory.length ? ctx.soilHistory[ctx.soilHistory.length - 1].value : 42;
-    const condition = currentSoil < 35 ? 'Dry' : currentSoil > 65 ? 'Wet' : 'Balanced';
+    const currentTemp = ctx.tempHistory.at(-1)?.value ?? 31.2;
+    const currentHum  = ctx.humHistory.at(-1)?.value  ?? 68;
+    const currentSoil = ctx.soilHistory.at(-1)?.value ?? 42;
+    const condition   = currentSoil < 35 ? 'Dry' : currentSoil > 65 ? 'Wet' : 'Balanced';
 
     const calcStat = (h: { value: number }[]) => {
       if (!h.length) return { max: '0', min: '0', avg: '0' };
       const v = h.map(x => x.value);
-      return {
-        max: Math.max(...v).toFixed(1),
-        min: Math.min(...v).toFixed(1),
-        avg: (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1),
-      };
+      return { max: Math.max(...v).toFixed(1), min: Math.min(...v).toFixed(1), avg: (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) };
     };
 
-    const response = processCommand(transcript, {
-      pumpOn: ctx.pumpOn, fanOn: ctx.fanOn, mode: ctx.systemMode,
-      currentTemp, currentHum, currentSoil, condition,
-      tStats: calcStat(ctx.tempHistory),
-      hStats: calcStat(ctx.humHistory),
-      sStats: calcStat(ctx.soilHistory),
-      readings: ctx.readings,
-      onPumpToggle: ctx.onPumpToggle,
-      onFanToggle: ctx.onFanToggle,
-      onModeChange: ctx.onModeChange,
-      onReset: ctx.onReset,
-      onOpenAnalysis: ctx.onOpenAnalysis,
-      onExportPDF: () => {
-        try {
-          generatePDF({
-            readings: ctx.readings,
-            tempHistory: ctx.tempHistory,
-            humHistory: ctx.humHistory,
-            soilHistory: ctx.soilHistory,
-            pumpOn: ctx.pumpOn,
-            fanOn: ctx.fanOn,
-            mode: ctx.systemMode,
-          });
-        } catch (e) { console.error('PDF error', e); }
+    // ── Repeat command ──
+    const t = transcript.toLowerCase().trim();
+    if (/\b(repeat|say that again|again|what did you say)\b/.test(t)) {
+      const rpt = lastResponseRef.current || `I haven't said anything yet! Ask me something and I'll be happy to repeat it.`;
+      setTimeout(() => {
+        setState('speaking'); setStatusText('Speaking…'); setResponseText(rpt);
+        speak(rpt, () => {
+          setState('listening'); setStatusText('Listening for another command…');
+          commandTimeoutRef.current = setTimeout(() => { if (stateRef.current === 'listening') goIdle(); }, 7000);
+        });
+      }, 400);
+      return;
+    }
+
+    const { response, stateHint } = processCommand(
+      transcript,
+      {
+        pumpOn: ctx.pumpOn, fanOn: ctx.fanOn, mode: ctx.systemMode,
+        currentTemp, currentHum, currentSoil, condition,
+        tStats: calcStat(ctx.tempHistory),
+        hStats: calcStat(ctx.humHistory),
+        sStats: calcStat(ctx.soilHistory),
+        readings: ctx.readings,
+        onPumpToggle: ctx.onPumpToggle,
+        onFanToggle: ctx.onFanToggle,
+        onModeChange: ctx.onModeChange,
+        onReset: ctx.onReset,
+        onOpenAnalysis: ctx.onOpenAnalysis,
+        onExportPDF: () => {
+          try {
+            generatePDF({ readings: ctx.readings, tempHistory: ctx.tempHistory, humHistory: ctx.humHistory, soilHistory: ctx.soilHistory, pumpOn: ctx.pumpOn, fanOn: ctx.fanOn, mode: ctx.systemMode });
+          } catch (e) { console.error('PDF error', e); }
+        },
+        onExportExcel: () => {
+          try {
+            const header = ['Time', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)', 'Pitch Status', 'Pump', 'Fan', 'Mode'];
+            const rows = ctx.readings.map(r => [r.time, r.temp, r.humidity, r.soil, r.pitchStatus, r.pumpOn ? 'ON' : 'OFF', r.fanOn ? 'ON' : 'OFF', r.mode]);
+            const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Readings');
+            XLSX.writeFile(wb, 'Cricket-Pitch-Readings.xlsx');
+          } catch (e) { console.error('Excel error', e); }
+        },
       },
-      onExportExcel: () => {
-        try {
-          const header = ['Time', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)', 'Pitch Status', 'Pump', 'Fan', 'Mode'];
-          const rows = ctx.readings.map(r => [
-            r.time, r.temp, r.humidity, r.soil, r.pitchStatus,
-            r.pumpOn ? 'ON' : 'OFF', r.fanOn ? 'ON' : 'OFF', r.mode,
-          ]);
-          const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, 'Readings');
-          XLSX.writeFile(wb, 'Cricket-Pitch-Readings.xlsx');
-        } catch (e) { console.error('Excel error', e); }
-      },
-    });
+      setGesture,
+      goIdle,
+    );
+
+    lastResponseRef.current = response;
 
     setTimeout(() => {
-      setState('speaking');
-      setStatusText('Speaking...');
+      setState(stateHint && stateHint !== 'idle' ? stateHint : 'speaking');
+      setStatusText('Speaking…');
       setResponseText(response);
       speak(response, () => {
-        setState('listening');
-        setStatusText('Listening for another command...');
-        commandTimeoutRef.current = setTimeout(() => {
-          if (stateRef.current === 'listening') {
-            setState('idle');
-            setStatusText('');
-            setCommandText('');
-            setResponseText('');
+        // Brief excited/success/error flash → back to listening
+        setTimeout(() => {
+          if (stateRef.current !== 'idle' && stateRef.current !== 'sleeping') {
+            setState('listening');
+            setStatusText('Listening for another command…');
+            commandTimeoutRef.current = setTimeout(() => {
+              if (stateRef.current === 'listening') goIdle();
+            }, 7000);
           }
-        }, 7000);
+        }, stateHint === 'success' || stateHint === 'excited' || stateHint === 'error' ? 800 : 0);
       });
-    }, 600);
-  }, [speak]);
+    }, 500);
+  }, [speak, goIdle, setGesture]);
 
-  // ── Speech Recognition ───────────────────────────────────────────────────────
+  useEffect(() => { handleCommandRef.current = handleCommand; }, [handleCommand]);
+
+  // ── Speech Recognition — created ONCE, refs used in callbacks ────────────────
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setIsSupported(false); return; }
@@ -932,67 +1096,156 @@ export default function VoiceAssistant({
     rec.lang = 'en-US';
     rec.continuous = true;
     rec.interimResults = true;
-    rec.maxAlternatives = 1;
+    rec.maxAlternatives = 3;
     recRef.current = rec;
 
-    let lastFinal = '';
     rec.onresult = (e: any) => {
-      let interim = '', final = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) final += t; else interim += t;
-      }
-      const candidate = (final || interim).trim();
-      if (!candidate) return;
+      let interimText = '';
+      let finalText   = '';
 
-      if (stateRef.current === 'idle') {
-        if (checkForWakeWord(candidate)) wakeAssistant();
-      } else if (stateRef.current === 'listening' && final && final !== lastFinal) {
-        lastFinal = final;
-        const cmd = stripWakeWord(final) || final;
-        if (cmd.trim().length > 1) handleCommand(cmd.trim());
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        // Use the best alternative
+        const transcript = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          finalText += transcript;
+        } else {
+          interimText += transcript;
+        }
+      }
+
+      const currentState = stateRef.current;
+
+      // ── Wake word detection — check BOTH interim and final separately ──
+      if (currentState === 'idle' || currentState === 'sleeping') {
+        const allText = (interimText + ' ' + finalText).trim();
+        if (allText && !wakeDebounceRef.current && checkForWakeWord(allText)) {
+          wakeDebounceRef.current = true;
+          setTimeout(() => { wakeDebounceRef.current = false; }, 2500);
+          wakeAssistantRef.current();
+          return;
+        }
+      }
+
+      // ── Command detection — only on final results when listening ──
+      if (currentState === 'listening' && finalText) {
+        const deduped = finalText.trim();
+        if (deduped && deduped !== lastFinalRef.current) {
+          lastFinalRef.current = deduped;
+          const cmd = stripWakeWord(deduped) || deduped;
+          if (cmd.length > 1) {
+            handleCommandRef.current(cmd);
+          }
+        }
       }
     };
+
     rec.onend = () => {
-      if (shouldListenRef.current) setTimeout(() => { try { rec.start(); } catch (_) {} }, 200);
+      if (shouldListenRef.current) {
+        // Exponential back-off capped at 2s to survive aggressive browser throttling
+        const delay = restartDelayRef.current;
+        restartDelayRef.current = Math.min(delay * 1.5, 2000);
+        setTimeout(() => {
+          restartDelayRef.current = 200; // reset on success
+          try { rec.start(); } catch (_) {}
+        }, delay);
+      }
     };
+
     rec.onerror = (e: any) => {
-      if (e.error === 'not-allowed') { setIsSupported(false); return; }
-      setTimeout(() => { try { rec.start(); } catch (_) {} }, 500);
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        setIsSupported(false);
+        setPermDenied(true);
+        return;
+      }
+      // For all other errors (aborted, network, no-speech) let onend handle restart
     };
+
     try { rec.start(); } catch (_) {}
 
     return () => {
       shouldListenRef.current = false;
       try { rec.stop(); } catch (_) {}
     };
-  }, [checkForWakeWord, wakeAssistant, handleCommand]);
+  }, []); // ← empty deps: recognition created ONCE, callbacks accessed via refs
 
-  // ── Cleanup ──────────────────────────────────────────────────────────────────
+  // ── Idle animation cycle ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (state !== 'idle') { if (idleIntervalRef.current) clearInterval(idleIntervalRef.current); return; }
+    const pick = () => setIdleAnim(IDLE_ANIMS[Math.floor(Math.random() * IDLE_ANIMS.length)]);
+    pick();
+    idleIntervalRef.current = setInterval(pick, 3500);
+    return () => { if (idleIntervalRef.current) clearInterval(idleIntervalRef.current); };
+  }, [state]);
+
+  // ── Idle blink ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (state !== 'idle') return;
+    const scheduleBlink = () => {
+      blinkTimeoutRef.current = setTimeout(() => {
+        setBlinkNow(true);
+        setTimeout(() => setBlinkNow(false), 150);
+        scheduleBlink();
+      }, 3000 + Math.random() * 5000);
+    };
+    scheduleBlink();
+    return () => { if (blinkTimeoutRef.current) clearTimeout(blinkTimeoutRef.current); };
+  }, [state]);
+
+  // ── Eye wander ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (state === 'idle') {
+      eyeIntervalRef.current = setInterval(() => {
+        setEyeX((Math.random() - 0.5) * 2.5);
+        setEyeY((Math.random() - 0.5) * 1.5);
+      }, 2800);
+    } else {
+      if (eyeIntervalRef.current) clearInterval(eyeIntervalRef.current);
+    }
+    return () => { if (eyeIntervalRef.current) clearInterval(eyeIntervalRef.current); };
+  }, [state]);
+
+  // ── Thinking animation cycle ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (state !== 'thinking') { if (thinkIntervalRef.current) clearInterval(thinkIntervalRef.current); return; }
+    const pick = () => setThinkAnim(THINK_ANIMS[Math.floor(Math.random() * THINK_ANIMS.length)]);
+    pick();
+    thinkIntervalRef.current = setInterval(pick, 700);
+    return () => { if (thinkIntervalRef.current) clearInterval(thinkIntervalRef.current); };
+  }, [state]);
+
+  // ── Cleanup ───────────────────────────────────────────────────────────────────
   useEffect(() => () => {
     window.speechSynthesis.cancel();
-    if (mouthIntervalRef.current) clearInterval(mouthIntervalRef.current);
-    if (eyeIntervalRef.current) clearInterval(eyeIntervalRef.current);
-    if (idleIntervalRef.current) clearInterval(idleIntervalRef.current);
-    if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
-    if (blinkTimeoutRef.current) clearTimeout(blinkTimeoutRef.current);
+    [mouthIntervalRef, eyeIntervalRef, idleIntervalRef, thinkIntervalRef].forEach(r => { if (r.current) clearInterval(r.current); });
+    [commandTimeoutRef, blinkTimeoutRef, gestureTimeoutRef].forEach(r => { if (r.current) clearTimeout(r.current); });
   }, []);
 
-  if (!isSupported) return null;
+  // ── Derived ───────────────────────────────────────────────────────────────────
+  if (!isSupported) {
+    return (
+      <div className="fixed bottom-6 right-6 z-[60] bg-white/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[220px]">
+        <p className="font-bold mb-1">🎤 Microphone {permDenied ? 'blocked' : 'unavailable'}</p>
+        <p>{permDenied ? 'Allow microphone access in your browser settings to use Pitch.' : 'Your browser does not support speech recognition.'}</p>
+      </div>
+    );
+  }
 
-  const isActive = state !== 'idle';
+  const isActive  = state !== 'idle' && state !== 'sleeping';
+  const isSleeping = state === 'sleeping';
 
-  // ── Idle idle animation modifiers ────────────────────────────────────────────
-  const idleY = isActive ? 0
-    : ['bounce', 'float', 'breathe'].includes(idleAnim) ? [0, -8, 0]
-    : idleAnim === 'wave' ? [0, -4, 0]
-    : [0, -4, 0];
-  const idleRotate = isActive ? 0
-    : idleAnim === 'tilt' ? [-6, 6, -6]
-    : idleAnim === 'spin' ? [0, 360]
-    : 0;
-  const idleScale = isActive ? 1
-    : idleAnim === 'breathe' ? [1, 1.04, 1] : 1;
+  // Idle animation motion values
+  const idleY =
+    isActive ? 0 :
+    ['bounce', 'float', 'breathe'].includes(idleAnim) ? [0, -8, 0] :
+    idleAnim === 'wave' ? [0, -4, 0] : [0, -4, 0];
+
+  const idleRotate =
+    isActive ? 0 :
+    idleAnim === 'tilt' ? [-6, 6, -6] : 0;
+
+  const idleScale =
+    isActive ? 1 :
+    idleAnim === 'breathe' ? [1, 1.04, 1] : 1;
 
   return (
     <>
@@ -1029,9 +1282,9 @@ export default function VoiceAssistant({
               <div
                 className="rounded-[22px] p-5 border border-white/25 shadow-2xl"
                 style={{
-                  background: 'rgba(15,23,42,0.82)',
-                  backdropFilter: 'blur(24px)',
-                  WebkitBackdropFilter: 'blur(24px)',
+                  background: 'rgba(15,23,42,0.85)',
+                  backdropFilter: 'blur(28px)',
+                  WebkitBackdropFilter: 'blur(28px)',
                   boxShadow: '0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.12)',
                 }}
               >
@@ -1039,24 +1292,31 @@ export default function VoiceAssistant({
                 <div className="flex items-center gap-2.5 mb-3">
                   <motion.div
                     className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                      state === 'listening' ? 'bg-green-400' :
-                      state === 'thinking' ? 'bg-amber-400' :
-                      state === 'speaking' ? 'bg-blue-400' : 'bg-slate-500'
+                      state === 'listening'           ? 'bg-green-400' :
+                      state === 'thinking'            ? 'bg-amber-400' :
+                      state === 'speaking'            ? 'bg-blue-400'  :
+                      state === 'excited' || state === 'success' ? 'bg-emerald-400' :
+                      state === 'error'               ? 'bg-red-400'   : 'bg-slate-500'
                     }`}
                     animate={{ scale: state === 'listening' ? [1, 1.5, 1] : 1, opacity: [1, 0.6, 1] }}
                     transition={{ duration: 0.8, repeat: state === 'listening' ? Infinity : 0 }}
                   />
                   <span className={`text-xs font-bold tracking-widest uppercase ${
-                    state === 'listening' ? 'text-green-400' :
-                    state === 'thinking' ? 'text-amber-400' :
-                    state === 'speaking' ? 'text-blue-400' : 'text-slate-400'
+                    state === 'listening'           ? 'text-green-400' :
+                    state === 'thinking'            ? 'text-amber-400' :
+                    state === 'speaking'            ? 'text-blue-400'  :
+                    state === 'excited' || state === 'success' ? 'text-emerald-400' :
+                    state === 'error'               ? 'text-red-400'   : 'text-slate-400'
                   }`}>
-                    {state === 'woken' ? 'Waking Up…' :
-                     state === 'listening' ? 'Listening…' :
-                     state === 'thinking' ? 'Thinking…' :
-                     state === 'speaking' ? 'Speaking' : ''}
+                    {state === 'woken'    ? 'Waking Up…'   :
+                     state === 'listening'? 'Listening…'   :
+                     state === 'thinking' ? 'Thinking…'    :
+                     state === 'speaking' ? 'Speaking'     :
+                     state === 'excited'  ? 'Excited!'     :
+                     state === 'success'  ? 'Done!'        :
+                     state === 'error'    ? 'Hmm…'         : ''}
                   </span>
-                  {/* Microphone icon when listening */}
+                  {/* Mic pulse when listening */}
                   {state === 'listening' && (
                     <motion.div
                       className="ml-auto w-7 h-7 rounded-full bg-green-500/20 border border-green-400/40 flex items-center justify-center"
@@ -1075,7 +1335,7 @@ export default function VoiceAssistant({
                 {/* Waveform when listening */}
                 {state === 'listening' && (
                   <div className="mb-3">
-                    <VoiceWaveform active={state === 'listening'} />
+                    <VoiceWaveform active />
                   </div>
                 )}
 
@@ -1083,9 +1343,7 @@ export default function VoiceAssistant({
                 {state === 'thinking' && (
                   <div className="flex gap-1.5 mb-3">
                     {[0, 1, 2].map(i => (
-                      <motion.div
-                        key={i}
-                        className="w-2 h-2 rounded-full bg-amber-400"
+                      <motion.div key={i} className="w-2 h-2 rounded-full bg-amber-400"
                         animate={{ y: [0, -6, 0] }}
                         transition={{ duration: 0.6, delay: i * 0.15, repeat: Infinity }}
                       />
@@ -1111,17 +1369,13 @@ export default function VoiceAssistant({
                 {/* Response text */}
                 <AnimatePresence>
                   {responseText && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                       <p className="text-sm text-white/90 leading-relaxed font-medium">{responseText}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Hint when first listening */}
+                {/* Hint */}
                 {state === 'listening' && !commandText && (
                   <p className="text-[11px] text-slate-400 mt-1">Say a command or ask a question…</p>
                 )}
@@ -1133,46 +1387,40 @@ export default function VoiceAssistant({
         {/* ── Cricket Ball Mascot ── */}
         <motion.div
           className="cursor-pointer relative flex-shrink-0"
-          style={{
-            pointerEvents: 'auto',
-            width: isActive ? 140 : 64,
-            height: isActive ? 140 : 64,
-          }}
+          style={{ pointerEvents: 'auto', width: isActive ? 140 : 64, height: isActive ? 140 : 64 }}
           animate={{
-            width: isActive ? 140 : 64,
+            width:  isActive ? 140 : 64,
             height: isActive ? 140 : 64,
-            y: isActive ? 0 : idleY,
+            y:      isActive ? 0 : idleY,
             rotate: isActive ? 0 : idleRotate,
-            scale: isActive ? 1 : idleScale,
+            scale:  isActive ? 1 : idleScale,
           }}
           transition={{
-            width: { type: 'spring', damping: 18, stiffness: 180 },
+            width:  { type: 'spring', damping: 18, stiffness: 180 },
             height: { type: 'spring', damping: 18, stiffness: 180 },
-            y: { duration: idleAnim === 'bounce' ? 1.8 : 3, repeat: Infinity, ease: 'easeInOut' },
-            rotate: { duration: idleAnim === 'spin' ? 1.5 : 3, repeat: Infinity, ease: 'easeInOut' },
-            scale: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
+            y:      { duration: idleAnim === 'bounce' ? 1.8 : 3, repeat: Infinity, ease: 'easeInOut' },
+            rotate: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
+            scale:  { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
           }}
           onClick={() => {
-            if (state === 'idle') {
+            if (state === 'idle' || state === 'sleeping') {
               wakeAssistant();
             } else if (state !== 'thinking') {
-              window.speechSynthesis.cancel();
-              setState('idle');
-              setStatusText('');
-              setCommandText('');
-              setResponseText('');
+              goIdle();
             }
           }}
           title={state === 'idle' ? 'Click to activate Pitch AI, or say "Hey Pitch"' : 'Click to dismiss'}
           whileHover={{ scale: isActive ? 1.05 : 1.12 }}
           whileTap={{ scale: 0.93 }}
         >
-          {/* Glow/shadow ring */}
+          {/* Glow / shadow ring */}
           <div
             className="absolute inset-0 rounded-full"
             style={{
               boxShadow: isActive
                 ? '0 0 40px rgba(34,197,94,0.35), 0 8px 32px rgba(0,0,0,0.5)'
+                : isSleeping
+                ? '0 4px 18px rgba(0,0,0,0.25), 0 0 0 2px rgba(148,163,184,0.15)'
                 : '0 8px 24px rgba(0,0,0,0.35), 0 0 0 2px rgba(255,255,255,0.08)',
               transition: 'box-shadow 0.5s ease',
               borderRadius: '50%',
@@ -1187,11 +1435,12 @@ export default function VoiceAssistant({
             eyeX={eyeX}
             eyeY={eyeY}
             blinkNow={blinkNow}
+            gesture={gesture}
           />
         </motion.div>
 
-        {/* ── Idle label pill ── */}
-        {!isActive && (
+        {/* ── Idle tooltip pill ── */}
+        {!isActive && !isSleeping && (
           <motion.div
             className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900/85 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap border border-white/10"
             initial={{ opacity: 0 }}
@@ -1199,6 +1448,16 @@ export default function VoiceAssistant({
             transition={{ duration: 4, delay: 4, repeat: Infinity, repeatDelay: 12 }}
           >
             🎤 Say "Hey Pitch"
+          </motion.div>
+        )}
+
+        {/* ── Sleeping pill ── */}
+        {isSleeping && (
+          <motion.div
+            className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-800/85 backdrop-blur-md text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap border border-slate-700/30"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          >
+            💤 Sleeping — say "Hey Pitch" to wake me
           </motion.div>
         )}
       </div>

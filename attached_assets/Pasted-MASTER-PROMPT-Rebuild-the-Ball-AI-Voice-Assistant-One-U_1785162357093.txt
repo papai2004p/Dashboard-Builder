@@ -1,0 +1,529 @@
+MASTER PROMPT — Rebuild the "Ball" AI Voice Assistant (One UI / Bixby Quality)
+
+This is a COMPLETE redesign of the AI Cricket Ball Assistant.
+
+Do NOT patch the existing implementation.
+
+Refactor it completely.
+
+The objective is to make the assistant feel like Samsung Bixby (One UI 8), Google Gemini, and PW AI Guru—smooth, instant, responsive, premium, and fluid.
+
+Everything must run at 60 FPS with no lag, animation stutter, or delayed UI.
+
+1. Rename Assistant
+
+Change every occurrence of
+
+Hey Pitch
+
+to
+
+Hey Ball
+
+Assistant Name:
+
+Ball
+
+Never refer to it as Pitch again.
+
+2. Wake Word Detection
+
+Wake word:
+
+Hey Ball
+
+The assistant should activate almost instantly after hearing the wake word.
+
+Current implementation is too slow.
+
+Reduce wake latency as much as possible.
+
+The user should feel like the assistant is always ready.
+
+3. Hide the "Waking Up" Phase
+
+DO NOT show
+
+"Waking up..."
+
+or any loading screen.
+
+Instead, immediately play this short introduction:
+
+Hello! I'm Ball, your AI Cricket Pitch Assistant. All systems are online and running smoothly. I'm listening—how can I help you today?
+
+This introduction should only play:
+
+• when the user taps the assistant for the very first time
+
+or
+
+• the first wake after page load
+
+Never repeat it every time.
+
+After the first interaction, waking should appear instant like Samsung Bixby.
+
+4. Clicking the Cricket Ball
+
+Current behaviour:
+
+Click Ball
+
+↓
+
+Shows
+
+"Waking up..."
+
+This is wrong.
+
+Correct behaviour:
+
+Tap Ball
+
+↓
+
+Immediately enter Listening Mode
+
+↓
+
+Assistant speaks the introduction (first launch only)
+
+↓
+
+Listening starts
+
+No loading screen.
+
+No waking screen.
+
+5. Listening Window
+
+After wake word:
+
+Assistant waits
+
+7 seconds
+
+for the next command.
+
+Every time the user continues speaking,
+
+restart the 7-second timer.
+
+If no speech:
+
+Assistant politely closes.
+
+6. Unknown Command Responses
+
+Replace the current response:
+
+"I didn't quite catch that."
+
+with
+
+Oops! That delivery missed the stumps. Could you repeat your command?
+
+7. Wake Word But No Command
+
+If only
+
+"Hey Ball"
+
+is detected,
+
+say:
+
+Go ahead, I'm listening.
+
+Do NOT say anything else.
+
+8. Three Failed Attempts
+
+If three consecutive commands cannot be understood,
+
+display:
+
+Try saying:
+
+• What's the temperature?
+
+• Turn on the fan.
+
+• Turn off the pump.
+
+• Switch to automatic mode.
+
+• Switch to manual mode.
+
+• Export PDF.
+
+• Export Excel.
+
+• Open Sensor Analysis.
+
+• Refresh dashboard.
+
+• Show recent readings.
+
+Then automatically continue listening.
+
+9. Ignore Assistant's Own Voice
+
+Current bug:
+
+Assistant says
+
+"I'm listening"
+
+↓
+
+Speech recognizer hears
+
+"I'm listening"
+
+↓
+
+Treats it as user input.
+
+This is unacceptable.
+
+The microphone MUST ignore:
+
+• Assistant TTS
+
+• Assistant introduction
+
+• Assistant responses
+
+• System prompts
+
+Only recognize human speech.
+
+10. Better Speech Recognition
+
+Improve recognition for Indian English.
+
+The assistant must correctly understand:
+
+Turn on the fan
+
+Fan on
+
+Switch on fan
+
+Can you start the fan?
+
+Please start the fan
+
+Enable the fan
+
+Fan please
+
+Turn off the fan
+
+Turn on pump
+
+Turn off pump
+
+Automatic mode
+
+Manual mode
+
+Temperature
+
+Humidity
+
+Soil moisture
+
+Export report
+
+Download report
+
+PDF
+
+Excel
+
+Refresh
+
+Reset dashboard
+
+Sensor analysis
+
+Pitch condition
+
+Status
+
+System status
+
+Connected
+
+Disconnected
+
+Latest reading
+
+Recent history
+
+and natural variations.
+
+11. Flexible Intent Matching
+
+Never rely on exact sentence matching.
+
+Use intent recognition.
+
+For example:
+
+"Can you switch on the fan?"
+
+=
+
+"Turn on the fan"
+
+=
+
+"Fan on"
+
+=
+
+"Start fan"
+
+All must execute the same action.
+
+12. Multiple Speakers
+
+If multiple people speak simultaneously:
+
+Lock onto ONE speaker.
+
+Ignore everyone else.
+
+Continue tracking that speaker until:
+
+• conversation ends
+
+or
+
+• assistant times out.
+
+Only then allow another person.
+
+Never mix voices.
+
+13. Low Voice Detection
+
+Improve microphone sensitivity.
+
+Recognize:
+
+soft speech
+
+slow speech
+
+Indian English pronunciation
+
+minor pauses
+
+without false failures.
+
+14. Instant UI
+
+Current UI feels laggy.
+
+Rebuild interactions.
+
+Opening animation:
+
+under 200 ms
+
+Listening animation:
+
+instant
+
+Thinking animation:
+
+smooth
+
+Speaking animation:
+
+smooth
+
+Closing animation:
+
+under 200 ms
+
+Everything should feel like Samsung One UI.
+
+15. Cricket Ball Animations
+
+The assistant should never remain static.
+
+Idle:
+
+gentle breathing
+
+slow blinking
+
+small floating movement
+
+Listening:
+
+ears/eyes attentive
+
+small bounce
+
+soft glow
+
+Thinking:
+
+random thinking animations
+
+Examples:
+
+one eyebrow raised
+
+hand on cheek
+
+eyes looking up
+
+eyes left
+
+eyes right
+
+blink
+
+mouth closed
+
+small spin
+
+head tilt
+
+confused face
+
+curious face
+
+These animations should play randomly.
+
+Speaking:
+
+Perfect lip synchronization.
+
+Mouth movement synchronized with speech amplitude.
+
+No fake looping animation.
+
+Happy:
+
+smile
+
+Excited:
+
+wide eyes
+
+Success:
+
+wink
+
+Error:
+
+slightly confused face
+
+16. Grass Ripple Effect
+
+When Ball activates,
+
+freeze background scrolling.
+
+Blur dashboard.
+
+Create expanding green grass ripple waves.
+
+Inspired by:
+
+Samsung Circle to Search
+
+but themed as
+
+Cricket Grass.
+
+When assistant closes,
+
+remove ripple smoothly.
+
+17. Better Overlay
+
+Current overlay is bulky.
+
+Create a One UI style overlay.
+
+Rounded corners
+
+Glassmorphism
+
+Soft blur
+
+Floating panel
+
+No unnecessary borders.
+
+Minimal.
+
+Premium.
+
+18. Performance
+
+Reduce:
+
+DOM updates
+
+reflows
+
+repaints
+
+memory leaks
+
+duplicate event listeners
+
+speech restarts
+
+Optimize animation rendering.
+
+Maintain smooth performance even on mid-range Android devices.
+
+19. Command Execution
+
+Fix command execution reliability.
+
+Current issue:
+
+User says
+
+"Turn on the fan"
+
+Assistant recognizes it
+
+but action never executes.
+
+Intent recognition must trigger the correct backend function every time.
+
+Voice response and dashboard state must always remain synchronized.
+
+20. Overall Goal
+
+The finished assistant should feel like a polished system assistant built into a premium smartphone—not a web demo.
+
+Design goals:
+
+Samsung One UI 8 responsiveness
+Bixby-style fluid interactions
+Fast wake word response
+Reliable command recognition
+Smooth animations
+Natural Indian English understanding
+Stable command execution
+Beautiful cricket-themed personality
+Zero unnecessary delays
+Professional UI/UX
+Lightweight and responsive on both desktop and mobile

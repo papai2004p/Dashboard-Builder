@@ -3,6 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Reading } from '@/lib/types';
 import { generatePDF } from '@/lib/generatePDF';
 import * as XLSX from 'xlsx';
+import {
+  WAKE_WORDS,
+  COMMAND_LANG,
+  isPorcupineConfigured,
+} from '@/lib/wakeWordEngine';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,15 +44,6 @@ interface VoiceAssistantProps {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const WAKE_WORDS = [
-  'hey pitch', 'hi pitch', 'hello pitch',
-  'hey coach', 'hi coach', 'hello coach',
-  'hey assistant', 'hi assistant', 'hello assistant',
-  'smart pitch', 'cricket assistant',
-  'okay pitch', 'ok pitch', 'yo pitch',
-  'wake up pitch', 'pitch help',
-];
-
 const IDLE_ANIMS: IdleAnim[] = [
   'bounce', 'blink', 'lookLeft', 'lookRight', 'smile',
   'wave', 'tilt', 'breathe', 'float', 'lookUp', 'happy',
@@ -57,6 +53,22 @@ const THINK_ANIMS: ThinkAnim[] = [
   'handCheek', 'eyebrow', 'looklr', 'blink', 'scratch',
   'question', 'spin', 'lookup', 'cloud', 'eyebrows', 'chart', 'dots',
   'lightbulb', 'notebook', 'gears', 'sparkles',
+];
+
+const INTRO_TEXT =
+  "Hello! I'm Ball, your AI Cricket Pitch Assistant. All systems are online and running smoothly. I'm listening — how can I help you today?";
+
+const COMMAND_HINTS = [
+  "What's the temperature?",
+  'Turn on the fan.',
+  'Turn off the pump.',
+  'Switch to automatic mode.',
+  'Switch to manual mode.',
+  'Export PDF.',
+  'Export Excel.',
+  'Open Sensor Analysis.',
+  'Refresh dashboard.',
+  'Show recent readings.',
 ];
 
 // ── Cricket Ball Mascot SVG ───────────────────────────────────────────────────
@@ -90,13 +102,8 @@ function CricketBall({
   const isSuccess  = state === 'success';
   const isHappy    = isExcited || isSuccess;
 
-  // ── Eye offsets ──────────────────────────────────────────────────────────────
-  const gestureEyeX =
-    gesture === 'left'  ? -5 :
-    gesture === 'right' ?  5 : 0;
-  const gestureEyeY =
-    gesture === 'up'   ? -3 :
-    gesture === 'down' ?  3 : 0;
+  const gestureEyeX = gesture === 'left' ? -5 : gesture === 'right' ? 5 : 0;
+  const gestureEyeY = gesture === 'up'   ? -3 : gesture === 'down'  ? 3 : 0;
 
   const eyeOffX =
     gestureEyeX !== 0 ? gestureEyeX :
@@ -109,12 +116,10 @@ function CricketBall({
     (isIdle && idleAnim === 'lookUp') ? -3 :
     (isThinking && (thinkAnim === 'lookup' || thinkAnim === 'eyebrow')) ? -2 : eyeY;
 
-  // Blink
   const blinkScale =
     isSleeping ? 0.08 :
     blinkNow || (isIdle && idleAnim === 'blink') || (isThinking && thinkAnim === 'blink') ? 0.12 : 1;
 
-  // Eyebrows
   const lbrowY =
     (isThinking && thinkAnim === 'eyebrow')  ? -4 :
     (isThinking && thinkAnim === 'eyebrows') ? -3 :
@@ -130,7 +135,6 @@ function CricketBall({
   const lbrowRot = isError ? 15 : 0;
   const rbrowRot = isError ? -15 : 0;
 
-  // Mouth
   const mouthCY =
     isSpeaking  ? 72 + mouthOpen * 14 :
     isListening ? 78 :
@@ -142,17 +146,15 @@ function CricketBall({
     isThinking  ? 70 : 76;
   const mouthPath = `M 38 70 Q 50 ${mouthCY.toFixed(1)} 62 70`;
 
-  // Right hand
   const rHandX =
-    (isIdle && idleAnim === 'wave')              ? 88 :
-    (isThinking && thinkAnim === 'handCheek')    ? 72 :
-    (isThinking && thinkAnim === 'scratch')      ? 76 : 92;
+    (isIdle && idleAnim === 'wave')           ? 88 :
+    (isThinking && thinkAnim === 'handCheek') ? 72 :
+    (isThinking && thinkAnim === 'scratch')   ? 76 : 92;
   const rHandY =
-    (isIdle && idleAnim === 'wave')              ? 40 :
-    (isThinking && thinkAnim === 'handCheek')    ? 55 :
-    (isThinking && thinkAnim === 'scratch')      ? 48 : 55;
+    (isIdle && idleAnim === 'wave')           ? 40 :
+    (isThinking && thinkAnim === 'handCheek') ? 55 :
+    (isThinking && thinkAnim === 'scratch')   ? 48 : 55;
 
-  // Ball gradient based on state
   const ballStop1 = isError ? '#f87171' : isHappy ? '#fca5a5' : '#f87171';
   const ballStop2 = isError ? '#b91c1c' : isHappy ? '#ef4444' : '#dc2626';
   const ballStop3 = isError ? '#450a0a' : isHappy ? '#7f1d1d' : '#7f1d1d';
@@ -194,7 +196,7 @@ function CricketBall({
         </filter>
       </defs>
 
-      {/* ── State glow rings ── */}
+      {/* State glow rings */}
       {isListening && (
         <motion.circle cx="50" cy="50" r="48"
           fill="none" stroke="#22c55e" strokeWidth="3" opacity={0.6}
@@ -236,7 +238,7 @@ function CricketBall({
         />
       )}
 
-      {/* ── Legs ── */}
+      {/* Legs */}
       <motion.ellipse cx="38" cy="97" rx="7" ry="5" fill="url(#va-skinGrad)"
         animate={isIdle && !isSleeping ? { y: [0, -1, 0] } : {}}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
@@ -246,7 +248,7 @@ function CricketBall({
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
       />
 
-      {/* ── Left hand ── */}
+      {/* Left hand */}
       <motion.ellipse cx="8" cy="55" rx="7" ry="5"
         fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.4"
         animate={
@@ -256,19 +258,19 @@ function CricketBall({
         transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      {/* ── Right hand ── */}
+      {/* Right hand */}
       <motion.ellipse
         cx={rHandX} cy={rHandY} rx="7" ry="5"
         fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.4"
         animate={
-          (isIdle && idleAnim === 'wave')           ? { y: [-8, 0, -8], rotate: [-15, 15, -15] } :
-          (isThinking && thinkAnim === 'scratch')   ? { x: [-2, 2, -2], y: [-2, 2, -2] } :
+          (isIdle && idleAnim === 'wave')         ? { y: [-8, 0, -8], rotate: [-15, 15, -15] } :
+          (isThinking && thinkAnim === 'scratch') ? { x: [-2, 2, -2], y: [-2, 2, -2] } :
           isIdle ? { y: [0, 2, 0] } : {}
         }
         transition={{ duration: (isIdle && idleAnim === 'wave') ? 0.5 : 1.5, repeat: Infinity }}
       />
 
-      {/* ── Main ball ── */}
+      {/* Main ball */}
       <motion.circle
         cx="50" cy="50" r="44"
         fill="url(#va-ballGrad)" filter="url(#va-shadow)"
@@ -276,10 +278,10 @@ function CricketBall({
         transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      {/* ── Glossy highlight ── */}
+      {/* Glossy highlight */}
       <ellipse cx="36" cy="31" rx="18" ry="12" fill="url(#va-highlight)" />
 
-      {/* ── Seam lines ── */}
+      {/* Seam lines */}
       <path d="M 29 8 Q 44 50 29 92" fill="none" stroke="white" strokeWidth="1.8"
         strokeLinecap="round" opacity="0.65" />
       {[18,28,38,48,58,68,78].map((cy, i) => (
@@ -297,7 +299,7 @@ function CricketBall({
         />
       ))}
 
-      {/* ── Cheeks (always visible, more prominent when happy/excited) ── */}
+      {/* Cheeks */}
       <ellipse cx="22" cy="57" rx="9" ry="6" fill="url(#va-cheekGrad)"
         opacity={isHappy || (isIdle && idleAnim === 'happy') ? 0.9 : isListening ? 0.6 : 0.35}
       />
@@ -305,7 +307,7 @@ function CricketBall({
         opacity={isHappy || (isIdle && idleAnim === 'happy') ? 0.9 : isListening ? 0.6 : 0.35}
       />
 
-      {/* ── Eyebrows ── */}
+      {/* Eyebrows */}
       <motion.path d="M 28 33 Q 36 28 44 32"
         fill="none" stroke="#1c1917" strokeWidth="2.5" strokeLinecap="round"
         animate={{ y: lbrowY, rotate: lbrowRot }}
@@ -319,9 +321,8 @@ function CricketBall({
         style={{ transformOrigin: '64px 30px' }}
       />
 
-      {/* ── Eyes ── */}
+      {/* Eyes */}
       <motion.g animate={{ x: eyeOffX, y: eyeOffY }} transition={{ duration: 0.35, ease: 'easeOut' }}>
-        {/* Left eye */}
         <motion.ellipse cx="36" cy="46" rx="8.5" ry="8"
           style={{ transformOrigin: '36px 46px' }}
           animate={{ scaleY: blinkScale }}
@@ -338,7 +339,6 @@ function CricketBall({
           <circle cx={36 + eyeOffX * 0.2} cy="49" r="0.8" fill="white" opacity="0.5" />
         </motion.g>
 
-        {/* Right eye */}
         <motion.ellipse cx="64" cy="46" rx="8.5" ry="8"
           style={{ transformOrigin: '64px 46px' }}
           animate={{ scaleY: blinkScale }}
@@ -356,7 +356,7 @@ function CricketBall({
         </motion.g>
       </motion.g>
 
-      {/* ── Sleeping ZZZs ── */}
+      {/* Sleeping ZZZs */}
       <AnimatePresence>
         {isSleeping && (
           <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -372,7 +372,7 @@ function CricketBall({
         )}
       </AnimatePresence>
 
-      {/* ── Error X overlay ── */}
+      {/* Error ! */}
       <AnimatePresence>
         {isError && (
           <motion.g initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
@@ -384,7 +384,7 @@ function CricketBall({
         )}
       </AnimatePresence>
 
-      {/* ── Success tick ── */}
+      {/* Success tick */}
       <AnimatePresence>
         {isSuccess && (
           <motion.g initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
@@ -398,7 +398,7 @@ function CricketBall({
         )}
       </AnimatePresence>
 
-      {/* ── Mouth ── */}
+      {/* Mouth */}
       <path d={mouthPath} fill="none" stroke="#1c1917" strokeWidth="2.8" strokeLinecap="round" />
       {isSpeaking && mouthOpen > 0.3 && (
         <path d={`M 38 70 Q 50 ${(72 + mouthOpen * 14).toFixed(1)} 62 70 Z`}
@@ -406,7 +406,7 @@ function CricketBall({
         />
       )}
 
-      {/* ── Thinking overlays ── */}
+      {/* Thinking overlays */}
       <AnimatePresence>
         {isThinking && thinkAnim === 'question' && (
           <motion.text x="64" y="18" fontSize="16" fill="#fbbf24" fontWeight="bold"
@@ -529,7 +529,6 @@ function GrassWaveEffect({ active }: { active: boolean }) {
     'rgba(186,230,253,0.12)',
     'rgba(255,255,255,0.08)',
   ];
-
   return (
     <AnimatePresence>
       {active && (
@@ -538,21 +537,14 @@ function GrassWaveEffect({ active }: { active: boolean }) {
           style={{ zIndex: 55 }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.6 } }}
+          exit={{ opacity: 0, transition: { duration: 0.5 } }}
         >
-          <motion.div
-            className="absolute inset-0 bg-slate-950"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.55 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
+          <motion.div className="absolute inset-0 bg-slate-950"
+            initial={{ opacity: 0 }} animate={{ opacity: 0.55 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.45 }}
           />
-          <motion.div
-            className="absolute inset-0"
-            style={{ backdropFilter: 'blur(3px)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <motion.div className="absolute inset-0" style={{ backdropFilter: 'blur(3px)' }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           />
           {WAVE_COLORS.map((color, i) => (
             <motion.div
@@ -637,34 +629,33 @@ function processCommand(
   goIdle: () => void,
 ): { response: string; stateHint?: AssistantState } {
   const t = raw.toLowerCase().trim();
-
   const resp = (r: string, hint?: AssistantState) => ({ response: r, stateHint: hint });
 
   // ── Sleep / dismiss ──
-  if (/\b(sleep|stop listening|go to sleep|bye|goodbye|see you|dismiss|close|quiet)\b/.test(t)) {
+  if (/\b(sleep|stop listening|go to sleep|bye|goodbye|see you|dismiss|close|quiet|that's all|that is all|stop)\b/.test(t)) {
     setTimeout(goIdle, 800);
-    return resp(`Goodnight! I'll keep watching the pitch while you rest. Say "Hey Pitch" when you need me!`);
+    return resp(`Alright! I'll keep an eye on the pitch while you rest. Just say "Hey Ball" when you need me!`);
   }
 
   // ── Greetings ──
-  if (/^(hi|hello|hey|good morning|good afternoon|good evening|good night|howdy)(\s|$)/.test(t)) {
+  if (/^(hi|hello|hey|good morning|good afternoon|good evening|good night|howdy|namaste)(\s|$)/.test(t)) {
     const h = new Date().getHours();
     const gr = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-    return resp(`${gr}! I'm Pitch, your AI cricket companion. How can I help you today?`, 'excited');
+    return resp(`${gr}! I'm Ball, your AI cricket companion. How can I help you today?`, 'excited');
   }
   if (/how are you|are you okay|you good/.test(t)) {
     return resp(`I'm doing great! All sensors are green and the pitch is in ${ctx.condition} condition. What can I do for you?`, 'excited');
   }
   if (/who are you|what are you|introduce|your name|tell me about yourself/.test(t)) {
-    return resp(`I'm Pitch — your AI cricket pitch assistant! I monitor temperature, humidity, and soil moisture in real-time, and I can control the pump and fan, export reports, and navigate the dashboard. What would you like?`);
+    return resp(`I'm Ball — your AI cricket pitch assistant! I monitor temperature, humidity, and soil moisture in real-time, and I can control the pump and fan, export reports, and navigate the dashboard. What would you like?`);
   }
   if (/what can you do|how can you help|capabilities|help me|help/.test(t)) {
     return resp(`I can check sensor readings, control the water pump and drying fan, switch between automatic and manual mode, export PDF reports and Excel spreadsheets, open sensor analytics, and navigate the dashboard. What do you need?`);
   }
-  if (/thank|good job|awesome|nice|great|well done|perfect/.test(t)) {
+  if (/thank|good job|awesome|nice|great|well done|perfect|shabash/.test(t)) {
     return resp(`You're very welcome! Always here to keep your cricket pitch in perfect shape.`, 'success');
   }
-  if (/are you there|wake up|you there/.test(t)) {
+  if (/are you there|wake up|you there|hello ball/.test(t)) {
     return resp(`I'm right here! Ready and listening. What can I do for you?`, 'excited');
   }
 
@@ -681,30 +672,22 @@ function processCommand(
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return resp(`Taking you to the top of the dashboard.`);
   }
-  if (/go to graph|show graph|view graph|show temperature|show humidity|show moisture|show soil|update graph|show readings|show current/.test(t)) {
+  if (/show graph|view graph|show temperature|show humidity|show moisture|show soil|show readings|show current|go to graph|go to chart/.test(t)) {
     setGesture('up');
     document.querySelector('[data-section="charts"]')?.scrollIntoView({ behavior: 'smooth' });
     return resp(`Navigating to the sensor graphs.`);
   }
-  if (/go to quick action|quick action/.test(t)) {
+  if (/quick action/.test(t)) {
     document.querySelector('[data-section="quickactions"]')?.scrollIntoView({ behavior: 'smooth' });
     return resp(`Navigating to Quick Actions.`);
   }
-  if (/go to history|open history|show history|reading history/.test(t)) {
+  if (/show history|show recent|reading history|recent readings|latest readings/.test(t)) {
     document.querySelector('[data-section="history"]')?.scrollIntoView({ behavior: 'smooth' });
     return resp(`Opening the reading history. Latest: ${ctx.currentTemp}°C, ${ctx.currentHum}% humidity, ${ctx.currentSoil}% soil moisture.`);
   }
-  if (/close popup|close modal|close analytics|close panel|close analysis|close settings|close history/.test(t)) {
+  if (/close popup|close modal|close analytics|close panel|close analysis|close history/.test(t)) {
     ctx.onOpenAnalysis();
     return resp(`Closed.`);
-  }
-  if (/zoom in/.test(t)) {
-    document.body.style.zoom = `${Math.min(2, parseFloat(document.body.style.zoom || '1') + 0.1)}`;
-    return resp(`Zoomed in.`);
-  }
-  if (/zoom out/.test(t)) {
-    document.body.style.zoom = `${Math.max(0.5, parseFloat(document.body.style.zoom || '1') - 0.1)}`;
-    return resp(`Zoomed out.`);
   }
   if (/dark mode/.test(t)) {
     document.documentElement.classList.add('dark');
@@ -714,22 +697,14 @@ function processCommand(
     document.documentElement.classList.remove('dark');
     return resp(`Light mode activated.`);
   }
-  if (/next page/.test(t)) {
-    window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
-    return resp(`Going to the next section.`);
-  }
-  if (/previous page|prev page/.test(t)) {
-    window.scrollBy({ top: -window.innerHeight, behavior: 'smooth' });
-    return resp(`Going to the previous section.`);
-  }
 
   // ── Mode ──
-  if ((/auto(matic)?(\s+mode)?|switch.*auto|enable.*auto|set.*auto/.test(t)) && !/manual/.test(t)) {
+  if ((/auto(matic)?(\s+mode)?|switch.*auto|enable.*auto|set.*auto|automatic please/.test(t)) && !/manual/.test(t)) {
     setGesture('left');
     ctx.onModeChange('auto');
     return resp(`Automatic mode activated! The ESP32 will now manage the pump and fan based on live soil moisture. You can relax — I've got it covered.`, 'success');
   }
-  if (/manual(\s+mode)?|switch.*manual|enable.*manual|set.*manual|switch to manual|disable automatic/.test(t)) {
+  if (/manual(\s+mode)?|switch.*manual|enable.*manual|set.*manual|switch to manual|disable automatic|manual please/.test(t)) {
     setGesture('left');
     ctx.onModeChange('manual');
     return resp(`Switched to manual mode. You're now in full control of the water pump and drying fan.`, 'success');
@@ -746,37 +721,45 @@ function processCommand(
     return resp(`Emergency stop executed! Both the water pump and drying fan have been turned off immediately.`, 'error');
   }
 
-  // ── Pump ──
-  if (/turn on pump|pump on|start (pump|water|irrig)|water the pitch|enable pump|enable irrig|pump start|switch pump on/.test(t)) {
+  // ── Pump — broad Indian English intent patterns ──
+  const pumpOn  = /pump\s*(on|start)|turn\s*(on|up)\s*(the\s*)?pump|(start|switch\s*on|enable|activate|please\s*start|can\s*you\s*start|please\s*turn\s*on|switch\s*the\s*pump\s*on|water\s*the\s*pitch|start\s*water|start\s*irrig|irrig\s*on|enable\s*irrig)(\s*(the\s*)?(pump|water|irrig))?/.test(t)
+    && !/off|stop|turn\s*off/.test(t);
+  const pumpOff = /pump\s*(off|stop)|turn\s*(off|down)\s*(the\s*)?pump|(stop|switch\s*off|disable|deactivate|please\s*stop|can\s*you\s*stop|turn\s*off\s*(the\s*)?(pump|water|irrig)|stop\s*water|stop\s*irrig)(\s*(the\s*)?(pump|water|irrig))?/.test(t);
+
+  if (pumpOn) {
     setGesture('right');
-    if (ctx.mode === 'auto') return resp(`The system is in automatic mode. Please switch to manual mode first to control the pump.`);
+    if (ctx.mode === 'auto') return resp(`The system is in automatic mode. Please switch to manual mode first to control the pump manually.`);
     ctx.onPumpToggle(true);
     return resp(`Water pump switched ON! Irrigation has started. The pitch is now being watered.`, 'success');
   }
-  if (/turn off pump|pump off|stop (pump|water|irrig)|disable pump|stop watering|pump stop|switch pump off/.test(t)) {
+  if (pumpOff) {
     setGesture('right');
     if (ctx.mode === 'auto') return resp(`I'm in automatic mode. Please switch to manual mode to control the pump.`);
     ctx.onPumpToggle(false);
     return resp(`Water pump switched OFF. Irrigation stopped successfully.`, 'success');
   }
-  if (/pump status|is the pump/.test(t)) {
+  if (/pump status|is the pump|pump\s*(on|off)\?/.test(t)) {
     return resp(`The water pump is currently ${ctx.pumpOn ? 'ON and actively irrigating the pitch' : 'OFF'}.`);
   }
 
-  // ── Fan ──
-  if (/turn on fan|fan on|start fan|start dry|enable fan|dry the pitch|switch fan on|fan start/.test(t)) {
+  // ── Fan — broad Indian English intent patterns ──
+  const fanOn  = /fan\s*(on|start)|turn\s*(on|up)\s*(the\s*)?fan|(start|switch\s*on|enable|activate|please\s*start|can\s*you\s*start|please\s*turn\s*on|switch\s*the\s*fan\s*on|dry\s*the\s*pitch|start\s*dry)(\s*(the\s*)?(fan|drying|dryer))?|fan\s*please/.test(t)
+    && !/off|stop|turn\s*off/.test(t);
+  const fanOff = /fan\s*(off|stop)|turn\s*(off|down)\s*(the\s*)?fan|(stop|switch\s*off|disable|deactivate|please\s*stop|can\s*you\s*stop|turn\s*off\s*(the\s*)?fan|stop\s*dry)(\s*(the\s*)?(fan|drying))?/.test(t);
+
+  if (fanOn) {
     setGesture('right');
     if (ctx.mode === 'auto') return resp(`I'm in automatic mode. Please switch to manual mode to control the fan manually.`);
     ctx.onFanToggle(true);
     return resp(`Sure! Switching the drying fan ON now. The pitch will begin drying.`, 'success');
   }
-  if (/turn off fan|fan off|stop fan|stop dry|disable fan|switch fan off|fan stop/.test(t)) {
+  if (fanOff) {
     setGesture('right');
     if (ctx.mode === 'auto') return resp(`I'm in automatic mode. Switch to manual mode to stop the fan manually.`);
     ctx.onFanToggle(false);
     return resp(`Drying fan switched OFF. The pitch will retain its current moisture level.`, 'success');
   }
-  if (/fan status|is the fan/.test(t)) {
+  if (/fan status|is the fan|fan\s*(on|off)\?/.test(t)) {
     return resp(`The drying fan is currently ${ctx.fanOn ? 'ON and actively drying the pitch' : 'OFF'}.`);
   }
 
@@ -792,29 +775,29 @@ function processCommand(
   if (/average (soil|moist)/.test(t)) return resp(`The average soil moisture is ${ctx.sStats.avg}%.`);
 
   // ── Live sensor reads ──
-  if (/current temperature|temperature|what.*temp/.test(t)) {
+  if (/\b(temp|temperature)\b/.test(t)) {
     setGesture('up');
     const s = ctx.currentTemp > 34 ? 'slightly high — monitor carefully' : ctx.currentTemp < 29 ? 'on the cooler side' : 'within the normal range';
     return resp(`The current temperature is ${ctx.currentTemp}°C, which is ${s} for a cricket pitch.`);
   }
-  if (/current humidity|humidity|what.*humid/.test(t)) {
+  if (/\b(humid|humidity)\b/.test(t)) {
     setGesture('up');
     const s = ctx.currentHum > 75 ? 'high — consider activating the drying fan' : ctx.currentHum < 60 ? 'low — the pitch may be drying out' : 'within the optimal range';
     return resp(`The current humidity is ${ctx.currentHum}%, which is ${s}.`);
   }
-  if (/current soil|soil|moisture|what.*soil/.test(t)) {
+  if (/\b(soil|moisture|moist)\b/.test(t)) {
     setGesture('up');
     return resp(`The current soil moisture is ${ctx.currentSoil}%. The pitch condition is ${ctx.condition}.`);
   }
   if (/esp32|wifi|wi-fi|database|connection|system status/.test(t)) {
     return resp(`All systems operational. ESP32 microcontroller is online, Wi-Fi is connected, and the database is syncing perfectly.`);
   }
-  if (/last update|last reading|latest reading/.test(t)) {
+  if (/last update|last reading|latest reading|recent reading/.test(t)) {
     return resp(`The latest reading — temperature ${ctx.currentTemp}°C, humidity ${ctx.currentHum}%, and soil moisture ${ctx.currentSoil}%.`);
   }
 
   // ── Pitch condition ──
-  if (/how is the pitch|pitch condition|pitch health|current condition|today.*report/.test(t)) {
+  if (/how is the pitch|pitch condition|pitch health|current condition|today.*report|pitch status|status/.test(t)) {
     const advice =
       ctx.condition === 'Balanced' ? 'The pitch is in excellent condition — ready for play!' :
       ctx.condition === 'Dry' ? 'The pitch is dry. I recommend activating the water pump.' :
@@ -838,7 +821,7 @@ function processCommand(
   }
 
   // ── Analytics ──
-  if (/analys|open analys|visual analys|show graph|view data|show chart/.test(t)) {
+  if (/analys|sensor analys|open analys|show chart|view data|view chart|show graph|open graph/.test(t)) {
     setGesture('down');
     ctx.onOpenAnalysis();
     return resp(`Opening the sensor analytics panel with live charts and statistics.`);
@@ -850,9 +833,12 @@ function processCommand(
     return resp(`Dashboard refreshed! Sensor data will update with the next ESP32 reading cycle.`, 'success');
   }
 
+  // ── Repeat ──
+  // (handled before processCommand is called in handleCommand)
+
   // ── Unknown ──
   return resp(
-    `I didn't quite catch that. You can ask me things like "What's the temperature?", "Turn on the fan", "Export PDF", or "Switch to auto mode". What would you like?`,
+    `Oops! That delivery missed the stumps. Could you repeat your command?`,
     'error'
   );
 }
@@ -866,63 +852,85 @@ export default function VoiceAssistant({
 }: VoiceAssistantProps) {
 
   // ── Core state ──
-  const [state, setState]             = useState<AssistantState>('idle');
-  const [idleAnim, setIdleAnim]       = useState<IdleAnim>('bounce');
-  const [thinkAnim, setThinkAnim]     = useState<ThinkAnim>('eyebrow');
-  const [mouthOpen, setMouthOpen]     = useState(0);
-  const [eyeX, setEyeX]               = useState(0);
-  const [eyeY, setEyeY]               = useState(0);
-  const [blinkNow, setBlinkNow]       = useState(false);
-  const [statusText, setStatusText]   = useState('');
-  const [commandText, setCommandText] = useState('');
+  const [state, setState]               = useState<AssistantState>('idle');
+  const [idleAnim, setIdleAnim]         = useState<IdleAnim>('bounce');
+  const [thinkAnim, setThinkAnim]       = useState<ThinkAnim>('eyebrow');
+  const [mouthOpen, setMouthOpen]       = useState(0);
+  const [eyeX, setEyeX]                 = useState(0);
+  const [eyeY, setEyeY]                 = useState(0);
+  const [blinkNow, setBlinkNow]         = useState(false);
+  const [statusText, setStatusText]     = useState('');
+  const [commandText, setCommandText]   = useState('');
   const [responseText, setResponseText] = useState('');
-  const [isSupported, setIsSupported] = useState(true);
-  const [gesture, setGestureState]    = useState<GestureDir>('none');
-  const [permDenied, setPermDenied]   = useState(false);
+  const [interimText, setInterimText]   = useState('');
+  const [isSupported, setIsSupported]   = useState(true);
+  const [permDenied, setPermDenied]     = useState(false);
+  const [gesture, setGestureState]      = useState<GestureDir>('none');
+  const [showHints, setShowHints]       = useState(false);
 
-  // ── Refs (stable across renders — key for single-instance SpeechRecognition) ──
-  const stateRef            = useRef<AssistantState>('idle');
-  const ctxRef              = useRef({ readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel });
-  const recRef              = useRef<any>(null);
-  const shouldListenRef     = useRef(true);
-  const wakeDebounceRef     = useRef(false);       // prevents double-fire on interim+final
-  const lastFinalRef        = useRef('');           // persists between renders, unlike local let
-  const lastResponseRef     = useRef('');           // for "repeat" command
-  const commandTimeoutRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mouthIntervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const eyeIntervalRef      = useRef<ReturnType<typeof setInterval> | null>(null);
-  const idleIntervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const blinkTimeoutRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const thinkIntervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const gestureTimeoutRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const restartDelayRef     = useRef(200);
+  // ── Refs (stable, safe in SpeechRecognition callbacks) ──
+  const stateRef          = useRef<AssistantState>('idle');
+  const ctxRef            = useRef({ readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel });
+  const recRef            = useRef<any>(null);
+  const recModeRef        = useRef<'wakeword' | 'command'>('wakeword');
+  const isSpeakingRef     = useRef(false);       // true while TTS is playing → mic paused
+  const shouldListenRef   = useRef(true);        // false on unmount
+  const firstLaunchRef    = useRef(true);        // true → play intro on first activation
+  const failCountRef      = useRef(0);           // consecutive unrecognized commands
+  const lastFinalRef      = useRef('');
+  const lastResponseRef   = useRef('');
+  const wakeDebounceRef   = useRef(false);
+  const commandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mouthIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const eyeIntervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const idleIntervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const blinkTimeoutRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thinkIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const gestureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restartDelayRef   = useRef(150);
 
-  // Keep stateRef and ctxRef in sync
+  // Keep refs in sync
   useEffect(() => { stateRef.current = state; }, [state]);
   useEffect(() => {
     ctxRef.current = { readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel };
   });
 
-  // ── Gesture helper (auto-clears after 2s) ───────────────────────────────────
+  // ── Gesture helper ───────────────────────────────────────────────────────────
   const setGesture = useCallback((dir: GestureDir) => {
     setGestureState(dir);
     if (gestureTimeoutRef.current) clearTimeout(gestureTimeoutRef.current);
     gestureTimeoutRef.current = setTimeout(() => setGestureState('none'), 2000);
   }, []);
 
-  // ── TTS ──────────────────────────────────────────────────────────────────────
+  // ── Reset 7-second command timeout ───────────────────────────────────────────
+  const resetCommandTimeout = useCallback(() => {
+    if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
+    commandTimeoutRef.current = setTimeout(() => {
+      if (stateRef.current === 'listening') {
+        goIdle(); // eslint-disable-line @typescript-eslint/no-use-before-define
+      }
+    }, 7000);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── TTS — pauses mic while speaking ─────────────────────────────────────────
   const speak = useCallback((text: string, onDone?: () => void) => {
     window.speechSynthesis.cancel();
+    isSpeakingRef.current = true;
+
+    // Stop recognition so assistant never hears its own voice
+    try { recRef.current?.stop(); } catch (_) {}
+
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 0.93;
-    utter.pitch = 1.08;
+    utter.rate   = 0.92;
+    utter.pitch  = 1.08;
     utter.volume = 1;
 
-    // Defer voice selection to ensure voices are loaded
     const assignVoice = () => {
       const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find(v => /samantha|karen|moira|google uk/i.test(v.name))
-        || voices.find(v => v.lang.startsWith('en'));
+      const preferred =
+        voices.find(v => /samantha|karen|moira|google uk/i.test(v.name)) ||
+        voices.find(v => v.lang === 'en-IN') ||
+        voices.find(v => v.lang.startsWith('en'));
       if (preferred) utter.voice = preferred;
     };
     assignVoice();
@@ -930,19 +938,26 @@ export default function VoiceAssistant({
       window.speechSynthesis.onvoiceschanged = assignVoice;
     }
 
+    // Mouth animation
     if (mouthIntervalRef.current) clearInterval(mouthIntervalRef.current);
-    mouthIntervalRef.current = setInterval(() => setMouthOpen(Math.random()), 110);
+    mouthIntervalRef.current = setInterval(() => setMouthOpen(Math.random()), 100);
 
-    utter.onend = () => {
+    const cleanup = () => {
       if (mouthIntervalRef.current) clearInterval(mouthIntervalRef.current);
       setMouthOpen(0);
+      isSpeakingRef.current = false;
+      // Restart recognition after short settle delay
+      if (shouldListenRef.current) {
+        setTimeout(() => {
+          try { recRef.current?.start(); } catch (_) {}
+        }, 200);
+      }
       onDone?.();
     };
-    utter.onerror = () => {
-      if (mouthIntervalRef.current) clearInterval(mouthIntervalRef.current);
-      setMouthOpen(0);
-      onDone?.();
-    };
+
+    utter.onend   = cleanup;
+    utter.onerror = cleanup;
+
     window.speechSynthesis.speak(utter);
   }, []);
 
@@ -950,50 +965,49 @@ export default function VoiceAssistant({
   const goIdle = useCallback(() => {
     window.speechSynthesis.cancel();
     if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
+    recModeRef.current = 'wakeword';
+    lastFinalRef.current = '';
     setState('idle');
     setStatusText('');
     setCommandText('');
     setResponseText('');
-    lastFinalRef.current = '';
+    setInterimText('');
+    setShowHints(false);
+    failCountRef.current = 0;
   }, []);
 
-  // ── Wake word check ───────────────────────────────────────────────────────────
-  const checkForWakeWord = (transcript: string): boolean => {
-    const t = transcript.toLowerCase();
-    return WAKE_WORDS.some(w => t.includes(w));
-  };
+  // ── Enter listening mode ──────────────────────────────────────────────────────
+  const enterListening = useCallback((skipIntro = false) => {
+    recModeRef.current = 'command';
+    lastFinalRef.current = '';
+    setState('listening');
+    setCommandText('');
+    setResponseText('');
+    setInterimText('');
+    setStatusText('Listening…');
 
-  const stripWakeWord = (transcript: string): string => {
-    let t = transcript.toLowerCase();
-    for (const w of WAKE_WORDS) t = t.replace(w, '').trim();
-    // Also strip "pitch" alone at start if followed by a command
-    t = t.replace(/^pitch[,\s]+/, '').trim();
-    return t;
-  };
+    if (firstLaunchRef.current && !skipIntro) {
+      firstLaunchRef.current = false;
+      setState('speaking');
+      setStatusText('Speaking');
+      setResponseText(INTRO_TEXT);
+      speak(INTRO_TEXT, () => {
+        setState('listening');
+        setStatusText('Listening…');
+        setResponseText('');
+        resetCommandTimeout();
+      });
+    } else {
+      resetCommandTimeout();
+    }
+  }, [speak, resetCommandTimeout]);
 
-  // ── Wake assistant ────────────────────────────────────────────────────────────
+  // ── Wake assistant (from ball tap or wake word) ───────────────────────────────
   const wakeAssistantRef = useRef<() => void>(() => {});
   const wakeAssistant = useCallback(() => {
     if (stateRef.current !== 'idle' && stateRef.current !== 'sleeping') return;
-    lastFinalRef.current = '';
-    setState('woken');
-    setStatusText('Waking up…');
-    setCommandText('');
-    setResponseText('');
-
-    speak(`Yes? I'm listening!`, () => {
-      if (stateRef.current !== 'woken') return;
-      setState('listening');
-      setStatusText('Listening…');
-      if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
-      commandTimeoutRef.current = setTimeout(() => {
-        if (stateRef.current === 'listening') {
-          goIdle();
-        }
-      }, 8000);
-    });
-  }, [speak, goIdle]);
-
+    enterListening();
+  }, [enterListening]);
   useEffect(() => { wakeAssistantRef.current = wakeAssistant; }, [wakeAssistant]);
 
   // ── Handle command ────────────────────────────────────────────────────────────
@@ -1002,13 +1016,14 @@ export default function VoiceAssistant({
     if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
     setState('thinking');
     setCommandText(`"${transcript}"`);
+    setInterimText('');
     setStatusText('Thinking…');
 
     const ctx = ctxRef.current;
-    const currentTemp = ctx.tempHistory.at(-1)?.value ?? 31.2;
-    const currentHum  = ctx.humHistory.at(-1)?.value  ?? 68;
-    const currentSoil = ctx.soilHistory.at(-1)?.value ?? 42;
-    const condition   = currentSoil < 35 ? 'Dry' : currentSoil > 65 ? 'Wet' : 'Balanced';
+    const currentTemp  = ctx.tempHistory.at(-1)?.value ?? 31.2;
+    const currentHum   = ctx.humHistory.at(-1)?.value  ?? 68;
+    const currentSoil  = ctx.soilHistory.at(-1)?.value ?? 42;
+    const condition    = currentSoil < 35 ? 'Dry' : currentSoil > 65 ? 'Wet' : 'Balanced';
 
     const calcStat = (h: { value: number }[]) => {
       if (!h.length) return { max: '0', min: '0', avg: '0' };
@@ -1016,17 +1031,18 @@ export default function VoiceAssistant({
       return { max: Math.max(...v).toFixed(1), min: Math.min(...v).toFixed(1), avg: (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) };
     };
 
-    // ── Repeat command ──
     const t = transcript.toLowerCase().trim();
+
+    // Repeat
     if (/\b(repeat|say that again|again|what did you say)\b/.test(t)) {
-      const rpt = lastResponseRef.current || `I haven't said anything yet! Ask me something and I'll be happy to repeat it.`;
+      const rpt = lastResponseRef.current || `I haven't said anything yet! Ask me something first.`;
       setTimeout(() => {
-        setState('speaking'); setStatusText('Speaking…'); setResponseText(rpt);
+        setState('speaking'); setStatusText('Speaking'); setResponseText(rpt);
         speak(rpt, () => {
-          setState('listening'); setStatusText('Listening for another command…');
-          commandTimeoutRef.current = setTimeout(() => { if (stateRef.current === 'listening') goIdle(); }, 7000);
+          setState('listening'); setStatusText('Listening…');
+          resetCommandTimeout();
         });
-      }, 400);
+      }, 300);
       return;
     }
 
@@ -1066,89 +1082,144 @@ export default function VoiceAssistant({
 
     lastResponseRef.current = response;
 
+    // Track failures — after 3, show hints but stay listening
+    if (stateHint === 'error') {
+      failCountRef.current += 1;
+      if (failCountRef.current >= 3) {
+        setShowHints(true);
+        failCountRef.current = 0;
+      }
+    } else {
+      failCountRef.current = 0;
+      setShowHints(false);
+    }
+
     setTimeout(() => {
       setState(stateHint && stateHint !== 'idle' ? stateHint : 'speaking');
-      setStatusText('Speaking…');
+      setStatusText('Speaking');
       setResponseText(response);
       speak(response, () => {
-        // Brief excited/success/error flash → back to listening
         setTimeout(() => {
           if (stateRef.current !== 'idle' && stateRef.current !== 'sleeping') {
             setState('listening');
-            setStatusText('Listening for another command…');
-            commandTimeoutRef.current = setTimeout(() => {
-              if (stateRef.current === 'listening') goIdle();
-            }, 7000);
+            setStatusText('Listening…');
+            resetCommandTimeout();
           }
-        }, stateHint === 'success' || stateHint === 'excited' || stateHint === 'error' ? 800 : 0);
+        }, stateHint === 'success' || stateHint === 'excited' || stateHint === 'error' ? 600 : 0);
       });
-    }, 500);
-  }, [speak, goIdle, setGesture]);
+    }, 380);
+  }, [speak, goIdle, setGesture, resetCommandTimeout]);
 
   useEffect(() => { handleCommandRef.current = handleCommand; }, [handleCommand]);
 
-  // ── Speech Recognition — created ONCE, refs used in callbacks ────────────────
+  // ── Speech Recognition — created ONCE ────────────────────────────────────────
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setIsSupported(false); return; }
 
     const rec = new SR();
-    rec.lang = 'en-US';
+    // Use en-IN for best Indian English recognition; falls back gracefully
+    rec.lang = COMMAND_LANG;
     rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 3;
     recRef.current = rec;
 
     rec.onresult = (e: any) => {
-      let interimText = '';
-      let finalText   = '';
+      // Never process results while TTS is playing — prevents self-recognition
+      if (isSpeakingRef.current) return;
+
+      let interimTxt = '';
+      let finalTxt   = '';
 
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        // Use the best alternative
-        const transcript = e.results[i][0].transcript;
-        if (e.results[i].isFinal) {
-          finalText += transcript;
-        } else {
-          interimText += transcript;
+        // Pick the best alternative
+        let best = e.results[i][0].transcript;
+        for (let a = 1; a < e.results[i].length; a++) {
+          if (e.results[i][a].confidence > e.results[i][0].confidence) {
+            best = e.results[i][a].transcript;
+          }
         }
+        if (e.results[i].isFinal) finalTxt += best;
+        else interimTxt += best;
       }
 
       const currentState = stateRef.current;
+      const mode = recModeRef.current;
 
-      // ── Wake word detection — check BOTH interim and final separately ──
-      if (currentState === 'idle' || currentState === 'sleeping') {
-        const allText = (interimText + ' ' + finalText).trim();
-        if (allText && !wakeDebounceRef.current && checkForWakeWord(allText)) {
-          wakeDebounceRef.current = true;
-          setTimeout(() => { wakeDebounceRef.current = false; }, 2500);
-          wakeAssistantRef.current();
-          return;
+      // ── WAKE WORD phase ──
+      if (mode === 'wakeword' && (currentState === 'idle' || currentState === 'sleeping')) {
+        const allText = (interimTxt + ' ' + finalTxt).toLowerCase().trim();
+        if (allText && !wakeDebounceRef.current) {
+          const found = WAKE_WORDS.some(w => allText.includes(w));
+          if (found) {
+            wakeDebounceRef.current = true;
+            setTimeout(() => { wakeDebounceRef.current = false; }, 2500);
+            // Check if there's a command after the wake word
+            const stripped = WAKE_WORDS.reduce((s, w) => s.replace(w, ''), allText).trim();
+            if (stripped.length > 2) {
+              // Wake word + inline command — activate and process immediately
+              recModeRef.current = 'command';
+              lastFinalRef.current = '';
+              setState('listening');
+              if (firstLaunchRef.current) {
+                firstLaunchRef.current = false;
+                speak(INTRO_TEXT, () => handleCommandRef.current(stripped));
+              } else {
+                handleCommandRef.current(stripped);
+              }
+            } else {
+              // Wake word only — just say "Go ahead"
+              recModeRef.current = 'command';
+              lastFinalRef.current = '';
+              setState('listening');
+              if (firstLaunchRef.current) {
+                firstLaunchRef.current = false;
+                speak(INTRO_TEXT, () => resetCommandTimeout());
+              } else {
+                speak(`Go ahead, I'm listening.`, () => {
+                  setState('listening');
+                  setStatusText('Listening…');
+                  resetCommandTimeout();
+                });
+              }
+            }
+          }
         }
+        return;
       }
 
-      // ── Command detection — only on final results when listening ──
-      if (currentState === 'listening' && finalText) {
-        const deduped = finalText.trim();
-        if (deduped && deduped !== lastFinalRef.current) {
-          lastFinalRef.current = deduped;
-          const cmd = stripWakeWord(deduped) || deduped;
-          if (cmd.length > 1) {
-            handleCommandRef.current(cmd);
+      // ── COMMAND phase ──
+      if (mode === 'command' && currentState === 'listening') {
+        // Reset 7s timer on any speech activity (even interim)
+        if (interimTxt || finalTxt) resetCommandTimeout();
+
+        // Show interim text live
+        if (interimTxt) setInterimText(interimTxt);
+
+        if (finalTxt) {
+          const deduped = finalTxt.trim();
+          if (deduped && deduped !== lastFinalRef.current) {
+            lastFinalRef.current = deduped;
+            setInterimText('');
+            const cmd = WAKE_WORDS.reduce((s, w) => s.replace(w, ''), deduped.toLowerCase()).trim();
+            if (cmd.length > 1) {
+              handleCommandRef.current(cmd || deduped);
+            }
           }
         }
       }
     };
 
     rec.onend = () => {
-      if (shouldListenRef.current) {
-        // Exponential back-off capped at 2s to survive aggressive browser throttling
-        const delay = restartDelayRef.current;
-        restartDelayRef.current = Math.min(delay * 1.5, 2000);
-        setTimeout(() => {
-          restartDelayRef.current = 200; // reset on success
-          try { rec.start(); } catch (_) {}
-        }, delay);
-      }
+      // Don't restart if we're speaking (we'll restart after TTS) or unmounting
+      if (!shouldListenRef.current || isSpeakingRef.current) return;
+      const delay = restartDelayRef.current;
+      restartDelayRef.current = Math.min(delay * 1.5, 2000);
+      setTimeout(() => {
+        restartDelayRef.current = 150;
+        try { rec.start(); } catch (_) {}
+      }, delay);
     };
 
     rec.onerror = (e: any) => {
@@ -1157,7 +1228,7 @@ export default function VoiceAssistant({
         setPermDenied(true);
         return;
       }
-      // For all other errors (aborted, network, no-speech) let onend handle restart
+      // All other errors: let onend handle restart
     };
 
     try { rec.start(); } catch (_) {}
@@ -1166,7 +1237,29 @@ export default function VoiceAssistant({
       shouldListenRef.current = false;
       try { rec.stop(); } catch (_) {}
     };
-  }, []); // ← empty deps: recognition created ONCE, callbacks accessed via refs
+  }, []); // Created once — all callbacks use refs
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  //  PORCUPINE INTEGRATION  (uncomment when credentials are configured)
+  // ──────────────────────────────────────────────────────────────────────────────
+  //  useEffect(() => {
+  //    if (!isPorcupineConfigured()) return; // falls back to Web Speech wake-word above
+  //
+  //    import('@picovoice/porcupine-web').then(({ PorcupineWorker }) => {
+  //      PorcupineWorker.create(
+  //        PICOVOICE_ACCESS_KEY,          // from wakeWordEngine.ts
+  //        [{ publicPath: PICOVOICE_WAKE_MODEL_PATH, label: 'hey_ball', sensitivity: 0.7 }],
+  //        (detection) => {
+  //          if (detection.label === 'hey_ball') wakeAssistantRef.current();
+  //        },
+  //        { publicPath: '/porcupine_params.pv' }, // download from Picovoice console
+  //      ).then(engine => {
+  //        engine.start();
+  //        return () => engine.stop();
+  //      });
+  //    });
+  //  }, []);
+  // ──────────────────────────────────────────────────────────────────────────────
 
   // ── Idle animation cycle ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -1216,51 +1309,66 @@ export default function VoiceAssistant({
   // ── Cleanup ───────────────────────────────────────────────────────────────────
   useEffect(() => () => {
     window.speechSynthesis.cancel();
-    [mouthIntervalRef, eyeIntervalRef, idleIntervalRef, thinkIntervalRef].forEach(r => { if (r.current) clearInterval(r.current); });
-    [commandTimeoutRef, blinkTimeoutRef, gestureTimeoutRef].forEach(r => { if (r.current) clearTimeout(r.current); });
+    [mouthIntervalRef, eyeIntervalRef, idleIntervalRef, thinkIntervalRef]
+      .forEach(r => { if (r.current) clearInterval(r.current); });
+    [commandTimeoutRef, blinkTimeoutRef, gestureTimeoutRef]
+      .forEach(r => { if (r.current) clearTimeout(r.current); });
   }, []);
 
-  // ── Derived ───────────────────────────────────────────────────────────────────
+  // ── Unsupported fallback ──────────────────────────────────────────────────────
   if (!isSupported) {
     return (
-      <div className="fixed bottom-6 right-6 z-[60] bg-white/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[220px]">
+      <div className="fixed bottom-6 right-6 z-[60] bg-white/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[230px]">
         <p className="font-bold mb-1">🎤 Microphone {permDenied ? 'blocked' : 'unavailable'}</p>
-        <p>{permDenied ? 'Allow microphone access in your browser settings to use Pitch.' : 'Your browser does not support speech recognition.'}</p>
+        <p>{permDenied ? 'Allow microphone access in your browser settings to use Ball.' : 'Your browser does not support speech recognition.'}</p>
       </div>
     );
   }
 
-  const isActive  = state !== 'idle' && state !== 'sleeping';
+  const isActive   = state !== 'idle' && state !== 'sleeping';
   const isSleeping = state === 'sleeping';
 
-  // Idle animation motion values
-  const idleY =
-    isActive ? 0 :
-    ['bounce', 'float', 'breathe'].includes(idleAnim) ? [0, -8, 0] :
-    idleAnim === 'wave' ? [0, -4, 0] : [0, -4, 0];
+  const idleY      = isActive ? 0 : ['bounce', 'float', 'breathe'].includes(idleAnim) ? [0, -8, 0] : [0, -4, 0];
+  const idleRotate = isActive ? 0 : idleAnim === 'tilt' ? [-6, 6, -6] : 0;
+  const idleScale  = isActive ? 1 : idleAnim === 'breathe' ? [1, 1.04, 1] : 1;
 
-  const idleRotate =
-    isActive ? 0 :
-    idleAnim === 'tilt' ? [-6, 6, -6] : 0;
+  const statusColor =
+    state === 'listening'                        ? 'text-green-400'   :
+    state === 'thinking'                         ? 'text-amber-400'   :
+    state === 'speaking' || state === 'woken'    ? 'text-blue-400'    :
+    state === 'excited' || state === 'success'   ? 'text-emerald-400' :
+    state === 'error'                            ? 'text-red-400'     : 'text-slate-400';
 
-  const idleScale =
-    isActive ? 1 :
-    idleAnim === 'breathe' ? [1, 1.04, 1] : 1;
+  const dotColor =
+    state === 'listening'                        ? 'bg-green-400'   :
+    state === 'thinking'                         ? 'bg-amber-400'   :
+    state === 'speaking' || state === 'woken'    ? 'bg-blue-400'    :
+    state === 'excited' || state === 'success'   ? 'bg-emerald-400' :
+    state === 'error'                            ? 'bg-red-400'     : 'bg-slate-500';
+
+  const statusLabel =
+    state === 'listening'  ? 'Listening…'   :
+    state === 'thinking'   ? 'Thinking…'    :
+    state === 'speaking'   ? 'Speaking'     :
+    state === 'woken'      ? 'Listening…'   :
+    state === 'excited'    ? 'Excited!'     :
+    state === 'success'    ? 'Done!'        :
+    state === 'error'      ? 'Hmm…'        : '';
 
   return (
     <>
-      {/* ── Grass wave screen effect ── */}
+      {/* Grass ripple screen effect */}
       <GrassWaveEffect active={isActive} />
 
-      {/* ── Floating assistant container ── */}
+      {/* Floating assistant container */}
       <div
         className="fixed z-[60]"
         style={{
           bottom: 24,
-          right: isActive ? undefined : 24,
-          left: isActive ? '50%' : undefined,
+          right:  isActive ? undefined : 24,
+          left:   isActive ? '50%'     : undefined,
           transform: isActive ? 'translateX(-50%)' : undefined,
-          transition: 'left 0.5s cubic-bezier(0.34,1.56,0.64,1), right 0.5s ease, transform 0.5s ease',
+          transition: 'left 0.4s cubic-bezier(0.34,1.56,0.64,1), right 0.4s ease, transform 0.4s ease',
           pointerEvents: 'none',
           display: 'flex',
           flexDirection: 'column',
@@ -1268,60 +1376,45 @@ export default function VoiceAssistant({
           gap: 12,
         }}
       >
+
         {/* ── Assistant panel ── */}
         <AnimatePresence>
           {isActive && (
             <motion.div
               className="pointer-events-auto"
-              initial={{ opacity: 0, y: 24, scale: 0.88 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.92 }}
-              transition={{ type: 'spring', damping: 22, stiffness: 220 }}
-              style={{ width: 320 }}
+              initial={{ opacity: 0, y: 20, scale: 0.90 }}
+              animate={{ opacity: 1, y: 0,  scale: 1 }}
+              exit={{ opacity: 0,    y: 12, scale: 0.93 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 260 }}
+              style={{ width: 330 }}
             >
               <div
-                className="rounded-[22px] p-5 border border-white/25 shadow-2xl"
+                className="rounded-[24px] p-5 border border-white/20 shadow-2xl"
                 style={{
-                  background: 'rgba(15,23,42,0.85)',
-                  backdropFilter: 'blur(28px)',
-                  WebkitBackdropFilter: 'blur(28px)',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.12)',
+                  background: 'rgba(10,18,40,0.88)',
+                  backdropFilter: 'blur(32px)',
+                  WebkitBackdropFilter: 'blur(32px)',
+                  boxShadow: '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.10)',
                 }}
               >
-                {/* Status row */}
+                {/* Header row */}
                 <div className="flex items-center gap-2.5 mb-3">
+                  {/* Status dot */}
                   <motion.div
-                    className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                      state === 'listening'           ? 'bg-green-400' :
-                      state === 'thinking'            ? 'bg-amber-400' :
-                      state === 'speaking'            ? 'bg-blue-400'  :
-                      state === 'excited' || state === 'success' ? 'bg-emerald-400' :
-                      state === 'error'               ? 'bg-red-400'   : 'bg-slate-500'
-                    }`}
-                    animate={{ scale: state === 'listening' ? [1, 1.5, 1] : 1, opacity: [1, 0.6, 1] }}
-                    transition={{ duration: 0.8, repeat: state === 'listening' ? Infinity : 0 }}
+                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotColor}`}
+                    animate={state === 'listening' ? { scale: [1, 1.5, 1], opacity: [1, 0.5, 1] } : { scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.9, repeat: state === 'listening' ? Infinity : 0 }}
                   />
-                  <span className={`text-xs font-bold tracking-widest uppercase ${
-                    state === 'listening'           ? 'text-green-400' :
-                    state === 'thinking'            ? 'text-amber-400' :
-                    state === 'speaking'            ? 'text-blue-400'  :
-                    state === 'excited' || state === 'success' ? 'text-emerald-400' :
-                    state === 'error'               ? 'text-red-400'   : 'text-slate-400'
-                  }`}>
-                    {state === 'woken'    ? 'Waking Up…'   :
-                     state === 'listening'? 'Listening…'   :
-                     state === 'thinking' ? 'Thinking…'    :
-                     state === 'speaking' ? 'Speaking'     :
-                     state === 'excited'  ? 'Excited!'     :
-                     state === 'success'  ? 'Done!'        :
-                     state === 'error'    ? 'Hmm…'         : ''}
+                  <span className={`text-[11px] font-bold tracking-widest uppercase ${statusColor}`}>
+                    Ball AI &nbsp;·&nbsp; {statusLabel}
                   </span>
-                  {/* Mic pulse when listening */}
+
+                  {/* Mic icon while listening */}
                   {state === 'listening' && (
                     <motion.div
-                      className="ml-auto w-7 h-7 rounded-full bg-green-500/20 border border-green-400/40 flex items-center justify-center"
+                      className="ml-auto w-7 h-7 rounded-full bg-green-500/15 border border-green-400/30 flex items-center justify-center flex-shrink-0"
                       animate={{ boxShadow: ['0 0 0 0 rgba(34,197,94,0.4)', '0 0 0 8px rgba(34,197,94,0)', '0 0 0 0 rgba(34,197,94,0)'] }}
-                      transition={{ duration: 1.2, repeat: Infinity }}
+                      transition={{ duration: 1.3, repeat: Infinity }}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                         <rect x="9" y="2" width="6" height="13" rx="3" fill="#4ade80" />
@@ -1330,9 +1423,17 @@ export default function VoiceAssistant({
                       </svg>
                     </motion.div>
                   )}
+
+                  {/* Close button */}
+                  <button
+                    onClick={goIdle}
+                    className="ml-auto flex-shrink-0 w-6 h-6 rounded-lg bg-white/8 hover:bg-white/15 text-slate-400 hover:text-white transition-colors flex items-center justify-center text-xs"
+                  >
+                    ✕
+                  </button>
                 </div>
 
-                {/* Waveform when listening */}
+                {/* Voice waveform */}
                 {state === 'listening' && (
                   <div className="mb-3">
                     <VoiceWaveform active />
@@ -1351,17 +1452,27 @@ export default function VoiceAssistant({
                   </div>
                 )}
 
+                {/* Interim transcript (live feedback) */}
+                <AnimatePresence>
+                  {interimText && state === 'listening' && (
+                    <motion.p
+                      className="text-[11px] text-slate-400 italic mb-2 truncate"
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    >
+                      {interimText}…
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+
                 {/* Recognized command */}
                 <AnimatePresence>
                   {commandText && (
                     <motion.div
-                      className="mb-2 px-3 py-1.5 rounded-xl bg-white/8 border border-white/10"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-2.5 px-3 py-1.5 rounded-xl bg-white/6 border border-white/8"
+                      initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                     >
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">You said</p>
-                      <p className="text-sm text-green-300 font-semibold italic">{commandText}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">You said</p>
+                      <p className="text-sm text-green-300 font-semibold italic leading-snug">{commandText}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -1369,15 +1480,46 @@ export default function VoiceAssistant({
                 {/* Response text */}
                 <AnimatePresence>
                   {responseText && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <p className="text-sm text-white/90 leading-relaxed font-medium">{responseText}</p>
+                    <motion.p
+                      className="text-sm text-white/90 leading-relaxed font-medium"
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    >
+                      {responseText}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+
+                {/* Idle hint in listening mode */}
+                {state === 'listening' && !commandText && !interimText && (
+                  <p className="text-[11px] text-slate-500 mt-1">Say a command or ask a question…</p>
+                )}
+
+                {/* Three-failure hint panel */}
+                <AnimatePresence>
+                  {showHints && (
+                    <motion.div
+                      className="mt-3 pt-3 border-t border-white/8"
+                      initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                    >
+                      <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-2">Try saying:</p>
+                      <ul className="space-y-1">
+                        {COMMAND_HINTS.map((hint, i) => (
+                          <li key={i} className="text-[11px] text-slate-300 flex items-center gap-1.5">
+                            <span className="text-green-500 flex-shrink-0">•</span>
+                            {hint}
+                          </li>
+                        ))}
+                      </ul>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Hint */}
-                {state === 'listening' && !commandText && (
-                  <p className="text-[11px] text-slate-400 mt-1">Say a command or ask a question…</p>
+                {/* Porcupine badge */}
+                {isPorcupineConfigured() && (
+                  <div className="mt-3 flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span className="text-[9px] text-emerald-400/70 font-bold uppercase tracking-wider">Porcupine Wake Engine</span>
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -1396,8 +1538,8 @@ export default function VoiceAssistant({
             scale:  isActive ? 1 : idleScale,
           }}
           transition={{
-            width:  { type: 'spring', damping: 18, stiffness: 180 },
-            height: { type: 'spring', damping: 18, stiffness: 180 },
+            width:  { type: 'spring', damping: 18, stiffness: 200 },
+            height: { type: 'spring', damping: 18, stiffness: 200 },
             y:      { duration: idleAnim === 'bounce' ? 1.8 : 3, repeat: Infinity, ease: 'easeInOut' },
             rotate: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
             scale:  { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
@@ -1409,21 +1551,20 @@ export default function VoiceAssistant({
               goIdle();
             }
           }}
-          title={state === 'idle' ? 'Click to activate Pitch AI, or say "Hey Pitch"' : 'Click to dismiss'}
-          whileHover={{ scale: isActive ? 1.05 : 1.12 }}
-          whileTap={{ scale: 0.93 }}
+          title={state === 'idle' ? 'Tap to activate Ball AI, or say "Hey Ball"' : 'Tap to dismiss'}
+          whileHover={{ scale: isActive ? 1.05 : 1.14 }}
+          whileTap={{ scale: 0.92 }}
         >
-          {/* Glow / shadow ring */}
+          {/* Glow ring */}
           <div
             className="absolute inset-0 rounded-full"
             style={{
               boxShadow: isActive
-                ? '0 0 40px rgba(34,197,94,0.35), 0 8px 32px rgba(0,0,0,0.5)'
+                ? '0 0 44px rgba(34,197,94,0.4), 0 10px 36px rgba(0,0,0,0.55)'
                 : isSleeping
                 ? '0 4px 18px rgba(0,0,0,0.25), 0 0 0 2px rgba(148,163,184,0.15)'
                 : '0 8px 24px rgba(0,0,0,0.35), 0 0 0 2px rgba(255,255,255,0.08)',
-              transition: 'box-shadow 0.5s ease',
-              borderRadius: '50%',
+              transition: 'box-shadow 0.4s ease',
             }}
           />
 
@@ -1439,25 +1580,25 @@ export default function VoiceAssistant({
           />
         </motion.div>
 
-        {/* ── Idle tooltip pill ── */}
+        {/* Idle tooltip */}
         {!isActive && !isSleeping && (
           <motion.div
-            className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900/85 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap border border-white/10"
+            className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900/88 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border border-white/10"
             initial={{ opacity: 0 }}
             animate={{ opacity: [0, 1, 1, 0] }}
-            transition={{ duration: 4, delay: 4, repeat: Infinity, repeatDelay: 12 }}
+            transition={{ duration: 4, delay: 5, repeat: Infinity, repeatDelay: 14 }}
           >
-            🎤 Say "Hey Pitch"
+            🎤 Say "Hey Ball"
           </motion.div>
         )}
 
-        {/* ── Sleeping pill ── */}
+        {/* Sleeping pill */}
         {isSleeping && (
           <motion.div
-            className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-800/85 backdrop-blur-md text-slate-400 text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap border border-slate-700/30"
+            className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-800/88 backdrop-blur-md text-slate-400 text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border border-slate-700/30"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           >
-            💤 Sleeping — say "Hey Pitch" to wake me
+            💤 Sleeping — say "Hey Ball" to wake me
           </motion.div>
         )}
       </div>

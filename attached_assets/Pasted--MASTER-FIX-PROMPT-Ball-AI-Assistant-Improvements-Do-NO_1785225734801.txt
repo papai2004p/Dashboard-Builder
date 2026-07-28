@@ -1,0 +1,393 @@
+
+MASTER FIX PROMPT – Ball AI Assistant Improvements
+
+Do NOT redesign the Ball Assistant. Keep the exact cricket ball appearance, colors, face, size, animations, and UI. This update is only to improve animations, intelligence, responsiveness, and multi-command execution.
+
+1. Hide Hands When Not Needed
+
+The Ball should not keep its hands visible all the time.
+
+Default State:
+
+Hide both hands completely.
+
+The ball should look exactly like the current version without hands.
+
+
+Show hands only during animations such as:
+
+Thinking
+
+Waving
+
+Juggling cricket ball
+
+Pointing
+
+Celebrating
+
+Facepalm (optional)
+
+Any animation that naturally requires hands
+
+
+After the animation ends:
+
+Smoothly fade the hands out.
+
+Return to the default handless ball.
+
+
+The transition must be fluid (150–250 ms).
+
+
+---
+
+2. Speaking Animation (Highest Priority)
+
+Currently the ball speaks without opening its mouth.
+
+Fix this.
+
+Whenever Ball speaks:
+
+Wake-up speech
+
+Responses
+
+Status messages
+
+Command confirmations
+
+
+The mouth must:
+
+Open and close naturally.
+
+Sync with the speech.
+
+Never remain frozen.
+
+Continue moving until speech finishes.
+
+
+When speech ends: Return to the normal smile.
+
+
+---
+
+3. Bigger Hands
+
+When hands appear:
+
+Increase hand size by about 25%.
+
+Make them slightly softer and cuter.
+
+Keep the same art style.
+
+Do not redesign the ball.
+
+
+
+---
+
+4. Bring Back the Wake-up Speech Panel
+
+The wake-up panel disappeared.
+
+Restore it.
+
+Flow:
+
+User: "Hey Ball"
+
+Immediately:
+
+Listening...
+
+↓
+
+Thinking...
+
+↓
+
+Speaking...
+
+The speaking panel must display:
+
+"Hello! I'm Ball, your AI Cricket Pitch Assistant. All systems are online and running smoothly. I'm listening. How can I help you today?"
+
+After the speech: Automatically switch back to the Listening panel.
+
+Do NOT hide the panel during the introduction.
+
+
+---
+
+5. Thinking Delay
+
+Currently responses are instant.
+
+That looks unrealistic.
+
+Before every response:
+
+Show Thinking state.
+
+Play a random thinking animation.
+
+Duration: 300–900 ms
+
+For more complex requests:
+
+Example:
+
+Export report and show readings.
+
+Switch to manual mode and turn on fan.
+
+Turn off pump, turn on fan and export report.
+
+
+Thinking time: 1–2 seconds
+
+Never freeze the UI.
+
+
+---
+
+6. Multi-Command Support (Highest Functional Priority)
+
+Ball must execute multiple commands from one sentence.
+
+Examples:
+
+Turn off the fan and turn on the pump.
+
+↓
+
+Fan OFF Pump ON
+
+
+---
+
+Switch to manual mode and turn on both fan and pump.
+
+↓
+
+Manual Mode Fan ON Pump ON
+
+
+---
+
+Show current readings and export report.
+
+↓
+
+Open readings Generate report
+
+
+---
+
+Refresh data and switch to automatic mode.
+
+↓
+
+Refresh Auto Mode
+
+The assistant should:
+
+Split the sentence into separate intents.
+
+Process them in order.
+
+Execute each.
+
+Then speak one combined confirmation.
+
+Example:
+
+"Done. Fan turned off. Pump turned on. Manual mode enabled."
+
+
+---
+
+7. Command Queue
+
+If three commands are given:
+
+Example:
+
+Export report, show readings, turn on fan.
+
+Queue them.
+
+Execute:
+
+1. 
+
+Show readings
+
+↓
+
+2. 
+
+Export report
+
+↓
+
+3. 
+
+Turn on fan
+
+No command should be skipped.
+
+
+---
+
+8. Thinking Animation
+
+Improve thinking animations.
+
+Randomly use:
+
+One eyebrow raised
+
+Hand on cheek
+
+Looking left/right
+
+Eyes moving
+
+Head tilt
+
+Chin tap
+
+Small floating question mark
+
+Blink
+
+Looking upward
+
+
+Choose one animation randomly.
+
+Never repeat the same one every time.
+
+
+---
+
+9. New Idle Animation
+
+After 1 minute of no user interaction:
+
+Randomly choose one idle animation.
+
+Possible animations:
+
+Sleeping
+
+Closed eyes
+
+Gentle breathing
+
+Tiny "Zzz"
+
+
+Playing with a cricket ball
+
+A tiny cricket ball appears.
+
+Ball juggles it.
+
+Catches it.
+
+
+Looking around
+
+Blinking
+
+Small bounce
+
+Stretch
+
+Whistle
+
+Yawning
+
+Rotate these randomly.
+
+Do not repeat the same animation continuously.
+
+
+---
+
+10. Smooth Animation System
+
+Animations must never interrupt each other.
+
+Priority order:
+
+Speaking
+
+> 
+
+Thinking
+
+> 
+
+Listening
+
+> 
+
+Idle
+
+Only one animation should play at a time.
+
+Transitions should fade smoothly.
+
+
+---
+
+11. Performance
+
+Keep the assistant running at 60 FPS.
+
+Avoid unnecessary re-renders.
+
+Reuse SVG elements instead of recreating them.
+
+Do not continuously create/remove DOM nodes.
+
+Use CSS transforms where possible instead of changing layout properties.
+
+Optimize all animations so there is no lag, stuttering, or delay, even on mobile browsers.
+
+
+---
+
+12. Do Not Change
+
+Do NOT change:
+
+Cricket ball design
+
+Face
+
+Eyes
+
+Colors
+
+UI layout
+
+Assistant name ("Ball")
+
+Existing voice commands
+
+Existing dashboard
+
+Existing functionality
+
+
+This update is only to improve animations, multi-command handling, responsiveness, and overall user experience while preserving the current look and feel.

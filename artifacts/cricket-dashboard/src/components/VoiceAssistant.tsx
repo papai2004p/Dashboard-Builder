@@ -160,18 +160,45 @@ const CricketBall = memo(function CricketBall({
   const lbrowRot = isError ? 15 : (isIdle && activeIdle === 'curious') ? 8 : 0;
   const rbrowRot = isError ? -15 : 0;
 
-  // Mouth: yawn = very wide, speaking = rhythm-driven, other states as before
-  const mouthCY =
-    isYawning   ? 90 :
-    isSpeaking  ? 72 + mouthOpen * 14 + speechBeat * 4 :
-    isListening ? 78 :
-    isHappy     ? 83 :
-    isError     ? 64 :
-    isSleeping || isSnoring ? 71 :
-    (isIdle && (activeIdle === 'smile' || activeIdle === 'happy_blink')) ? 80 :
-    (isIdle && activeIdle === 'happy') ? 82 :
-    isThinking  ? 70 : 76;
-  const mouthPath = `M 38 70 Q 50 ${mouthCY.toFixed(1)} 62 70`;
+  // ── Two-lip mouth system for realistic open/close ──
+  // Upper lip control point (lower Y value = arches higher = top of mouth)
+  const upperLipCtrlY =
+    isYawning   ? 61 :
+    isSpeaking  ? 63 :
+    isListening ? 66 :
+    isHappy     ? 61 :
+    isError     ? 72 :
+    isSleeping || isSnoring ? 69 :
+    (isIdle && (activeIdle === 'smile' || activeIdle === 'happy_blink')) ? 63 :
+    (isIdle && activeIdle === 'happy') ? 61 :
+    isThinking  ? 70 : 67;
+
+  // Lower lip control point (drops down when mouth opens)
+  const lowerLipCtrlY =
+    isYawning   ? 93 :
+    isSpeaking  ? 74 + mouthOpen * 13 + speechBeat * 4 :
+    isListening ? 79 :
+    isHappy     ? 85 :
+    isError     ? 65 :
+    isSleeping || isSnoring ? 73 :
+    (isIdle && (activeIdle === 'smile' || activeIdle === 'happy_blink')) ? 81 :
+    (isIdle && activeIdle === 'happy') ? 83 :
+    isThinking  ? 73 : 77;
+
+  const upperLipPath  = `M 38 70 Q 50 ${upperLipCtrlY.toFixed(1)} 62 70`;
+  const lowerLipPath  = `M 38 70 Q 50 ${lowerLipCtrlY.toFixed(1)} 62 70`;
+  const mouthFillPath = `M 38 70 Q 50 ${upperLipCtrlY.toFixed(1)} 62 70 Q 50 ${lowerLipCtrlY.toFixed(1)} 38 70 Z`;
+  const showMouthFill = (isSpeaking && mouthOpen > 0.1) || isYawning;
+  const mouthFillOpacity = isYawning ? 0.82 : Math.min(0.88, 0.3 + mouthOpen * 0.65);
+
+  // ── Hand visibility — hidden by default, shown only during relevant animations ──
+  const showLeftHand =
+    (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
+    isRubbing;
+  const showRightHand =
+    (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
+    isRubbing ||
+    (isThinking && (thinkAnim === 'handCheek' || thinkAnim === 'scratch'));
 
   // Cheek opacity: speaking bounces with speechBeat
   const cheekBase =
@@ -301,29 +328,39 @@ const CricketBall = memo(function CricketBall({
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
       />
 
-      {/* ── Left hand ── */}
-      <motion.ellipse cx="8" cy="55" rx="7" ry="5"
+      {/* ── Left hand (hidden by default, 25% bigger) ── */}
+      <motion.ellipse cx="8" cy="55" rx="8.75" ry="6.25"
         fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.4"
-        animate={
-          (isIdle && activeIdle === 'wave')    ? { y: [0, -3, 0] } :
-          (isIdle && activeIdle === 'stretch') ? { y: [0, -12, 0], x: [-3, 0, -3] } :
-          isIdle ? { y: [0, 2, 0] } : {}
-        }
-        transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        animate={{
+          opacity: showLeftHand ? 1 : 0,
+          ...((isIdle && activeIdle === 'wave')    ? { y: [0, -3, 0]            } : {}),
+          ...((isIdle && activeIdle === 'stretch') ? { y: [0, -12, 0], x: [-3, 0, -3] } : {}),
+          ...(showLeftHand && isIdle && activeIdle !== 'wave' && activeIdle !== 'stretch' ? { y: [0, 2, 0] } : {}),
+        }}
+        transition={{
+          opacity: { duration: 0.2 },
+          y: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' },
+          x: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' },
+        }}
       />
 
-      {/* ── Right hand ── */}
+      {/* ── Right hand (hidden by default, 25% bigger) ── */}
       <motion.ellipse
-        cx={rHandX} cy={rHandY} rx="7" ry="5"
+        cx={rHandX} cy={rHandY} rx="8.75" ry="6.25"
         fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.4"
-        animate={
-          (isIdle && activeIdle === 'wave')          ? { y: [-8, 0, -8], rotate: [-15, 15, -15] } :
-          (isIdle && activeIdle === 'stretch')       ? { y: [0, -10, 0], x: [3, 0, 3] } :
-          (isRubbing)                                 ? { x: [-2, 2, -2], y: [-2, 2, -2] } :
-          (isThinking && thinkAnim === 'scratch')    ? { x: [-2, 2, -2], y: [-2, 2, -2] } :
-          isIdle ? { y: [0, 2, 0] } : {}
-        }
-        transition={{ duration: (isIdle && activeIdle === 'wave') ? 0.5 : 1.5, repeat: Infinity }}
+        animate={{
+          opacity: showRightHand ? 1 : 0,
+          ...((isIdle && activeIdle === 'wave')                                    ? { y: [-8, 0, -8], rotate: [-15, 15, -15] } : {}),
+          ...((isIdle && activeIdle === 'stretch')                                 ? { y: [0, -10, 0], x: [3, 0, 3] }          : {}),
+          ...((isRubbing || (isThinking && thinkAnim === 'scratch'))               ? { x: [-2, 2, -2], y: [-2, 2, -2] }        : {}),
+          ...(showRightHand && isIdle && activeIdle !== 'wave' && activeIdle !== 'stretch' ? { y: [0, 2, 0] } : {}),
+        }}
+        transition={{
+          opacity: { duration: 0.2 },
+          y:       { duration: (isIdle && activeIdle === 'wave') ? 0.5 : 1.5, repeat: Infinity },
+          x:       { duration: 1.5, repeat: Infinity },
+          rotate:  { duration: 0.5, repeat: Infinity },
+        }}
       />
 
       {/* ── Main ball ── */}
@@ -447,16 +484,10 @@ const CricketBall = memo(function CricketBall({
         )}
       </AnimatePresence>
 
-      {/* ── Yawn overlay (wide open mouth hint) ── */}
+      {/* ── Yawn overlay (tear only — mouth handled by two-lip system) ── */}
       <AnimatePresence>
         {isYawning && (
           <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.ellipse cx="50" cy="76" rx="10" ry="12"
-              fill="#7f1d1d" opacity={0.7}
-              animate={{ ry: [6, 12, 6] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            {/* Tiny tear */}
             <motion.ellipse cx="67" cy="52" rx="2" ry="3" fill="#93c5fd" opacity={0.7}
               animate={{ y: [0, 5, 0], opacity: [0.7, 0.2, 0.7] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
@@ -509,13 +540,14 @@ const CricketBall = memo(function CricketBall({
         )}
       </AnimatePresence>
 
-      {/* ── Mouth ── */}
-      <path d={mouthPath} fill="none" stroke="#1c1917" strokeWidth="2.8" strokeLinecap="round" />
-      {isSpeaking && mouthOpen > 0.3 && (
-        <path d={`M 38 70 Q 50 ${(72 + mouthOpen * 14 + speechBeat * 4).toFixed(1)} 62 70 Z`}
-          fill="#7f1d1d" opacity="0.6"
-        />
+      {/* ── Mouth (two-lip system: upper lip + lower lip + interior fill) ── */}
+      {showMouthFill && (
+        <path d={mouthFillPath} fill="#3d0000" opacity={mouthFillOpacity} />
       )}
+      {/* Upper lip */}
+      <path d={upperLipPath} fill="none" stroke="#1c1917" strokeWidth="2.8" strokeLinecap="round" />
+      {/* Lower lip */}
+      <path d={lowerLipPath} fill="none" stroke="#1c1917" strokeWidth="2.8" strokeLinecap="round" />
 
       {/* ── Thinking overlays ── */}
       <AnimatePresence>
@@ -737,6 +769,24 @@ const VoiceWaveform = memo(function VoiceWaveform({ active }: { active: boolean 
     </div>
   );
 });
+
+// ── Multi-Command Parser ──────────────────────────────────────────────────────
+
+function parseMultiCommand(raw: string): string[] {
+  const t = raw.toLowerCase().trim();
+  // Split on "and"/"then"/"also" only when followed by an action verb
+  const actionPrefix = /^(turn|switch|enable|disable|show|open|close|export|refresh|scroll|set|activate|deactivate|start|stop|go|get)/;
+  const parts = t
+    .split(/\s+(?:and|then|also|plus)\s+/)
+    .flatMap(p => p.split(/,\s*/))
+    .map(p => p.trim())
+    .filter(p => p.length > 2);
+  // Only treat as multi-command if we have ≥2 parts and at least the 2nd looks like a command
+  if (parts.length >= 2 && (actionPrefix.test(parts[1]) || /pump|fan|mode|export|pdf|excel|refresh|analys/.test(parts[1]))) {
+    return parts;
+  }
+  return [raw];
+}
 
 // ── Command Processor ─────────────────────────────────────────────────────────
 
@@ -1235,24 +1285,33 @@ export default function VoiceAssistant({
   const enterListening = useCallback((skipIntro = false) => {
     recModeRef.current = 'command';
     lastFinalRef.current = '';
-    setState('listening');
     setCommandText('');
     setResponseText('');
     setInterimText('');
-    setStatusText('Listening…');
 
     if (firstLaunchRef.current && !skipIntro) {
       firstLaunchRef.current = false;
-      setState('speaking');
-      setStatusText('Speaking');
-      setResponseText(INTRO_TEXT);
-      speak(INTRO_TEXT, () => {
-        setState('listening');
-        setStatusText('Listening…');
-        setResponseText('');
-        resetCommandTimeout();
-      });
+      // Show the full Listening → Thinking → Speaking flow
+      setState('woken');
+      setStatusText('Listening…');
+      setTimeout(() => {
+        setState('thinking');
+        setStatusText('Thinking…');
+        setTimeout(() => {
+          setState('speaking');
+          setStatusText('Speaking');
+          setResponseText(INTRO_TEXT);
+          speak(INTRO_TEXT, () => {
+            setState('listening');
+            setStatusText('Listening…');
+            setResponseText('');
+            resetCommandTimeout();
+          });
+        }, 350 + Math.random() * 300);
+      }, 250);
     } else {
+      setState('listening');
+      setStatusText('Listening…');
       resetCommandTimeout();
     }
   }, [speak, resetCommandTimeout]);
@@ -1291,49 +1350,77 @@ export default function VoiceAssistant({
     // Repeat
     if (/\b(repeat|say that again|again|what did you say)\b/.test(t)) {
       const rpt = lastResponseRef.current || `I haven't said anything yet! Ask me something first.`;
+      const delay = 300 + Math.random() * 400;
       setTimeout(() => {
         setState('speaking'); setStatusText('Speaking'); setResponseText(rpt);
         speak(rpt, () => {
           setState('listening'); setStatusText('Listening…');
           resetCommandTimeout();
         });
-      }, 300);
+      }, delay);
       return;
     }
 
-    const { response, stateHint } = processCommand(
-      transcript,
-      {
-        pumpOn: ctx.pumpOn, fanOn: ctx.fanOn, mode: ctx.systemMode,
-        currentTemp, currentHum, currentSoil, condition,
-        tStats: calcStat(ctx.tempHistory),
-        hStats: calcStat(ctx.humHistory),
-        sStats: calcStat(ctx.soilHistory),
-        readings: ctx.readings,
-        onPumpToggle: ctx.onPumpToggle,
-        onFanToggle: ctx.onFanToggle,
-        onModeChange: ctx.onModeChange,
-        onReset: ctx.onReset,
-        onOpenAnalysis: ctx.onOpenAnalysis,
-        onExportPDF: () => {
-          try {
-            generatePDF({ readings: ctx.readings, tempHistory: ctx.tempHistory, humHistory: ctx.humHistory, soilHistory: ctx.soilHistory, pumpOn: ctx.pumpOn, fanOn: ctx.fanOn, mode: ctx.systemMode });
-          } catch (e) { console.error('PDF error', e); }
-        },
-        onExportExcel: () => {
-          try {
-            const header = ['Time', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)', 'Pitch Status', 'Pump', 'Fan', 'Mode'];
-            const rows = ctx.readings.map(r => [r.time, r.temp, r.humidity, r.soil, r.pitchStatus, r.pumpOn ? 'ON' : 'OFF', r.fanOn ? 'ON' : 'OFF', r.mode]);
-            const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Readings');
-            XLSX.writeFile(wb, 'Cricket-Pitch-Readings.xlsx');
-          } catch (e) { console.error('Excel error', e); }
-        },
+    // ── Build command context (local copies so multi-commands see updated state) ──
+    let localPumpOn = ctx.pumpOn;
+    let localFanOn  = ctx.fanOn;
+    let localMode   = ctx.systemMode as 'auto' | 'manual';
+
+    const makeCtx = () => ({
+      pumpOn: localPumpOn, fanOn: localFanOn, mode: localMode,
+      currentTemp, currentHum, currentSoil, condition,
+      tStats: calcStat(ctx.tempHistory),
+      hStats: calcStat(ctx.humHistory),
+      sStats: calcStat(ctx.soilHistory),
+      readings: ctx.readings,
+      onPumpToggle: (v: boolean)            => { localPumpOn = v;  ctx.onPumpToggle(v); },
+      onFanToggle:  (v: boolean)            => { localFanOn  = v;  ctx.onFanToggle(v);  },
+      onModeChange: (m: 'auto' | 'manual') => { localMode   = m;  ctx.onModeChange(m); },
+      onReset:       ctx.onReset,
+      onOpenAnalysis: ctx.onOpenAnalysis,
+      onExportPDF: () => {
+        try {
+          generatePDF({ readings: ctx.readings, tempHistory: ctx.tempHistory, humHistory: ctx.humHistory, soilHistory: ctx.soilHistory, pumpOn: ctx.pumpOn, fanOn: ctx.fanOn, mode: ctx.systemMode });
+        } catch (e) { console.error('PDF error', e); }
       },
-      setGesture,
-      goIdle,
-    );
+      onExportExcel: () => {
+        try {
+          const header = ['Time', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)', 'Pitch Status', 'Pump', 'Fan', 'Mode'];
+          const rows = ctx.readings.map(r => [r.time, r.temp, r.humidity, r.soil, r.pitchStatus, r.pumpOn ? 'ON' : 'OFF', r.fanOn ? 'ON' : 'OFF', r.mode]);
+          const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Readings');
+          XLSX.writeFile(wb, 'Cricket-Pitch-Readings.xlsx');
+        } catch (e) { console.error('Excel error', e); }
+      },
+    });
+
+    // ── Multi-command parsing ──
+    const commands = parseMultiCommand(transcript);
+    const isComplex = commands.length > 1 || transcript.split(/\s+/).length > 8;
+
+    // Variable thinking delay: 300–900ms simple, 800–2000ms complex
+    const thinkDelay = isComplex
+      ? 800  + Math.random() * 1200
+      : 300  + Math.random() * 600;
+
+    // Process all sub-commands, accumulate responses
+    const results = commands.map(cmd => processCommand(cmd, makeCtx(), setGesture, goIdle));
+
+    let response: string;
+    let stateHint: AssistantState | undefined;
+
+    if (results.length === 1) {
+      response  = results[0].response;
+      stateHint = results[0].stateHint;
+    } else {
+      // Join responses with natural separators
+      response = results.map(r => r.response).join(' ');
+      stateHint =
+        results.find(r => r.stateHint === 'error')?.stateHint   ??
+        results.find(r => r.stateHint === 'success')?.stateHint ??
+        results[results.length - 1]?.stateHint;
+    }
 
     lastResponseRef.current = response;
 
@@ -1361,7 +1448,7 @@ export default function VoiceAssistant({
           }
         }, stateHint === 'success' || stateHint === 'excited' || stateHint === 'error' ? 600 : 0);
       });
-    }, 380);
+    }, thinkDelay);
   }, [speak, goIdle, setGesture, resetCommandTimeout]);
 
   useEffect(() => { handleCommandRef.current = handleCommand; }, [handleCommand]);
@@ -1408,23 +1495,54 @@ export default function VoiceAssistant({
             setTimeout(() => { wakeDebounceRef.current = false; }, 2500);
             const stripped = WAKE_WORDS.reduce((s, w) => s.replace(w, ''), allText).trim();
             if (stripped.length > 2) {
+              // Wake word + inline command — play intro first if needed, then handle command
               recModeRef.current = 'command';
               lastFinalRef.current = '';
-              setState('listening');
               if (firstLaunchRef.current) {
                 firstLaunchRef.current = false;
-                speak(INTRO_TEXT, () => handleCommandRef.current(stripped));
+                setState('woken');
+                setStatusText('Listening…');
+                setTimeout(() => {
+                  setState('thinking');
+                  setStatusText('Thinking…');
+                  setTimeout(() => {
+                    setState('speaking');
+                    setStatusText('Speaking');
+                    setResponseText(INTRO_TEXT);
+                    speak(INTRO_TEXT, () => handleCommandRef.current(stripped));
+                  }, 350 + Math.random() * 250);
+                }, 200);
               } else {
+                setState('listening');
+                setStatusText('Listening…');
                 handleCommandRef.current(stripped);
               }
             } else {
+              // Wake word only — show panel and wait for command
               recModeRef.current = 'command';
               lastFinalRef.current = '';
-              setState('listening');
               if (firstLaunchRef.current) {
                 firstLaunchRef.current = false;
-                speak(INTRO_TEXT, () => resetCommandTimeout());
+                setState('woken');
+                setStatusText('Listening…');
+                setTimeout(() => {
+                  setState('thinking');
+                  setStatusText('Thinking…');
+                  setTimeout(() => {
+                    setState('speaking');
+                    setStatusText('Speaking');
+                    setResponseText(INTRO_TEXT);
+                    speak(INTRO_TEXT, () => {
+                      setState('listening');
+                      setStatusText('Listening…');
+                      setResponseText('');
+                      resetCommandTimeout();
+                    });
+                  }, 350 + Math.random() * 250);
+                }, 200);
               } else {
+                setState('woken');
+                setStatusText('Listening…');
                 speak(`Go ahead, I'm listening.`, () => {
                   setState('listening');
                   setStatusText('Listening…');

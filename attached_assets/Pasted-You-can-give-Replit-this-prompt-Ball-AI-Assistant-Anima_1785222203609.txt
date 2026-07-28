@@ -1,0 +1,381 @@
+You can give Replit this prompt:
+
+
+---
+
+Ball AI Assistant Animation Upgrade (Do NOT Change the Cricket Ball Design)
+
+IMPORTANT: Do NOT redesign, redraw, resize, recolor, or replace the existing cricket ball assistant. The current cricket ball design is final and must remain 100% identical. Only add expressive animations and optimize performance. The assistant should feel alive like PW AI Guru while maintaining Samsung Bixby's smoothness and responsiveness.
+
+1. Keep the Cricket Ball Exactly the Same
+
+Do not change its shape.
+
+Do not change its face.
+
+Do not change its colors.
+
+Do not change its outline.
+
+Do not change its size.
+
+Do not change its cute appearance.
+
+
+Only animate the existing eyes, eyebrows, mouth, hands, body, and small accessories.
+
+
+---
+
+2. Make the Assistant Feel Alive
+
+Instead of remaining static, Ball should constantly feel like a living character.
+
+If the user is inactive for 1 minute, start random idle animations.
+
+Only one idle animation should play at a time.
+
+Each animation lasts 3–6 seconds.
+
+After finishing, return to the normal idle state.
+
+Randomly choose another animation after 20–40 seconds.
+
+Possible idle animations include:
+
+Gentle floating
+
+Slow breathing
+
+Eye blinking
+
+Looking left and right
+
+Looking up then back
+
+Stretching
+
+Yawning
+
+Rubbing eyes
+
+Smiling
+
+Tiny bounce
+
+Sleeping with closed eyes
+
+Light snoring bubble
+
+Rolling slightly
+
+Happy blinking
+
+Looking curious
+
+Tiny wave
+
+
+The animations should be random so the assistant never looks repetitive.
+
+
+---
+
+3. Speaking Animation
+
+Whenever Ball speaks:
+
+The mouth should move naturally according to the spoken audio.
+
+Do not simply open and close repeatedly.
+
+The mouth should animate according to speech rhythm.
+
+While speaking:
+
+eyebrows move naturally
+
+eyes blink occasionally
+
+cheeks slightly bounce
+
+body gently bobs
+
+slight head movement
+
+
+When speech finishes,
+
+return smoothly to idle.
+
+
+---
+
+4. Thinking Animation
+
+Whenever Ball is processing a command:
+
+Do NOT keep a static face.
+
+Randomly use thinking expressions.
+
+Examples:
+
+• One eyebrow raised
+
+• Hand resting on cheek
+
+• Finger on chin
+
+• Looking upward
+
+• Looking left then right
+
+• Eyes moving while thinking
+
+• Small question mark appears
+
+• Tiny light bulb appears
+
+• Magnifying glass appears
+
+• Notebook appears
+
+• Gear icon rotates
+
+• Three animated dots
+
+• Tiny sparkles
+
+• Head tilt
+
+• Curious expression
+
+These should randomly alternate while processing.
+
+
+---
+
+5. Happy Animation
+
+When a command succeeds:
+
+Ball should become excited.
+
+Possible animations:
+
+Big smile
+
+Happy eyes
+
+Jump once
+
+Tiny celebration
+
+Quick spin
+
+Hand wave
+
+Victory pose
+
+Thumbs up
+
+Small sparkle burst
+
+
+
+---
+
+6. Error Animation
+
+When something fails:
+
+Do not freeze.
+
+Show:
+
+Sad face
+
+Eyebrows downward
+
+Mouth frown
+
+Tiny shake
+
+Small sigh
+
+
+After 2 seconds,
+
+return to normal.
+
+
+---
+
+7. Listening Animation
+
+While listening:
+
+Eyes focused
+
+Gentle breathing
+
+Sound wave around Ball
+
+Tiny microphone glow
+
+Slight floating
+
+
+If speech is detected:
+
+the eyes become attentive.
+
+
+---
+
+8. Wake-up Animation
+
+When user says:
+
+"Hey Ball"
+
+Immediately:
+
+Eyes open
+
+Smile
+
+Small bounce
+
+Green glow
+
+Gentle ripple
+
+
+No loading animation.
+
+No "Waking Up..."
+
+Immediately start listening.
+
+
+---
+
+9. Sleeping Animation
+
+After long inactivity:
+
+Ball slowly falls asleep.
+
+Animations:
+
+Eyes slowly close
+
+Small breathing movement
+
+Tiny "Zzz"
+
+Gentle floating
+
+
+The moment user interacts,
+
+wake instantly.
+
+
+---
+
+10. Smooth Performance
+
+The assistant must feel as smooth as Samsung Bixby.
+
+Optimize everything.
+
+Use requestAnimationFrame where appropriate.
+
+Avoid unnecessary React re-renders.
+
+Memoize animation components.
+
+Use CSS transforms instead of changing layout properties.
+
+Animate only transform and opacity.
+
+Keep animations GPU accelerated.
+
+Do not block the UI thread.
+
+Ensure smooth performance even on low-end Android devices.
+
+
+Target:
+
+60 FPS on modern phones.
+
+No lag.
+
+No stuttering.
+
+No animation freezing.
+
+
+
+---
+
+11. Animation Transitions
+
+Every animation should smoothly transition.
+
+No sudden jumps.
+
+Examples:
+
+Idle → Listening
+
+Listening → Thinking
+
+Thinking → Speaking
+
+Speaking → Happy
+
+Happy → Idle
+
+Idle → Sleeping
+
+Sleeping → Listening
+
+All transitions should feel fluid.
+
+
+---
+
+12. Preserve Existing Functionality
+
+Do NOT modify:
+
+Voice recognition
+
+Wake word detection
+
+Commands
+
+Dashboard
+
+PDF generation
+
+Sensor data
+
+Manual mode
+
+Automatic mode
+
+Any backend logic
+
+
+Only improve the assistant's visual behavior and animations.
+
+
+---
+
+Goal: The final Ball assistant should keep its current appearance exactly as it is, but behave like a polished virtual assistant—cute, expressive, responsive, and fluid. It should combine the lively personality of PW AI Guru with the smooth, fast interaction style of Samsung Bixby, without introducing any lag or changing the existing functionality.

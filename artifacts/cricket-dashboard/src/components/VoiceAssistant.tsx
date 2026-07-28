@@ -89,6 +89,7 @@ const CricketBall = memo(function CricketBall({
   gesture,
   speaking,
   speechBeat,
+  isJuggling,
 }: {
   state: AssistantState;
   idleAnim: IdleAnim;
@@ -101,6 +102,7 @@ const CricketBall = memo(function CricketBall({
   gesture: GestureDir;
   speaking: boolean;
   speechBeat: number; // 0–1 rhythmic beat during speech
+  isJuggling: boolean;
 }) {
   const isIdle      = state === 'idle';
   const isSleeping  = state === 'sleeping';
@@ -191,14 +193,17 @@ const CricketBall = memo(function CricketBall({
   const showMouthFill = (isSpeaking && mouthOpen > 0.1) || isYawning;
   const mouthFillOpacity = isYawning ? 0.82 : Math.min(0.88, 0.3 + mouthOpen * 0.65);
 
-  // ── Hand visibility — hidden by default, shown only during relevant animations ──
+  // ── Hand visibility — spec: visible during Thinking, Playing, Celebration, Wave, Pointing
+  //    Hidden during: Idle (non-wave), Listening, Speaking, Wake, Sleeping ──
   const showLeftHand =
     (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
-    isRubbing;
+    isRubbing ||
+    isHappy; // celebration
   const showRightHand =
     (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
     isRubbing ||
-    (isThinking && (thinkAnim === 'handCheek' || thinkAnim === 'scratch'));
+    (isThinking && (thinkAnim === 'handCheek' || thinkAnim === 'scratch')) ||
+    isHappy; // celebration
 
   // Cheek opacity: speaking bounces with speechBeat
   const cheekBase =
@@ -320,40 +325,95 @@ const CricketBall = memo(function CricketBall({
 
       {/* Legs hidden */}
 
-      {/* ── Left hand (hidden by default, 25% bigger) ── */}
-      <motion.ellipse cx="8" cy="55" rx="8.75" ry="6.25"
-        fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.4"
-        animate={{
-          opacity: showLeftHand ? 1 : 0,
-          ...((isIdle && activeIdle === 'wave')    ? { y: [0, -3, 0]            } : {}),
-          ...((isIdle && activeIdle === 'stretch') ? { y: [0, -12, 0], x: [-3, 0, -3] } : {}),
-          ...(showLeftHand && isIdle && activeIdle !== 'wave' && activeIdle !== 'stretch' ? { y: [0, 2, 0] } : {}),
+      {/* ── Left hand — cute fingers, visible only per spec ── */}
+      <motion.g
+        animate={{ opacity: showLeftHand ? 1 : 0,
+          ...((isIdle && activeIdle === 'wave')    ? { y: [0, -4, 0] } : {}),
+          ...((isIdle && activeIdle === 'stretch') ? { y: [0, -14, 0], x: [-3, 0, -3] } : {}),
+          ...(isRubbing ? { x: [-2, 2, -2], y: [-2, 2, -2] } : {}),
         }}
-        transition={{
-          opacity: { duration: 0.2 },
-          y: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' },
-          x: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' },
-        }}
-      />
+        transition={{ opacity: { duration: 0.25 }, y: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' }, x: { duration: 1.5, repeat: Infinity } }}
+      >
+        {/* Palm */}
+        <ellipse cx="8" cy="56" rx="9.5" ry="6.8" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.35" />
+        {/* Four fingers */}
+        <ellipse cx="1"  cy="50.5" rx="2.3" ry="3.6" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        <ellipse cx="6"  cy="49"   rx="2.4" ry="4.0" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        <ellipse cx="11" cy="49"   rx="2.4" ry="4.0" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        <ellipse cx="16" cy="50.5" rx="2.1" ry="3.4" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        {/* Thumb */}
+        <ellipse cx="-1" cy="58.5" rx="2.6" ry="1.9" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        {/* Knuckle highlight */}
+        <ellipse cx="8" cy="54" rx="5" ry="2.5" fill="rgba(255,255,255,0.12)" />
+      </motion.g>
 
-      {/* ── Right hand (hidden by default, 25% bigger) ── */}
-      <motion.ellipse
-        cx={rHandX} cy={rHandY} rx="8.75" ry="6.25"
-        fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.4"
-        animate={{
-          opacity: showRightHand ? 1 : 0,
-          ...((isIdle && activeIdle === 'wave')                                    ? { y: [-8, 0, -8], rotate: [-15, 15, -15] } : {}),
-          ...((isIdle && activeIdle === 'stretch')                                 ? { y: [0, -10, 0], x: [3, 0, 3] }          : {}),
-          ...((isRubbing || (isThinking && thinkAnim === 'scratch'))               ? { x: [-2, 2, -2], y: [-2, 2, -2] }        : {}),
-          ...(showRightHand && isIdle && activeIdle !== 'wave' && activeIdle !== 'stretch' ? { y: [0, 2, 0] } : {}),
+      {/* ── Right hand — cute fingers, position varies by state ── */}
+      <motion.g
+        animate={{ opacity: showRightHand ? 1 : 0,
+          ...((isIdle && activeIdle === 'wave')    ? { y: [-10, 0, -10], rotate: [-12, 12, -12] } : {}),
+          ...((isIdle && activeIdle === 'stretch') ? { y: [0, -12, 0], x: [3, 0, 3] } : {}),
+          ...((isRubbing || (isThinking && thinkAnim === 'scratch')) ? { x: [-2, 2, -2], y: [-2, 2, -2] } : {}),
         }}
-        transition={{
-          opacity: { duration: 0.2 },
-          y:       { duration: (isIdle && activeIdle === 'wave') ? 0.5 : 1.5, repeat: Infinity },
-          x:       { duration: 1.5, repeat: Infinity },
-          rotate:  { duration: 0.5, repeat: Infinity },
-        }}
-      />
+        transition={{ opacity: { duration: 0.25 }, y: { duration: (isIdle && activeIdle === 'wave') ? 0.5 : 1.5, repeat: Infinity }, x: { duration: 1.5, repeat: Infinity }, rotate: { duration: 0.5, repeat: Infinity } }}
+        style={{ transformOrigin: `${rHandX}px ${rHandY}px` }}
+      >
+        {/* Palm */}
+        <ellipse cx={rHandX} cy={rHandY} rx="9.5" ry="6.8" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.35" />
+        {/* Four fingers */}
+        <ellipse cx={rHandX - 7}  cy={rHandY - 6}   rx="2.1" ry="3.4" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        <ellipse cx={rHandX - 2}  cy={rHandY - 7.5} rx="2.4" ry="4.0" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        <ellipse cx={rHandX + 3}  cy={rHandY - 7.5} rx="2.4" ry="4.0" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        <ellipse cx={rHandX + 8}  cy={rHandY - 6}   rx="2.3" ry="3.6" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        {/* Thumb */}
+        <ellipse cx={rHandX + 10} cy={rHandY + 2.5} rx="2.6" ry="1.9" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
+        {/* Knuckle highlight */}
+        <ellipse cx={rHandX} cy={rHandY - 2} rx="5" ry="2.5" fill="rgba(255,255,255,0.12)" />
+      </motion.g>
+
+      {/* ── Cricket juggling mode: hands + tiny ball ── */}
+      <AnimatePresence>
+        {isJuggling && (
+          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
+            {/* Left juggling hand */}
+            <motion.g animate={{ y: [0, -3, 0] }} transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}>
+              <ellipse cx="-2" cy="92" rx="12" ry="8"   fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              <ellipse cx="-10" cy="85" rx="2.6" ry="4.0" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="-4"  cy="83" rx="2.6" ry="4.4" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="3"   cy="83" rx="2.6" ry="4.4" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="9"   cy="84.5" rx="2.3" ry="3.8" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="-13" cy="93.5" rx="3.0" ry="2.2" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="-2" cy="90" rx="6" ry="3" fill="rgba(255,255,255,0.14)" />
+            </motion.g>
+            {/* Right juggling hand */}
+            <motion.g animate={{ y: [0, -3, 0] }} transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: 0.55 }}>
+              <ellipse cx="102" cy="92" rx="12" ry="8"    fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              <ellipse cx="110" cy="85" rx="2.6" ry="4.0" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="104" cy="83" rx="2.6" ry="4.4" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="97"  cy="83" rx="2.6" ry="4.4" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="91"  cy="84.5" rx="2.3" ry="3.8" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="113" cy="93.5" rx="3.0" ry="2.2" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
+              <ellipse cx="102" cy="90" rx="6" ry="3" fill="rgba(255,255,255,0.14)" />
+            </motion.g>
+            {/* Tiny juggling cricket ball — arcs between hands */}
+            <motion.circle
+              r="7" fill="#dc2626"
+              animate={{ cx: [-2, 50, 102, 50, -2], cy: [82, 18, 82, 18, 82] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
+            />
+            <motion.path
+              fill="none" stroke="white" strokeWidth="1.1" strokeLinecap="round"
+              animate={{ d: ['M -6 82 Q -2 76 4 82', 'M 44 18 Q 50 12 56 18', 'M 96 82 Q 102 76 108 82', 'M 44 18 Q 50 12 56 18', 'M -6 82 Q -2 76 4 82'] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
+            />
+            {/* Ball highlight */}
+            <motion.circle
+              r="3" fill="rgba(255,255,255,0.35)"
+              animate={{ cx: [-4, 48, 100, 48, -4], cy: [79, 15, 79, 15, 79] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
+            />
+          </motion.g>
+        )}
+      </AnimatePresence>
 
       {/* ── Main ball ── */}
       <motion.circle
@@ -673,6 +733,36 @@ const CricketBall = memo(function CricketBall({
         )}
       </AnimatePresence>
     </svg>
+  );
+});
+
+// ── Entry Ripple — grass trail behind ball entering from bottom-right ─────────
+
+const EntryRipple = memo(function EntryRipple({ active }: { active: boolean }) {
+  return (
+    <AnimatePresence>
+      {active && (
+        <>
+          {[0, 1, 2].map(i => (
+            <motion.div
+              key={i}
+              className="fixed rounded-full pointer-events-none"
+              style={{
+                right: 24, bottom: 24,
+                width: 64, height: 64,
+                zIndex: 58,
+                border: `2px solid rgba(134,239,172,${0.6 - i * 0.15})`,
+                boxShadow: '0 0 8px rgba(34,197,94,0.25)',
+              }}
+              initial={{ scale: 1, opacity: 0.75 - i * 0.15 }}
+              animate={{ scale: 3.5 + i * 1.8, opacity: 0 }}
+              exit={{}}
+              transition={{ duration: 0.4, delay: i * 0.09, ease: [0.0, 0.0, 0.35, 1.0] }}
+            />
+          ))}
+        </>
+      )}
+    </AnimatePresence>
   );
 });
 
@@ -1065,6 +1155,8 @@ export default function VoiceAssistant({
   const [permDenied, setPermDenied]     = useState(false);
   const [gesture, setGestureState]      = useState<GestureDir>('none');
   const [showHints, setShowHints]       = useState(false);
+  const [isJuggling, setIsJuggling]         = useState(false);
+  const [entryRippleActive, setEntryRippleActive] = useState(false);
 
   // Ball container animation controls (for jump/shake)
   const ballControls = useAnimation();
@@ -1090,6 +1182,9 @@ export default function VoiceAssistant({
   const gestureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restartDelayRef   = useRef(150);
   const speechBeatRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cycleTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleCycleActiveRef  = useRef(false);
+  const startIdleCycleRef   = useRef<() => void>(() => {});
 
   // Inactivity timers
   const inactivityTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);   // 60s → enable idle anims
@@ -1104,32 +1199,55 @@ export default function VoiceAssistant({
 
   // ── Inactivity tracking ───────────────────────────────────────────────────────
   const resetInactivityTimers = useCallback(() => {
+    // Break any running idle cycle — user activity always wins
+    idleCycleActiveRef.current = false;
     lastActivityTimeRef.current = Date.now();
     setIdleAnimsEnabled(false);
+    setIsJuggling(false);
 
-    if (inactivityTimerRef.current)  clearTimeout(inactivityTimerRef.current);
-    if (autoSleepTimerRef.current)   clearTimeout(autoSleepTimerRef.current);
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (autoSleepTimerRef.current)  clearTimeout(autoSleepTimerRef.current);
+    if (cycleTimerRef.current)      clearTimeout(cycleTimerRef.current);
 
-    // After 60 seconds idle → start expressive idle animations
+    // After 60 seconds idle → start deterministic Sleep → Play Cricket cycle
     inactivityTimerRef.current = setTimeout(() => {
-      if (stateRef.current === 'idle') {
-        setIdleAnimsEnabled(true);
-      }
+      if (stateRef.current !== 'idle') return;
+      idleCycleActiveRef.current = true;
+      startIdleCycleRef.current();
     }, 60_000);
-
-    // After 3 minutes idle → fall asleep
-    autoSleepTimerRef.current = setTimeout(() => {
-      if (stateRef.current === 'idle') {
-        setState('sleeping');
-        setIdleAnimsEnabled(false);
-      }
-    }, 180_000);
   }, []);
 
-  // Track user activity
+  // Deterministic idle cycle: Sleep (20 s) → Play Cricket (15 s) → Sleep → …
+  // No randomness. Professional timing. Per spec.
+  const startIdleCycle = useCallback(() => {
+    if (!idleCycleActiveRef.current) return;
+
+    // Phase 1 — Sleeping (20 seconds, existing sleep animation unchanged)
+    setState('sleeping');
+    setIsJuggling(false);
+
+    cycleTimerRef.current = setTimeout(() => {
+      if (!idleCycleActiveRef.current) return;
+
+      // Phase 2 — Play Cricket juggling (15 seconds)
+      setState('idle');
+      setIsJuggling(true);
+
+      cycleTimerRef.current = setTimeout(() => {
+        if (!idleCycleActiveRef.current) return;
+        setIsJuggling(false);
+        // Loop back forever
+        startIdleCycleRef.current();
+      }, 15_000);
+    }, 20_000);
+  }, []);
+
+  useEffect(() => { startIdleCycleRef.current = startIdleCycle; }, [startIdleCycle]);
+
+  // Track user activity — only resets inactivity if NOT already in idle cycle
   useEffect(() => {
     const onActivity = () => {
-      if (stateRef.current === 'idle') {
+      if (stateRef.current === 'idle' && !idleCycleActiveRef.current) {
         resetInactivityTimers();
       }
     };
@@ -1152,9 +1270,14 @@ export default function VoiceAssistant({
     if (state !== 'idle') {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       if (autoSleepTimerRef.current)  clearTimeout(autoSleepTimerRef.current);
+      // NOTE: Do NOT touch cycleTimerRef — the idle cycle manages its own timer
       setIdleAnimsEnabled(false);
     } else {
-      resetInactivityTimers();
+      // When returning to 'idle', only restart inactivity tracking if NOT inside
+      // the idle cycle (during juggling phase, state = 'idle' but cycle is active)
+      if (!idleCycleActiveRef.current) {
+        resetInactivityTimers();
+      }
     }
   }, [state, resetInactivityTimers]);
 
@@ -1183,32 +1306,49 @@ export default function VoiceAssistant({
     ballControls.set({ x: 0 });
   }, [ballControls]);
 
-  // ── Wake-up spin entry — fires when ball flies from corner to centre ─────────
-  // Phase 1: quick compress (0.10 s) so it looks like it's winding up.
-  // Phase 2: 720° dual-spin + spring scale-overshoot (0.68 s).
-  // The CSS position transition (0.55 s) runs simultaneously so the spin and
-  // the movement feel like one choreographed gesture.
+  // ── Entry Animation (complete rebuild per spec) ───────────────────────────────
+  // The ball enters from the bottom-right following the spin-axis image:
+  //   • Ball velocity direction: LEFT (ball travels from right → center)
+  //   • Spin axis: diagonal → ball rotates counter-clockwise as it travels
+  // Timing: 650ms travel + 180ms bounce. Ripple trails behind the ball.
   const triggerWakeSpinEntry = useCallback(async () => {
-    ballControls.set({ rotate: 0, scale: 1 });
-    // Wind-up compress
+    // Fire the entry ripple at the ball's starting position (bottom-right corner)
+    setEntryRippleActive(true);
+    setTimeout(() => setEntryRippleActive(false), 550);
+
+    // Start position: 160px right + 40px below the final resting spot.
+    // The CSS `right` transition simultaneously moves the container left → center.
+    // Combined: ball appears to fly in from far bottom-right at 60 FPS.
+    ballControls.set({ x: 160, y: 40, rotate: 0, scale: 0.72 });
+
+    // Phase 1 — Travel (650ms): left + slightly up, counter-clockwise spin,
+    // motion blur opening to crisp, cubic ease-out deceleration.
     await ballControls.start({
-      scale: 0.82,
-      transition: { duration: 0.10, ease: 'easeIn' },
-    });
-    // Launch: two full spins + spring scale
-    await ballControls.start({
-      rotate: 720,
-      scale: [0.82, 1.22, 0.96, 1.04, 1.0],
+      x: 0,
+      y: 0,
+      rotate: -720,        // counter-clockwise = left-travelling ball (per spin-axis image)
+      scale: 1.08,
       transition: {
-        rotate: { duration: 0.68, ease: [0.22, 1.0, 0.36, 1.0] }, // fast-then-float
-        scale:  {
-          duration: 0.68,
-          ease: 'easeOut',
-          times: [0, 0.30, 0.60, 0.82, 1.0],
-        },
+        x:      { duration: 0.65, ease: [0.12, 0.8, 0.35, 1.0] },   // cubic ease-out
+        y:      { duration: 0.65, ease: [0.12, 0.8, 0.35, 1.0] },
+        rotate: { duration: 0.65, ease: [0.0,  0.0, 0.2,  1.0] },   // ease-out spin
+        scale:  { duration: 0.35, ease: 'easeOut' },
       },
     });
-    ballControls.set({ rotate: 0, scale: 1 });
+
+    // Phase 2 — Bounce (180ms): small realistic bounce at landing
+    ballControls.set({ rotate: 0 });
+    await ballControls.start({
+      y:     [0, -18, 5, -7, 0],
+      scale: [1.08, 0.95, 1.04, 0.98, 1.0],
+      transition: {
+        duration: 0.18,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    });
+
+    // Snap to neutral — never allow drifted position after entry
+    ballControls.set({ x: 0, y: 0, rotate: 0, scale: 1 });
   }, [ballControls]);
 
   // Fire jump/shake/spin based on state transitions
@@ -1324,6 +1464,10 @@ export default function VoiceAssistant({
   const goIdle = useCallback(() => {
     window.speechSynthesis.cancel();
     if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
+    // Stop any running idle cycle on explicit dismiss
+    idleCycleActiveRef.current = false;
+    setIsJuggling(false);
+    if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
     recModeRef.current = 'wakeword';
     lastFinalRef.current = '';
     setState('idle');
@@ -1374,6 +1518,10 @@ export default function VoiceAssistant({
   const wakeAssistantRef = useRef<() => void>(() => {});
   const wakeAssistant = useCallback(() => {
     if (stateRef.current !== 'idle' && stateRef.current !== 'sleeping') return;
+    // Immediately stop idle cycle & juggling — no delay (per spec)
+    idleCycleActiveRef.current = false;
+    setIsJuggling(false);
+    if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
     enterListening();
   }, [enterListening]);
   useEffect(() => { wakeAssistantRef.current = wakeAssistant; }, [wakeAssistant]);
@@ -1453,10 +1601,13 @@ export default function VoiceAssistant({
     const commands = parseMultiCommand(transcript);
     const isComplex = commands.length > 1 || transcript.split(/\s+/).length > 8;
 
-    // Variable thinking delay: 300–900ms simple, 800–2000ms complex
-    const thinkDelay = isComplex
-      ? 800  + Math.random() * 1200
-      : 300  + Math.random() * 600;
+    // Thinking delay scaled by command count — per spec
+    const numCmds = commands.length;
+    const thinkDelay =
+      numCmds >= 4 ? 1500 + Math.random() * 500 :
+      numCmds === 3 ? 1200 :
+      numCmds === 2 ? 700  + Math.random() * 200 :
+                      300  + Math.random() * 200;
 
     // Process all sub-commands, accumulate responses
     const results = commands.map(cmd => processCommand(cmd, makeCtx(), setGesture, goIdle));
@@ -1734,9 +1885,10 @@ export default function VoiceAssistant({
   // ── Cleanup ───────────────────────────────────────────────────────────────────
   useEffect(() => () => {
     window.speechSynthesis.cancel();
+    idleCycleActiveRef.current = false;
     [mouthIntervalRef, eyeIntervalRef, idleIntervalRef, thinkIntervalRef]
       .forEach(r => { if (r.current) clearInterval(r.current); });
-    [commandTimeoutRef, blinkTimeoutRef, gestureTimeoutRef, inactivityTimerRef, autoSleepTimerRef]
+    [commandTimeoutRef, blinkTimeoutRef, gestureTimeoutRef, inactivityTimerRef, autoSleepTimerRef, cycleTimerRef]
       .forEach(r => { if (r.current) clearTimeout(r.current); });
   }, []);
 
@@ -1785,6 +1937,8 @@ export default function VoiceAssistant({
     <>
       {/* Grass ripple screen effect */}
       <GrassWaveEffect active={isActive} />
+      {/* Entry ripple — grass trail behind ball flying in from bottom-right */}
+      <EntryRipple active={entryRippleActive} />
 
       {/* Floating assistant container
           Position strategy: always use `right` so CSS can animate a single
@@ -2023,6 +2177,7 @@ export default function VoiceAssistant({
               gesture={gesture}
               speaking={isSpeakingRef.current}
               speechBeat={speechBeat}
+              isJuggling={isJuggling}
             />
           </motion.div>
         </motion.div>

@@ -1,0 +1,646 @@
+MASTER PROMPT - Final Professional Cricket Ball Assistant (v3.0)
+IMPORTANT
+
+Do NOT redesign the cricket ball.
+
+Do NOT change its face, body, stitches, size, colors or overall appearance.
+
+The existing ball is perfect.
+
+The task is ONLY to redesign its animation engine, state machine and performance so it feels like Samsung Bixby, Pixel Gemini, Siri and PW AI Guru.
+
+Everything must run at a true 60 FPS.
+
+No lag.
+
+No overlapping animations.
+
+No jumping positions.
+
+No animation conflicts.
+
+1. Build a Proper Animation State Machine
+
+There must NEVER be two body animations playing together.
+
+Only one body animation may be active at a time.
+
+Animation priority should be:
+
+Wake Animation
+↓
+
+Listening
+↓
+
+Thinking
+↓
+
+Speaking
+↓
+
+Success / Command Executed
+↓
+
+Idle
+
+If a higher priority animation starts, the lower one immediately pauses.
+
+When finished it resumes Idle.
+
+2. Entry Animation (Completely Rebuild)
+
+The current entry animation is not acceptable.
+
+Problems:
+
+• Not smooth
+
+• Not realistic
+
+• Wrong direction
+
+• Ripple not following the ball
+
+• Ball changes final position
+
+• Looks robotic
+
+Replace it completely.
+
+The ball must enter like a premium AI assistant.
+
+Use the uploaded spin-axis image as the movement reference.
+
+The ball must travel in the exact direction of the spin axis.
+
+While travelling:
+
+rotate realistically
+
+slightly accelerate
+
+slightly decelerate
+
+small bounce
+
+motion blur
+
+ease-out finish
+
+It should feel physically thrown into the screen.
+
+NOT sliding.
+
+NOT teleporting.
+
+NOT linear.
+
+Ripple
+
+Currently the ripple is incorrect.
+
+The ripple sometimes goes ahead of the ball.
+
+Instead:
+
+Grass ripple starts exactly behind the moving ball.
+
+Ripple expands behind it.
+
+Ripple fades while the ball continues.
+
+The ripple should never overtake the ball.
+
+Final Position
+
+The ball must ALWAYS finish at
+
+Bottom Center
+
+Exactly the original resting position.
+
+No shifting.
+
+No jumping.
+
+No different position after every wake.
+
+Timing
+
+Entry
+
+650 ms
+
+Small bounce
+
+180 ms
+
+Ripple fade
+
+400 ms
+
+Everything uses cubic ease.
+
+3. Idle System
+
+Currently animations happen randomly.
+
+That looks unprofessional.
+
+Replace with a scheduler.
+
+If user has not interacted for
+
+60 seconds
+
+enter Idle Cycle.
+
+Idle Cycle contains ONLY TWO animations.
+
+Idle Animation 1
+
+Sleeping
+
+Current sleeping animation remains exactly the same.
+
+Do not change.
+
+Duration
+
+20 seconds
+
+Idle Animation 2
+
+Playing
+
+Brand new animation.
+
+The assistant secretly takes out a tiny cricket ball.
+
+Using its two large cute human hands it begins juggling.
+
+Throw
+
+Catch
+
+Throw
+
+Catch
+
+Smile
+
+Blink
+
+Look at ball
+
+Look at user
+
+Continue juggling.
+
+The hands should have
+
+fingers
+
+rounded
+
+cute
+
+red
+
+soft animation
+
+not robotic.
+
+If user says
+
+Hey Ball
+
+Immediately:
+
+hide cricket ball behind back
+
+hands disappear
+
+go into Listening.
+
+No delay.
+
+Idle Loop
+
+Sleep
+
+↓
+
+Play Cricket
+
+↓
+
+Sleep
+
+↓
+
+Play Cricket
+
+Forever.
+
+No randomness.
+
+Professional timing.
+
+4. Hand Visibility
+
+Currently hands remain visible unnecessarily.
+
+Fix this.
+
+Hands should only exist when needed.
+
+Visible during:
+
+Thinking
+
+Playing
+
+Celebration
+
+Wave
+
+Pointing
+
+Hidden during:
+
+Idle
+
+Listening
+
+Speaking
+
+Wake
+
+Sleeping
+
+Only animate hands when required.
+
+5. Thinking Animation
+
+Current thinking animation is missing.
+
+Fix it.
+
+Thinking starts whenever:
+
+AI is analyzing
+
+Multiple commands
+
+Searching app state
+
+Preparing response
+
+Thinking should last
+
+600–1400 ms
+
+depending on complexity.
+
+Thinking animation includes:
+
+one eyebrow raised
+
+hand on cheek
+
+eyes looking upward
+
+eyes moving left-right
+
+small blinking
+
+mouth closed
+
+head tilt
+
+tiny floating question marks
+
+small magnifying glass
+
+tiny rotating gear
+
+soft sparkles
+
+slow breathing
+
+Never rush this.
+
+Thinking must finish before speaking.
+
+6. Speaking Animation
+
+Currently mouth barely moves.
+
+Fix completely.
+
+Speech must use viseme animation.
+
+Not simple open/close.
+
+Use
+
+A
+
+E
+
+O
+
+M
+
+closed
+
+wide
+
+round
+
+smile
+
+shapes.
+
+Synchronize with speech.
+
+While speaking:
+
+eyes blink
+
+head nods
+
+tiny bounce
+
+mouth synchronized
+
+speech box active
+
+When speech ends
+
+mouth closes naturally.
+
+7. Listening
+
+Listening should feel alive.
+
+During listening:
+
+ears not required
+
+Instead:
+
+eyes follow user
+
+small blinking
+
+small breathing
+
+tiny head movement
+
+No frozen face.
+
+8. Multi Command Processing
+
+Current assistant only processes one or two commands.
+
+Upgrade to unlimited command chaining.
+
+Examples
+
+Turn on fan
+
+Turn on pump
+
+Switch to manual
+
+Show latest reading
+
+Export report
+
+↓
+
+Assistant thinks
+
+↓
+
+Executes
+
+Fan ON
+
+Pump ON
+
+Manual Mode ON
+
+Latest Reading Displayed
+
+PDF Exported
+
+↓
+
+Single response
+
+"I've turned on the fan, started the pump, switched to Manual Mode, displayed the latest reading and exported your report."
+
+Commands execute one after another.
+
+Never ignore remaining commands.
+
+9. Thinking Duration
+
+Currently response is instant.
+
+Looks fake.
+
+Instead:
+
+Simple command
+
+300–500 ms
+
+Two commands
+
+700–900 ms
+
+Three commands
+
+1200 ms
+
+Four+
+
+1500–2000 ms
+
+During this time
+
+Thinking animation plays.
+
+10. Performance Optimization
+
+Target:
+
+60 FPS
+
+Stable
+
+No dropped frames
+
+Requirements
+
+Use requestAnimationFrame.
+
+Do not use repeated React state updates.
+
+Use refs for animation values.
+
+Memoize SVG.
+
+No unnecessary rerenders.
+
+Pause idle animations when hidden.
+
+Use GPU transforms only.
+
+Only animate transform and opacity.
+
+No layout recalculation.
+
+One animation controller.
+
+No duplicated timers.
+
+No duplicated intervals.
+
+No duplicated listeners.
+
+11. Animation Timeline
+
+Wake Word
+
+↓
+
+Entry Animation
+
+↓
+
+Listening
+
+↓
+
+Thinking
+
+↓
+
+Speaking
+
+↓
+
+Command Execution
+
+↓
+
+Success Smile
+
+↓
+
+Idle
+
+↓
+
+Sleep
+
+↓
+
+Play Cricket
+
+↓
+
+Sleep
+
+↓
+
+Play Cricket
+
+Repeat forever.
+
+Never skip states.
+
+12. Expressions
+
+Sleeping
+
+😴
+
+Listening
+
+🙂
+
+Thinking
+
+🤔
+
+Speaking
+
+😊
+
+Executing
+
+😎
+
+Success
+
+😁
+
+Error
+
+😕
+
+Unknown
+
+😅
+
+Never freeze.
+
+13. Smoothness
+
+Every movement must use spring physics.
+
+No linear movement.
+
+No robotic transitions.
+
+No snapping.
+
+Everything interpolated.
+
+14. Final Goal
+
+The assistant must feel like:
+
+Samsung Bixby responsiveness
+
+Google Gemini smoothness
+
+Apple Siri polish
+
+PW AI Guru personality
+
+while remaining a cute cricket ball assistant.
+
+The user should feel like the assistant is a living character rather than a collection of SVG animations.
+
+Acceptance Criteria:
+
+Stable 60 FPS on all animations.
+Ball always enters from the correct spin-axis direction and finishes at the exact bottom-center resting position.
+Grass ripple always trails behind the ball.
+Only one animation state is active at any time (state machine).
+Hands are visible only when contextually required.
+Mouth animation is synchronized with speech.
+Thinking animation always appears before responses, with duration based on command complexity.
+Unlimited chained app commands are parsed and executed sequentially.
+Idle behavior alternates predictably between Sleeping and Cricket Juggling after 60 seconds of inactivity.
+No animation conflicts, no position jumps, no lag, and no unnecessary React re-renders.
+
+This architecture will make your assistant feel much closer to a commercial voice assistant rather than a collection of independent animations. It focuses on smoothness, clear state transitions, and performance instead of simply adding more animations.

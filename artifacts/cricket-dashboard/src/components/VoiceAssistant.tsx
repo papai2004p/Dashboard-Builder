@@ -318,15 +318,7 @@ const CricketBall = memo(function CricketBall({
         />
       </>)}
 
-      {/* ── Legs ── */}
-      <motion.ellipse cx="38" cy="97" rx="7" ry="5" fill="url(#va-skinGrad)"
-        animate={isIdle && !isSleeping ? { y: [0, -1, 0] } : {}}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
-      />
-      <motion.ellipse cx="62" cy="97" rx="7" ry="5" fill="url(#va-skinGrad)"
-        animate={isIdle && !isSleeping ? { y: [0, -1, 0] } : {}}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
-      />
+      {/* Legs hidden */}
 
       {/* ── Left hand (hidden by default, 25% bigger) ── */}
       <motion.ellipse cx="8" cy="55" rx="8.75" ry="6.25"
@@ -770,6 +762,30 @@ const VoiceWaveform = memo(function VoiceWaveform({ active }: { active: boolean 
   );
 });
 
+// ── Phoneme-driven mouth frame builder ───────────────────────────────────────
+// Maps each character to a mouth-openness value (0–1) so the lips move like a
+// real speaker: wide-open on "a"/"o", nearly closed on bilabials "b"/"p"/"m",
+// and small pauses on punctuation.
+
+function buildMouthFrames(text: string): number[] {
+  const frames: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (/[aA]/.test(ch))          frames.push(0.86 + Math.random() * 0.11);
+    else if (/[oO]/.test(ch))     frames.push(0.78 + Math.random() * 0.14);
+    else if (/[eE]/.test(ch))     frames.push(0.54 + Math.random() * 0.14);
+    else if (/[iI]/.test(ch))     frames.push(0.44 + Math.random() * 0.12);
+    else if (/[uU]/.test(ch))     frames.push(0.60 + Math.random() * 0.13);
+    else if (/[bBpPmM]/.test(ch)) frames.push(0.03 + Math.random() * 0.05); // lips press together
+    else if (/[fFvV]/.test(ch))   frames.push(0.18 + Math.random() * 0.10);
+    else if (/[szSZ]/.test(ch))   frames.push(0.28 + Math.random() * 0.10);
+    else if (/[.,!?;:]/.test(ch)) { frames.push(0.04); frames.push(0.02); }  // micro-pause
+    else if (ch === ' ')           frames.push(0.07 + Math.random() * 0.06); // word gap
+    else                           frames.push(0.21 + Math.random() * 0.19); // generic consonant
+  }
+  return frames;
+}
+
 // ── Multi-Command Parser ──────────────────────────────────────────────────────
 
 function parseMultiCommand(raw: string): string[] {
@@ -1167,17 +1183,35 @@ export default function VoiceAssistant({
     ballControls.set({ x: 0 });
   }, [ballControls]);
 
-  // ── Wake-up bounce ────────────────────────────────────────────────────────────
-  const triggerWakeBounce = useCallback(async () => {
+  // ── Wake-up spin entry — fires when ball flies from corner to centre ─────────
+  // Phase 1: quick compress (0.10 s) so it looks like it's winding up.
+  // Phase 2: 720° dual-spin + spring scale-overshoot (0.68 s).
+  // The CSS position transition (0.55 s) runs simultaneously so the spin and
+  // the movement feel like one choreographed gesture.
+  const triggerWakeSpinEntry = useCallback(async () => {
+    ballControls.set({ rotate: 0, scale: 1 });
+    // Wind-up compress
     await ballControls.start({
-      scale: [1, 1.18, 0.92, 1.06, 1],
-      y: [0, -12, 0, -5, 0],
-      transition: { duration: 0.6, ease: 'easeOut' }
+      scale: 0.82,
+      transition: { duration: 0.10, ease: 'easeIn' },
     });
-    ballControls.set({ scale: 1, y: 0 });
+    // Launch: two full spins + spring scale
+    await ballControls.start({
+      rotate: 720,
+      scale: [0.82, 1.22, 0.96, 1.04, 1.0],
+      transition: {
+        rotate: { duration: 0.68, ease: [0.22, 1.0, 0.36, 1.0] }, // fast-then-float
+        scale:  {
+          duration: 0.68,
+          ease: 'easeOut',
+          times: [0, 0.30, 0.60, 0.82, 1.0],
+        },
+      },
+    });
+    ballControls.set({ rotate: 0, scale: 1 });
   }, [ballControls]);
 
-  // Fire jump/shake/wake based on state transitions
+  // Fire jump/shake/spin based on state transitions
   const prevStateRef = useRef<AssistantState>('idle');
   useEffect(() => {
     const prev = prevStateRef.current;
@@ -1188,9 +1222,9 @@ export default function VoiceAssistant({
     } else if (state === 'error' && prev !== 'error') {
       triggerShake();
     } else if ((state === 'woken' || state === 'listening') && (prev === 'idle' || prev === 'sleeping')) {
-      triggerWakeBounce();
+      triggerWakeSpinEntry();
     }
-  }, [state, triggerJump, triggerShake, triggerWakeBounce]);
+  }, [state, triggerJump, triggerShake, triggerWakeSpinEntry]);
 
   // ── Reset 7-second command timeout ───────────────────────────────────────────
   const resetCommandTimeout = useCallback(() => {
@@ -1226,24 +1260,44 @@ export default function VoiceAssistant({
       window.speechSynthesis.onvoiceschanged = assignVoice;
     }
 
-    // Natural mouth rhythm using word boundary events
+    // ── Phoneme-driven mouth animation ──────────────────────────────────────
+    // Pre-compute per-character openness, then drive a smooth 30 fps lerp so
+    // lips open/close exactly like a real speaker (vowels wide, bilabials shut,
+    // punctuation pauses, etc.).  Word-boundary events snap the index when the
+    // browser supports them, keeping lip sync tight.
     if (mouthIntervalRef.current) clearInterval(mouthIntervalRef.current);
     setSpeechBeat(0);
-    setMouthOpen(0.3); // open when speech starts
+    setMouthOpen(0.28);
 
-    // Fallback: random rhythm via interval
+    const frames      = buildMouthFrames(text);
+    const msPerChar   = Math.round(74 / (utter.rate || 1)); // ≈74 ms/char at rate 0.92
+    const tickMs      = 33;                                  // ~30 fps smooth step
+    const ticksPerFrame = msPerChar / tickMs;                // advance one frame every N ticks
+
+    let frameIdx  = 0;
+    let tickAccum = 0;
+    let smoothMouth = 0.28;
+    let targetMouth = 0.28;
+
     mouthIntervalRef.current = setInterval(() => {
-      const v = 0.2 + Math.random() * 0.8;
+      tickAccum += 1;
+      if (tickAccum >= ticksPerFrame && frameIdx < frames.length) {
+        tickAccum  = 0;
+        targetMouth = frames[frameIdx++];
+      }
+      // Exponential lerp — fast attack, slow release = natural jaw movement
+      const lerpRate = targetMouth > smoothMouth ? 0.52 : 0.38;
+      smoothMouth += (targetMouth - smoothMouth) * lerpRate;
+      const v = Math.max(0, Math.min(1, smoothMouth));
       setMouthOpen(v);
-      setSpeechBeat(v > 0.6 ? 1 : 0);
-    }, 110);
+      setSpeechBeat(v > 0.50 ? v * 0.85 : 0);
+    }, tickMs);
 
-    // Word-boundary for natural rhythm when supported
-    utter.onboundary = (e: any) => {
-      if (e.name === 'word') {
-        const beat = 0.5 + Math.random() * 0.5;
-        setMouthOpen(beat);
-        setSpeechBeat(beat > 0.7 ? 1 : 0);
+    // Word-boundary snap: keeps lip sync accurate when the browser fires it
+    utter.onboundary = (e: SpeechSynthesisEvent) => {
+      if (e.name === 'word' && typeof e.charIndex === 'number') {
+        frameIdx  = Math.min(e.charIndex, frames.length - 1);
+        tickAccum = 0;
       }
     };
 
@@ -1732,15 +1786,18 @@ export default function VoiceAssistant({
       {/* Grass ripple screen effect */}
       <GrassWaveEffect active={isActive} />
 
-      {/* Floating assistant container */}
+      {/* Floating assistant container
+          Position strategy: always use `right` so CSS can animate a single
+          numeric property with no jump from auto.
+          • Idle   →  right: 24 px  (corner)
+          • Active →  right: calc(50% - 70px)
+                      (ball is 140 px wide; 50%−70px puts its centre at 50vw) */}
       <div
         className="fixed z-[60]"
         style={{
           bottom: 24,
-          right:  isActive ? undefined : 24,
-          left:   isActive ? '50%'     : undefined,
-          transform: isActive ? 'translateX(-50%)' : undefined,
-          transition: 'left 0.4s cubic-bezier(0.34,1.56,0.64,1), right 0.4s ease, transform 0.4s ease',
+          right: isActive ? 'calc(50% - 70px)' : 24,
+          transition: 'right 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
           pointerEvents: 'none',
           display: 'flex',
           flexDirection: 'column',

@@ -9,7 +9,28 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
-runButton = "artifacts/cricket-dashboard: web"
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Cricket Dashboard"
+
+[[workflows.workflow]]
+name = "Cricket Dashboard"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=25954 BASE_PATH=/ pnpm --filter @workspace/cricket-dashboard run dev"
+waitForPort = 25954
 
 [agent]
 stack = "PNPM_WORKSPACE"

@@ -211,6 +211,7 @@ const CricketBall = memo(function CricketBall({
   // ── Hand visibility (per reference image spec) ─────────────────────────────
   // Hands shown ONLY during: Thinking, Juggling, Wave, Thumbs-up, Shrug, Greeting, Celebration
   const showLeftHand =
+    isThinking ||  // thinking: left fist on cheek
     (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
     isRubbing ||
     isHappy ||   // celebration: both up
@@ -218,9 +219,9 @@ const CricketBall = memo(function CricketBall({
     isError;     // shrug: both out
 
   const showRightHand =
+    isThinking ||  // thinking: right fist holding magnifying glass
     (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
     isRubbing ||
-    (isThinking && (thinkAnim === 'handCheek' || thinkAnim === 'scratch')) ||
     isHappy ||   // thumbs-up (success) / celebration
     isError;     // shrug
 
@@ -244,8 +245,8 @@ const CricketBall = memo(function CricketBall({
   }: {
     cx: number; cy: number; rotate?: number; scale?: number;
     mirrorX?: boolean;
-    /** open = fingers up/spread | fist = closed | thumbUp | pointRight */
-    variant?: 'open' | 'fist' | 'thumbUp' | 'shrug';
+    /** open = fingers up/spread | fist = closed | thumbUp | pointRight | fistMagnify = fist gripping magnifying glass */
+    variant?: 'open' | 'fist' | 'thumbUp' | 'shrug' | 'fistMagnify';
   }) => {
     const flip = mirrorX ? 'scale(-1,1)' : '';
     const t = `translate(${cx} ${cy}) rotate(${rotate}) scale(${scale}) ${flip}`;
@@ -295,6 +296,32 @@ const CricketBall = memo(function CricketBall({
           <ellipse cx="0"  cy="-6.5" rx="3" ry="2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
           <ellipse cx="5"  cy="-5.5" rx="3" ry="2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
           <ellipse cx="0"  cy="-1"   rx="6" ry="2.5" fill="rgba(255,255,255,0.15)" />
+        </g>
+      );
+    }
+
+    if (variant === 'fistMagnify') {
+      // Fist gripping a magnifying glass — glass lens extends upward-right
+      return (
+        <g transform={t} style={{ willChange: 'transform' }}>
+          {/* Handle connecting fist to lens */}
+          <line x1="5" y1="-6" x2="11" y2="-15" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
+          {/* Lens outer frame */}
+          <circle cx="14" cy="-20" r="8" fill="none" stroke="#94a3b8" strokeWidth="2.4" />
+          {/* Lens glass tint */}
+          <circle cx="14" cy="-20" r="5.5" fill="rgba(147,197,253,0.38)" />
+          {/* Lens shine */}
+          <circle cx="11" cy="-23" r="1.6" fill="rgba(255,255,255,0.72)" />
+          {/* Question mark hint inside lens */}
+          <text x="11.5" y="-16.5" fontSize="6" fill="#64748b" fontWeight="bold" style={{ userSelect: 'none' }}>?</text>
+          {/* Fist body */}
+          <ellipse cx="0" cy="0" rx="10" ry="8" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+          {/* Knuckle bumps */}
+          <ellipse cx="-5" cy="-5.5" rx="3"   ry="2"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          <ellipse cx="0"  cy="-6.5" rx="3"   ry="2"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          <ellipse cx="5"  cy="-5.5" rx="3"   ry="2"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          {/* Fist highlight */}
+          <ellipse cx="0"  cy="-1"   rx="6"   ry="2.5" fill="rgba(255,255,255,0.15)" />
         </g>
       );
     }
@@ -565,6 +592,16 @@ const CricketBall = memo(function CricketBall({
             exit={{ opacity: 0, scale: 0.7 }}
             transition={{ type: 'spring', damping: 18, stiffness: 280 }}
           >
+            {/* THINKING — left fist on cheek, floating freely */}
+            {isThinking && (
+              <motion.g
+                animate={{ y: [0, -5, 0] }}
+                transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
+              >
+                <HandShape cx={6} cy={58} rotate={-15} variant="fist" scale={0.88} />
+              </motion.g>
+            )}
+
             {/* GREETING / WOKEN — left hand raised high, waving */}
             {isWoken && (
               <motion.g
@@ -651,23 +688,13 @@ const CricketBall = memo(function CricketBall({
             exit={{ opacity: 0, scale: 0.7 }}
             transition={{ type: 'spring', damping: 18, stiffness: 280 }}
           >
-            {/* THINKING — right hand on cheek */}
-            {isThinking && thinkAnim === 'handCheek' && (
+            {/* THINKING — right fist holding magnifying glass, floating freely */}
+            {isThinking && (
               <motion.g
-                animate={{ y: [0, -2, 0] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <HandShape cx={76} cy={54} rotate={120} scale={0.9} />
-              </motion.g>
-            )}
-
-            {/* THINKING — scratch */}
-            {isThinking && thinkAnim === 'scratch' && (
-              <motion.g
-                animate={{ x: [-2, 2, -2], y: [-2, 2, -2] }}
-                transition={{ duration: 0.22, repeat: Infinity, ease: 'linear' }}
-              >
-                <HandShape cx={76} cy={46} rotate={110} scale={0.85} />
+                <HandShape cx={88} cy={26} rotate={5} variant="fistMagnify" scale={0.95} />
               </motion.g>
             )}
 
@@ -1903,11 +1930,9 @@ export default function VoiceAssistant({
     const commands = parseMultiCommand(transcript);
     const numCmds  = commands.length;
 
-    const thinkDelay =
-      numCmds >= 4 ? 1500 + Math.random() * 700 :
-      numCmds === 3 ? 1200 + Math.random() * 300 :
-      numCmds === 2 ? 700  + Math.random() * 200 :
-                      350  + Math.random() * 350;
+    // Always hold the thinking animation for 10 seconds so the
+    // magnify-glass + cheek-fist pose has time to fully render and play.
+    const thinkDelay = 10000;
 
     const results = commands.map(cmd => processCommand(cmd, makeCtx(), setGesture, goIdle));
 

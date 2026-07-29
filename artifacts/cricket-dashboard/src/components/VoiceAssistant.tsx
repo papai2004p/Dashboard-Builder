@@ -2182,21 +2182,7 @@ export default function VoiceAssistant({
 
   // ── Unsupported ───────────────────────────────────────────────────────────────
   if (!isSupported) {
-    return (
-      <>
-        <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-[71] w-[min(92vw,560px)] bg-slate-950/95 backdrop-blur-xl text-white rounded-2xl px-5 py-3.5 border border-white/20 shadow-[0_10px_36px_rgba(0,0,0,0.3)] text-center">
-          <p className="text-sm sm:text-base font-semibold tracking-tight">
-            <span className="mr-2 text-emerald-300">●</span>
-            Ball AI <span className="mx-1.5 text-white/40">•</span> Say "Hey Ball" to interact
-          </p>
-          <p className="mt-1.5 text-[11px] sm:text-xs text-slate-300">Voice controls are currently unavailable in this browser.</p>
-        </div>
-        <div className="fixed bottom-6 right-4 sm:right-6 z-[72] bg-white/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[min(230px,calc(100vw-32px))]">
-          <p className="font-bold mb-1">🎤 Microphone {permDenied ? 'blocked' : 'unavailable'}</p>
-          <p>{permDenied ? 'Allow microphone access in your browser settings to use Ball.' : 'Your browser does not support speech recognition.'}</p>
-        </div>
-      </>
-    );
+    return null;
   }
 
   const isActive   = state !== 'idle' && state !== 'sleeping';

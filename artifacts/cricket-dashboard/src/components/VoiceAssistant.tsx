@@ -1948,10 +1948,21 @@ export default function VoiceAssistant({
   // ── Unsupported fallback ──────────────────────────────────────────────────────
   if (!isSupported) {
     return (
-      <div className="fixed bottom-6 right-6 z-[60] bg-white/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[230px]">
-        <p className="font-bold mb-1">🎤 Microphone {permDenied ? 'blocked' : 'unavailable'}</p>
-        <p>{permDenied ? 'Allow microphone access in your browser settings to use Ball.' : 'Your browser does not support speech recognition.'}</p>
-      </div>
+      <>
+        <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-[71] w-[min(92vw,560px)] bg-slate-950/95 backdrop-blur-xl text-white rounded-2xl px-5 py-3.5 border border-white/20 shadow-[0_10px_36px_rgba(0,0,0,0.3)] text-center">
+          <p className="text-sm sm:text-base font-semibold tracking-tight">
+            <span className="mr-2 text-emerald-300">●</span>
+            Ball AI <span className="mx-1.5 text-white/40">•</span> Say “Hey Ball” to interact
+          </p>
+          <p className="mt-1.5 text-[11px] sm:text-xs text-slate-300">
+            Voice controls are currently unavailable in this browser.
+          </p>
+        </div>
+        <div className="fixed bottom-6 right-6 z-[72] bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[230px]">
+          <p className="font-bold mb-1">🎤 Microphone {permDenied ? 'blocked' : 'unavailable'}</p>
+          <p>{permDenied ? 'Allow microphone access in your browser settings to use Ball.' : 'Your browser does not support speech recognition.'}</p>
+        </div>
+      </>
     );
   }
 
@@ -2240,7 +2251,7 @@ export default function VoiceAssistant({
           {!isActive && (isSleeping || isJuggling) && (
             <motion.div
               key={isSleeping ? 'sleep-label' : 'play-label'}
-              className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border border-white/10"
+              className="pointer-events-none fixed bottom-[104px] right-6 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
@@ -2251,16 +2262,14 @@ export default function VoiceAssistant({
           )}
         </AnimatePresence>
 
-        {/* Regular hint — only shows when idle and NOT in the cycle */}
+        {/* Persistent idle hint — always readable at the bottom of the app */}
         {!isActive && !isSleeping && !isJuggling && (
-          <motion.div
-            className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900/88 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border border-white/10"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 1, 1, 0] }}
-            transition={{ duration: 4, delay: 5, repeat: Infinity, repeatDelay: 14 }}
+          <div
+            className="pointer-events-none fixed bottom-[104px] right-6 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
           >
-            🎤 Say "Hey Ball"
-          </motion.div>
+            <span className="mr-2 text-emerald-300">●</span>
+            Ball AI <span className="mx-1.5 text-white/40">•</span> Say “Hey Ball” to interact
+          </div>
         )}
       </div>
     </>

@@ -2466,8 +2466,7 @@ export default function VoiceAssistant({
           <div
             className="pointer-events-none fixed bottom-[104px] right-6 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
           >
-            <span className="mr-2 text-emerald-300">●</span>
-            Ball AI <span className="mx-1.5 text-white/40">•</span> Say "Hey Ball" to interact
+            🎤 Say "Hey Ball"
           </div>
         )}
       </div>

@@ -278,9 +278,10 @@ function AnalysisModal({
                       { label: 'Max',     value: card.stats.max },
                       { label: 'Average', value: card.stats.avg },
                     ].map(item => (
-                      <div key={item.label} className="bg-slate-900/50 rounded-xl p-3 text-center">
-                        <p className="text-[11px] text-slate-400 mb-1">{item.label}</p>
-                        <p className="text-lg font-bold text-white">{item.value}{card.unit}</p>
+                      <div key={item.label} className="bg-slate-900/50 rounded-xl p-4 py-5 text-center min-w-0">
+                        <p className="text-xs text-slate-400 mb-2 font-medium">{item.label}</p>
+                        <p className="text-xl font-bold text-white leading-none">{item.value}</p>
+                        <p className="text-sm text-slate-300 mt-1">{card.unit}</p>
                       </div>
                     ))}
                   </div>

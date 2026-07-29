@@ -1283,7 +1283,7 @@ export default function VoiceAssistant({
 
   // Track user activity
   // • mousemove / keydown only resets the 60 s timer when NOT already in the cycle
-  // • click / touchstart ALWAYS breaks the cycle (per spec: "click anywhere interrupts")
+  // • click / touchstart / scroll ALWAYS breaks the cycle
   useEffect(() => {
     const onPassiveActivity = () => {
       if (stateRef.current === 'idle' && !idleCycleActiveRef.current) {
@@ -1291,7 +1291,7 @@ export default function VoiceAssistant({
       }
     };
     const onInterrupt = () => {
-      // Any click or touch always breaks the idle cycle and restarts the 60 s timer
+      // Any click, touch, or scroll always breaks the idle cycle and restarts the 60 s timer
       if (stateRef.current === 'idle' || stateRef.current === 'sleeping') {
         resetInactivityTimers();
       }
@@ -1300,6 +1300,7 @@ export default function VoiceAssistant({
     window.addEventListener('keydown',    onPassiveActivity, { passive: true });
     window.addEventListener('click',      onInterrupt,       { passive: true });
     window.addEventListener('touchstart', onInterrupt,       { passive: true });
+    window.addEventListener('scroll',     onInterrupt,       { passive: true, capture: true });
     resetInactivityTimers(); // start on mount
 
     return () => {
@@ -1307,6 +1308,7 @@ export default function VoiceAssistant({
       window.removeEventListener('keydown',    onPassiveActivity);
       window.removeEventListener('click',      onInterrupt);
       window.removeEventListener('touchstart', onInterrupt);
+      window.removeEventListener('scroll',     onInterrupt, { capture: true } as EventListenerOptions);
     };
   }, [resetInactivityTimers]);
 

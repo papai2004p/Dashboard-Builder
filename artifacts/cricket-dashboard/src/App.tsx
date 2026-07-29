@@ -614,8 +614,8 @@ export default function App() {
             <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 text-center">Live System Status</h4>
             <div className="space-y-2.5">
               {[
-                { label: 'ESP32 Microcontroller', color: 'bg-green-500', status: 'Connected', statusColor: 'text-green-600' },
-                { label: 'Wi-Fi Network',          color: 'bg-green-500', status: 'Connected', statusColor: 'text-green-600' },
+                { label: 'Arduino',    color: 'bg-green-500', status: 'Connected', statusColor: 'text-green-600' },
+                { label: 'USB Serial', color: 'bg-green-500', status: 'Connected', statusColor: 'text-green-600' },
                 { label: 'Database',               color: 'bg-green-500', status: 'Connected', statusColor: 'text-green-600' },
               ].map(item => (
                 <div key={item.label} className="flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-slate-100/50">

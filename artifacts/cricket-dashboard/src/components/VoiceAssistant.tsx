@@ -1844,10 +1844,14 @@ export default function VoiceAssistant({
 
     rec.onerror = (e: any) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        // Stop the restart loop before updating state
+        shouldListenRef.current = false;
+        try { rec.stop(); } catch (_) {}
         setIsSupported(false);
         setPermDenied(true);
         return;
       }
+      // For transient errors (network, no-speech, aborted) just let onend restart
     };
 
     try { rec.start(); } catch (_) {}

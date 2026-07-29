@@ -370,46 +370,88 @@ const CricketBall = memo(function CricketBall({
         <ellipse cx={rHandX} cy={rHandY - 2} rx="5" ry="2.5" fill="rgba(255,255,255,0.12)" />
       </motion.g>
 
-      {/* ── Cricket juggling mode: hands + tiny ball ── */}
+      {/* ── Cricket juggling mode: big side-hands + ball arcing over head ── */}
       <AnimatePresence>
         {isJuggling && (
           <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-            {/* Left juggling hand */}
-            <motion.g animate={{ y: [0, -3, 0] }} transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}>
-              <ellipse cx="-2" cy="92" rx="12" ry="8"   fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              <ellipse cx="-10" cy="85" rx="2.6" ry="4.0" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="-4"  cy="83" rx="2.6" ry="4.4" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="3"   cy="83" rx="2.6" ry="4.4" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="9"   cy="84.5" rx="2.3" ry="3.8" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="-13" cy="93.5" rx="3.0" ry="2.2" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="-2" cy="90" rx="6" ry="3" fill="rgba(255,255,255,0.14)" />
+
+            {/* ── Left hand (left side of ball, fingers pointing up) ── */}
+            <motion.g
+              animate={{ y: [0, -4, 0] }}
+              transition={{ duration: 1.0, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              {/* Palm */}
+              <ellipse cx="1"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.6" />
+              {/* Fingers — pointing upward */}
+              <ellipse cx="-11" cy="55" rx="4.5" ry="7.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              <ellipse cx="-3"  cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              <ellipse cx="5"   cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              <ellipse cx="13"  cy="53" rx="4.0" ry="7.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              {/* Thumb */}
+              <ellipse cx="-17" cy="70" rx="4.5" ry="3.2" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              {/* Knuckle highlight */}
+              <ellipse cx="1" cy="66" rx="10" ry="4" fill="rgba(255,255,255,0.18)" />
             </motion.g>
-            {/* Right juggling hand */}
-            <motion.g animate={{ y: [0, -3, 0] }} transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: 0.55 }}>
-              <ellipse cx="102" cy="92" rx="12" ry="8"    fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              <ellipse cx="110" cy="85" rx="2.6" ry="4.0" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="104" cy="83" rx="2.6" ry="4.4" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="97"  cy="83" rx="2.6" ry="4.4" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="91"  cy="84.5" rx="2.3" ry="3.8" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="113" cy="93.5" rx="3.0" ry="2.2" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.4" />
-              <ellipse cx="102" cy="90" rx="6" ry="3" fill="rgba(255,255,255,0.14)" />
+
+            {/* ── Right hand (right side of ball, fingers pointing up) ── */}
+            <motion.g
+              animate={{ y: [0, -4, 0] }}
+              transition={{ duration: 1.0, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+            >
+              {/* Palm */}
+              <ellipse cx="99" cy="70" rx="20" ry="14" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.6" />
+              {/* Fingers — pointing upward */}
+              <ellipse cx="87"  cy="55" rx="4.0" ry="7.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              <ellipse cx="95"  cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              <ellipse cx="103" cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              <ellipse cx="111" cy="53" rx="4.5" ry="7.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              {/* Thumb */}
+              <ellipse cx="117" cy="70" rx="4.5" ry="3.2" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
+              {/* Knuckle highlight */}
+              <ellipse cx="99" cy="66" rx="10" ry="4" fill="rgba(255,255,255,0.18)" />
             </motion.g>
-            {/* Tiny juggling cricket ball — arcs between hands */}
+
+            {/* ── Tiny cricket ball — arcs HIGH above the ball's head ── */}
+            {/* Path: left-hand top → peak way above → right-hand top → peak → back */}
             <motion.circle
-              r="7" fill="#dc2626"
-              animate={{ cx: [-2, 50, 102, 50, -2], cy: [82, 18, 82, 18, 82] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
+              r="10" fill="#dc2626" stroke="#991b1b" strokeWidth="0.5"
+              animate={{
+                cx: [1,   50,  99,  50,  1 ],
+                cy: [55, -55,  55, -55, 55 ],
+              }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
             />
+            {/* Seam on tiny ball */}
             <motion.path
-              fill="none" stroke="white" strokeWidth="1.1" strokeLinecap="round"
-              animate={{ d: ['M -6 82 Q -2 76 4 82', 'M 44 18 Q 50 12 56 18', 'M 96 82 Q 102 76 108 82', 'M 44 18 Q 50 12 56 18', 'M -6 82 Q -2 76 4 82'] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
+              fill="none" stroke="white" strokeWidth="1.4" strokeLinecap="round"
+              animate={{
+                d: [
+                  'M -4 55 Q 1 49 6 55',
+                  'M 44 -55 Q 50 -61 56 -55',
+                  'M 94 55 Q 99 49 104 55',
+                  'M 44 -55 Q 50 -61 56 -55',
+                  'M -4 55 Q 1 49 6 55',
+                ],
+              }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
             />
-            {/* Ball highlight */}
+            {/* Highlight on tiny ball */}
             <motion.circle
-              r="3" fill="rgba(255,255,255,0.35)"
-              animate={{ cx: [-4, 48, 100, 48, -4], cy: [79, 15, 79, 15, 79] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
+              r="4" fill="rgba(255,255,255,0.4)"
+              animate={{
+                cx: [-1,  47,  96,  47,  -1],
+                cy: [51, -59,  51, -59,  51],
+              }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
+            />
+
+            {/* Arc trail (dotted) — shows the parabolic path */}
+            <motion.path
+              fill="none" stroke="rgba(252,165,165,0.5)" strokeWidth="1.2"
+              strokeDasharray="4 5" strokeLinecap="round"
+              d="M 1 55 Q 50 -70 99 55"
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
             />
           </motion.g>
         )}
@@ -526,9 +568,10 @@ const CricketBall = memo(function CricketBall({
           <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {['z', 'Z', 'Z'].map((z, i) => (
               <motion.text key={i}
-                x={62 + i * 8} y={20 - i * 10}
-                fontSize={8 + i * 3} fill="#94a3b8" fontWeight="bold"
-                animate={{ y: [20 - i * 10, 14 - i * 10, 20 - i * 10], opacity: [0.4, 0.9, 0.4] }}
+                x={62 + i * 10} y={18 - i * 12}
+                fontSize={12 + i * 5} fill="#111827" fontWeight="900"
+                stroke="#374151" strokeWidth="0.3"
+                animate={{ y: [18 - i * 12, 10 - i * 12, 18 - i * 12], opacity: [0.7, 1, 0.7] }}
                 transition={{ duration: 2, delay: i * 0.5, repeat: Infinity, ease: 'easeInOut' }}
               >{z}</motion.text>
             ))}
@@ -1217,51 +1260,61 @@ export default function VoiceAssistant({
     }, 60_000);
   }, []);
 
-  // Deterministic idle cycle: Sleep (20 s) → Play Cricket (15 s) → Sleep → …
-  // No randomness. Professional timing. Per spec.
+  // Idle cycle — each iteration randomly picks ONE animation (sleep OR play).
+  // Never shows both together. Loops forever until user interrupts.
   const startIdleCycle = useCallback(() => {
     if (!idleCycleActiveRef.current) return;
 
-    // Phase 1 — Sleeping (20 seconds, existing sleep animation unchanged)
-    setState('sleeping');
-    setIsJuggling(false);
+    // Random choice each iteration — keeps it feeling alive, not robotic
+    const pickSleep = Math.random() < 0.5;
 
-    cycleTimerRef.current = setTimeout(() => {
-      if (!idleCycleActiveRef.current) return;
-
-      // Phase 2 — Play Cricket juggling (15 seconds)
+    if (pickSleep) {
+      setState('sleeping');
+      setIsJuggling(false);
+      cycleTimerRef.current = setTimeout(() => {
+        if (!idleCycleActiveRef.current) return;
+        setState('idle');
+        startIdleCycleRef.current(); // randomly pick next
+      }, 20_000);
+    } else {
       setState('idle');
       setIsJuggling(true);
-
       cycleTimerRef.current = setTimeout(() => {
         if (!idleCycleActiveRef.current) return;
         setIsJuggling(false);
-        // Loop back forever
-        startIdleCycleRef.current();
+        startIdleCycleRef.current(); // randomly pick next
       }, 15_000);
-    }, 20_000);
+    }
   }, []);
 
   useEffect(() => { startIdleCycleRef.current = startIdleCycle; }, [startIdleCycle]);
 
-  // Track user activity — only resets inactivity if NOT already in idle cycle
+  // Track user activity
+  // • mousemove / keydown only resets the 60 s timer when NOT already in the cycle
+  // • click / touchstart ALWAYS breaks the cycle (per spec: "click anywhere interrupts")
   useEffect(() => {
-    const onActivity = () => {
+    const onPassiveActivity = () => {
       if (stateRef.current === 'idle' && !idleCycleActiveRef.current) {
         resetInactivityTimers();
       }
     };
-    window.addEventListener('mousemove', onActivity, { passive: true });
-    window.addEventListener('keydown', onActivity, { passive: true });
-    window.addEventListener('touchstart', onActivity, { passive: true });
-    window.addEventListener('click', onActivity, { passive: true });
+    const onInterrupt = () => {
+      // Any click or touch always breaks the idle cycle and restarts the 60 s timer
+      if (stateRef.current === 'idle' || stateRef.current === 'sleeping') {
+        resetInactivityTimers();
+      }
+    };
+    window.addEventListener('mousemove',  onPassiveActivity, { passive: true });
+    window.addEventListener('keydown',    onPassiveActivity, { passive: true });
+    window.addEventListener('click',      onInterrupt,       { passive: true });
+    window.addEventListener('touchstart', onInterrupt,       { passive: true });
     resetInactivityTimers(); // start on mount
 
     return () => {
-      window.removeEventListener('mousemove', onActivity);
-      window.removeEventListener('keydown', onActivity);
-      window.removeEventListener('touchstart', onActivity);
-      window.removeEventListener('click', onActivity);
+      window.removeEventListener('mousemove',  onPassiveActivity);
+      window.removeEventListener('keydown',    onPassiveActivity);
+      window.removeEventListener('click',      onInterrupt);
+      window.removeEventListener('touchstart', onInterrupt);
     };
   }, [resetInactivityTimers]);
 
@@ -2182,25 +2235,31 @@ export default function VoiceAssistant({
           </motion.div>
         </motion.div>
 
-        {/* Idle tooltip */}
-        {!isActive && !isSleeping && (
+        {/* ONE label above the ball — idle cycle states (sleeping or juggling) */}
+        <AnimatePresence>
+          {!isActive && (isSleeping || isJuggling) && (
+            <motion.div
+              key={isSleeping ? 'sleep-label' : 'play-label'}
+              className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border border-white/10"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.3 }}
+            >
+              {isSleeping ? '💤 Sleeping' : '🏏 Playing cricket'} — say "Hey Ball"
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Regular hint — only shows when idle and NOT in the cycle */}
+        {!isActive && !isSleeping && !isJuggling && (
           <motion.div
-            className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900/88 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border border-white/10"
+            className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900/88 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border border-white/10"
             initial={{ opacity: 0 }}
             animate={{ opacity: [0, 1, 1, 0] }}
             transition={{ duration: 4, delay: 5, repeat: Infinity, repeatDelay: 14 }}
           >
             🎤 Say "Hey Ball"
-          </motion.div>
-        )}
-
-        {/* Sleeping pill */}
-        {isSleeping && (
-          <motion.div
-            className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-800/88 backdrop-blur-md text-slate-400 text-[10px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap border border-slate-700/30"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          >
-            💤 Sleeping — say "Hey Ball" to wake me
           </motion.div>
         )}
       </div>

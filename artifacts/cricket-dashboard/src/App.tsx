@@ -519,9 +519,8 @@ export default function App() {
       <div className="max-w-[1600px] mx-auto px-6 sm:px-8 lg:px-12 relative z-10 pt-6 space-y-5">
 
         {/* ── 1. HEADER ── */}
-        <header className={`${CARD} px-8 py-5 flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden`}>
-          <div className="absolute left-0 top-0 bottom-0 w-2 bg-blue-600 rounded-l-[26px]" />
-          <div className="flex items-center gap-4 pl-4">
+        <header className={`${CARD} px-8 py-5 flex flex-col md:flex-row items-center justify-between gap-4 relative`}>
+          <div className="flex items-center gap-4">
             <div className="w-13 h-13 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30 text-white p-3">
               <Activity size={26} />
             </div>

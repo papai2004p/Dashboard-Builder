@@ -1956,7 +1956,7 @@ export default function VoiceAssistant({
             Voice controls are currently unavailable in this browser.
           </p>
         </div>
-        <div className="fixed bottom-6 right-6 z-[72] bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[230px]">
+        <div className="fixed bottom-6 right-4 sm:right-6 z-[72] bg-white/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[min(230px,calc(100vw-32px))]">
           <p className="font-bold mb-1">🎤 Microphone {permDenied ? 'blocked' : 'unavailable'}</p>
           <p>{permDenied ? 'Allow microphone access in your browser settings to use Ball.' : 'Your browser does not support speech recognition.'}</p>
         </div>
@@ -2012,13 +2012,15 @@ export default function VoiceAssistant({
         className="fixed z-[60]"
         style={{
           bottom: 24,
-          right: isActive ? 'calc(50% - 70px)' : 24,
+          right: isActive ? 'calc(50% - 70px)' : 16,
           transition: 'right 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
           pointerEvents: 'none',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: 12,
+          willChange: 'right',
+          transform: 'translateZ(0)',
         }}
       >
 
@@ -2031,15 +2033,16 @@ export default function VoiceAssistant({
               animate={{ opacity: 1, y: 0,  scale: 1 }}
               exit={{ opacity: 0,    y: 12, scale: 0.93 }}
               transition={{ type: 'spring', damping: 24, stiffness: 260 }}
-              style={{ width: 330 }}
+              style={{ width: 'min(330px, calc(100vw - 40px))', willChange: 'transform' }}
             >
               <div
-                className="rounded-[24px] p-5 border border-white/20 shadow-2xl"
+                className="rounded-[24px] p-4 sm:p-5 border border-white/20 shadow-2xl"
                 style={{
-                  background: 'rgba(10,18,40,0.88)',
-                  backdropFilter: 'blur(32px)',
-                  WebkitBackdropFilter: 'blur(32px)',
-                  boxShadow: '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.10)',
+                  background: 'rgba(10,18,40,0.92)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.10)',
+                  transform: 'translateZ(0)',
                 }}
               >
                 {/* Header row */}

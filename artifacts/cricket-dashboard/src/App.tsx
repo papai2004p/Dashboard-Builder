@@ -158,20 +158,20 @@ const ControlCard = ({ title, type, icon: Icon, isOn, onToggle, activeColor, mod
   const spinClass  = type === 'fan'  && isOn ? 'animate-[spin_2s_linear_infinite]' : '';
 
   return (
-    <div className={`${CARD} p-10 flex flex-col items-center justify-center gap-6 relative overflow-hidden ${isOn ? activeGlow : ''}`}>
+    <div className={`${CARD} p-6 sm:p-10 flex flex-col items-center justify-center gap-4 sm:gap-6 relative overflow-hidden ${isOn ? activeGlow : ''}`}>
       {isOn && (
         <div className={`absolute inset-0 opacity-[0.15] bg-gradient-to-br ${grad} pointer-events-none transition-opacity duration-700`} />
       )}
-      <div className={`p-7 rounded-[22px] transition-all duration-500 relative z-10 ${isOn ? activeBg : 'bg-slate-100 text-slate-400'}`}>
-        <Icon size={50} className={`${pulseClass} ${spinClass}`} strokeWidth={2} />
+      <div className={`p-5 sm:p-7 rounded-[22px] transition-all duration-500 relative z-10 ${isOn ? activeBg : 'bg-slate-100 text-slate-400'}`}>
+        <Icon size={40} className={`${pulseClass} ${spinClass} sm:!w-[50px] sm:!h-[50px]`} strokeWidth={2} />
       </div>
       <div className="text-center relative z-10">
-        <h3 className="font-extrabold text-slate-800 text-2xl">{title}</h3>
-        <p className={`font-bold mt-1.5 text-lg uppercase tracking-wider ${isOn ? activeText : 'text-slate-400'}`}>
+        <h3 className="font-extrabold text-slate-800 text-xl sm:text-2xl">{title}</h3>
+        <p className={`font-bold mt-1 sm:mt-1.5 text-base sm:text-lg uppercase tracking-wider ${isOn ? activeText : 'text-slate-400'}`}>
           {isOn ? `${type === 'pump' ? 'Pump' : 'Fan'} ON` : `${type === 'pump' ? 'Pump' : 'Fan'} OFF`}
         </p>
       </div>
-      <div className="mt-2 relative z-10">
+      <div className="mt-1 sm:mt-2 relative z-10">
         <div className={mode === 'auto' ? 'pointer-events-none opacity-60' : ''}>
           <Switch
             checked={isOn}
@@ -180,13 +180,13 @@ const ControlCard = ({ title, type, icon: Icon, isOn, onToggle, activeColor, mod
           />
         </div>
       </div>
-      <div className="h-7 mt-1 flex items-center justify-center relative z-10">
+      <div className="h-7 flex items-center justify-center relative z-10">
         {mode === 'auto' ? (
-          <span className="text-[11px] font-bold px-3.5 py-1.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-wider">
+          <span className="text-[11px] font-bold px-3 sm:px-3.5 py-1.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-wider">
             Controlled Automatically
           </span>
         ) : (
-          <span className={`text-[11px] font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider transition-opacity duration-300 ${isOn ? 'opacity-100 bg-slate-100 text-slate-500 border border-slate-200 shadow-sm' : 'opacity-0'}`}>
+          <span className={`text-[11px] font-bold px-3 sm:px-3.5 py-1.5 rounded-full uppercase tracking-wider transition-opacity duration-300 ${isOn ? 'opacity-100 bg-slate-100 text-slate-500 border border-slate-200 shadow-sm' : 'opacity-0'}`}>
             Controlled Manually
           </span>
         )}
@@ -516,28 +516,28 @@ export default function App() {
     >
       <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
-      <div className="max-w-[1600px] mx-auto px-6 sm:px-8 lg:px-12 relative z-10 pt-6 space-y-5">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-12 relative z-10 pt-4 sm:pt-6 space-y-4 sm:space-y-5">
 
         {/* ── 1. HEADER ── */}
-        <header className={`${CARD} px-8 py-5 flex flex-col md:flex-row items-center justify-between gap-4 relative`}>
-          <div className="flex items-center gap-4">
-            <div className="w-13 h-13 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30 text-white p-3">
-              <Activity size={26} />
+        <header className={`${CARD} px-4 sm:px-8 py-4 sm:py-5 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 relative`}>
+          <div className="flex items-center gap-3 sm:gap-4 w-full md:w-auto">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30 text-white p-2 sm:p-2.5 flex-shrink-0">
+              <Activity size={22} />
             </div>
-            <div>
-              <h1 className="text-xl md:text-2xl font-extrabold text-slate-800 tracking-tight">AI Smart Cricket Pitch Dashboard</h1>
-              <p className="text-sm text-slate-500 font-medium mt-0.5">Real-Time Monitoring & Automation</p>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl md:text-2xl font-extrabold text-slate-800 tracking-tight leading-tight">AI Smart Cricket Pitch Dashboard</h1>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">Real-Time Monitoring & Automation</p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-4 bg-slate-50/80 rounded-2xl p-3 border border-slate-200/50">
-            <div className="flex items-center gap-2 px-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 bg-slate-50/80 rounded-2xl p-2 sm:p-3 border border-slate-200/50 w-full md:w-auto">
+            <div className="flex items-center gap-2 px-1 sm:px-2">
               <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.7)]" />
-              <span className="text-sm font-bold text-green-700 flex items-center gap-1.5">
-                Arduino Connected <Wifi size={14} strokeWidth={2.5} />
+              <span className="text-xs sm:text-sm font-bold text-green-700 flex items-center gap-1">
+                Arduino Connected <Wifi size={13} strokeWidth={2.5} />
               </span>
             </div>
             <div className="hidden sm:block w-px h-6 bg-slate-300" />
-            <div className="text-sm font-bold text-slate-700 font-mono tracking-tight flex gap-2 px-2">
+            <div className="text-xs sm:text-sm font-bold text-slate-700 font-mono tracking-tight flex gap-1.5 sm:gap-2 px-1 sm:px-2">
               <span>{dateString}</span>
               <span className="text-slate-300">|</span>
               <span className="text-blue-600">{timeString}</span>
@@ -581,14 +581,14 @@ export default function App() {
           <div className={`${CARD} p-7 relative overflow-hidden flex flex-col items-center justify-center min-h-[190px]`}>
             <div className={`absolute inset-0 opacity-[0.15] bg-gradient-to-br ${glowColors[currentCondition]} pointer-events-none transition-colors duration-1000`} />
             <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-6 relative z-10">Pitch Condition</h4>
-            <div className="flex gap-2 justify-center w-full relative z-10">
+            <div className="flex gap-1.5 sm:gap-2 justify-center w-full relative z-10">
               {conditions.map(c => {
                 const isActive = currentCondition === c;
                 const style = isActive ? conditionColors[c].active : conditionColors[c].inactive;
                 return (
-                  <div key={c} className={`flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-500 ${style}`}>
-                    {isActive && <div className={`w-2 h-2 rounded-full animate-pulse ${conditionColors[c].dot}`} />}
-                    <span className="text-sm font-bold">{c}</span>
+                  <div key={c} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full border transition-all duration-500 ${style}`}>
+                    {isActive && <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse ${conditionColors[c].dot}`} />}
+                    <span className="text-xs sm:text-sm font-bold">{c}</span>
                   </div>
                 );
               })}
@@ -662,16 +662,16 @@ export default function App() {
               const s = notifStyles[notif.type];
               const Icon = s.icon;
               return (
-                <div key={notif.id} className={`bg-white/90 backdrop-blur-xl border-l-4 ${s.border} border-y border-y-white/60 border-r border-r-white/60 shadow-[0_4px_20px_rgb(0,0,0,0.04)] rounded-xl p-4 flex items-start justify-between gap-4 animate-[slideInNotif_0.35s_ease-out]`}>
-                  <div className="flex gap-4 items-start">
-                    <div className={`p-2 rounded-lg ${s.bg} ${s.iconColor} shrink-0`}><Icon size={20} /></div>
-                    <div>
+                <div key={notif.id} className={`bg-white/90 backdrop-blur-xl border-l-4 ${s.border} border-y border-y-white/60 border-r border-r-white/60 shadow-[0_4px_20px_rgb(0,0,0,0.04)] rounded-xl p-3 sm:p-4 flex items-start justify-between gap-3 animate-[slideInNotif_0.35s_ease-out]`}>
+                  <div className="flex gap-3 sm:gap-4 items-start min-w-0">
+                    <div className={`p-2 rounded-lg ${s.bg} ${s.iconColor} shrink-0`}><Icon size={18} /></div>
+                    <div className="min-w-0">
                       <h4 className="font-bold text-slate-800 text-sm">{notif.title}</h4>
-                      <p className="text-slate-500 text-sm mt-0.5">{notif.message}</p>
+                      <p className="text-slate-500 text-xs sm:text-sm mt-0.5 leading-snug">{notif.message}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs font-semibold text-slate-400 font-mono">{notif.timestamp}</span>
+                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                    <span className="hidden sm:block text-xs font-semibold text-slate-400 font-mono">{notif.timestamp}</span>
                     <button onClick={() => removeNotif(notif.id)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 bg-slate-50 hover:bg-slate-100 rounded-md">
                       <X size={16} />
                     </button>

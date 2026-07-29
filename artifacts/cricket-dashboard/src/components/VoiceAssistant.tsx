@@ -7,6 +7,8 @@ import {
   WAKE_WORDS,
   COMMAND_LANG,
   isPorcupineConfigured,
+  detectWakeWord,
+  stripWakeWord,
 } from '@/lib/wakeWordEngine';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -2005,12 +2007,17 @@ export default function VoiceAssistant({
 
       let interimTxt = '';
       let finalTxt   = '';
+      // Collect all alternatives for wake-word checking (not just highest-confidence)
+      let allAlternativesTxt = '';
 
       for (let i = e.resultIndex; i < e.results.length; i++) {
         let best = e.results[i][0].transcript;
         for (let a = 1; a < e.results[i].length; a++) {
-          if (e.results[i][a].confidence > e.results[i][0].confidence) best = e.results[i][a].transcript;
+          const alt = e.results[i][a];
+          allAlternativesTxt += ' ' + alt.transcript;
+          if (alt.confidence > e.results[i][0].confidence) best = alt.transcript;
         }
+        allAlternativesTxt += ' ' + e.results[i][0].transcript;
         if (e.results[i].isFinal) finalTxt += best;
         else interimTxt += best;
       }
@@ -2020,13 +2027,15 @@ export default function VoiceAssistant({
 
       // ── Wake word ──
       if (mode === 'wakeword' && (currentState === 'idle' || currentState === 'sleeping')) {
+        // Check primary transcript + all alternatives for maximum sensitivity
         const allText = (interimTxt + ' ' + finalTxt).toLowerCase().trim();
+        const checkText = allText + ' ' + allAlternativesTxt.toLowerCase();
         if (allText && !wakeDebounceRef.current) {
-          const found = WAKE_WORDS.some(w => allText.includes(w));
+          const found = detectWakeWord(checkText);
           if (found) {
             wakeDebounceRef.current = true;
             setTimeout(() => { wakeDebounceRef.current = false; }, 2500);
-            const stripped = WAKE_WORDS.reduce((s, w) => s.replace(w, ''), allText).trim();
+            const stripped = stripWakeWord(allText);
             if (stripped.length > 2) {
               recModeRef.current   = 'command';
               lastFinalRef.current = '';
@@ -2078,7 +2087,7 @@ export default function VoiceAssistant({
           if (deduped && deduped !== lastFinalRef.current) {
             lastFinalRef.current = deduped;
             setInterimText('');
-            const cmd = WAKE_WORDS.reduce((s, w) => s.replace(w, ''), deduped.toLowerCase()).trim();
+            const cmd = stripWakeWord(deduped.toLowerCase());
             if (cmd.length > 1) handleCommandRef.current(cmd || deduped);
           }
         }
@@ -2100,6 +2109,8 @@ export default function VoiceAssistant({
         setPermDenied(true);
         return;
       }
+      // 'no-speech', 'aborted', 'network', 'audio-capture' are transient —
+      // let onend handle the restart; no state change needed.
     };
 
     try { rec.start(); } catch (_) {}

@@ -1582,9 +1582,11 @@ export default function VoiceAssistant({
   // No spin. Ball rises from below the screen, fades in, overshoots 3-5 px via
   // spring physics, then settles at y:0 (the resting position). Zero rotation.
   const triggerWakeSpinEntry = useCallback(async () => {
-    // Ripple starts immediately as ball appears — dismiss after rings finish
-    setEntryRippleActive(true);
-    setTimeout(() => setEntryRippleActive(false), 1100);
+    // Delay ripple by 550 ms so it fires once the ball has slid to center
+    setTimeout(() => {
+      setEntryRippleActive(true);
+      setTimeout(() => setEntryRippleActive(false), 1100);
+    }, 550);
 
     // Snap to start: 150 px below resting spot, invisible, upright, no rotation
     ballControls.set({ x: 0, y: 150, opacity: 0, rotate: 0, scale: 0.88 });
@@ -2136,17 +2138,19 @@ export default function VoiceAssistant({
       <GrassWaveEffect active={isActive} />
       <EntryRipple active={entryRippleActive} />
 
-      {/* Floating assistant container — always bottom-center */}
+      {/* Floating assistant container — bottom-right idle, slides to center when active */}
       <div
         className="fixed z-[60]"
         style={{
           bottom: 24,
-          left: 'calc(50% - 70px)',
+          right: isActive ? 'calc(50% - 70px)' : 16,
+          transition: 'right 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
           pointerEvents: 'none',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: 12,
+          willChange: 'right',
           transform: 'translateZ(0)',
         }}
       >
@@ -2367,7 +2371,7 @@ export default function VoiceAssistant({
           {!isActive && (isSleeping || isJuggling) && (
             <motion.div
               key={isSleeping ? 'sleep-label' : 'play-label'}
-              className="pointer-events-none fixed bottom-[104px] left-1/2 -translate-x-1/2 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
+              className="pointer-events-none fixed bottom-[104px] right-6 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
@@ -2381,7 +2385,7 @@ export default function VoiceAssistant({
         {/* Persistent idle hint */}
         {!isActive && !isSleeping && !isJuggling && (
           <div
-            className="pointer-events-none fixed bottom-[104px] left-1/2 -translate-x-1/2 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
+            className="pointer-events-none fixed bottom-[104px] right-6 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
           >
             <span className="mr-2 text-emerald-300">●</span>
             Ball AI <span className="mx-1.5 text-white/40">•</span> Say "Hey Ball" to interact

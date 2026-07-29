@@ -2182,7 +2182,12 @@ export default function VoiceAssistant({
 
   // ── Unsupported ───────────────────────────────────────────────────────────────
   if (!isSupported) {
-    return null;
+    return (
+      <div className="fixed bottom-6 right-4 sm:right-6 z-[72] bg-white/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[min(230px,calc(100vw-32px))]">
+        <p className="font-bold mb-1">🎤 Microphone {permDenied ? 'blocked' : 'unavailable'}</p>
+        <p>{permDenied ? 'Allow microphone access in your browser settings to use Ball.' : 'Your browser does not support speech recognition.'}</p>
+      </div>
+    );
   }
 
   const isActive   = state !== 'idle' && state !== 'sleeping';

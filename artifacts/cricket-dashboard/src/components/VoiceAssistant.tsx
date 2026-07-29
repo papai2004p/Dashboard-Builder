@@ -153,6 +153,7 @@ const CricketBall = memo(function CricketBall({
   const isSnoring = isIdle && activeIdle === 'snore';
 
   const blinkScale =
+    isJuggling ? 1 :       // always wide-open eyes while playing
     isSleeping ? 0.08 :
     isSnoring  ? 0.08 :
     isRubbing  ? 0.15 :
@@ -417,40 +418,35 @@ const CricketBall = memo(function CricketBall({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
           >
-            {/* ── LEFT HAND ── */}
+            {/* ── LEFT HAND ──
+                Ball arrives at t=0/1.0. Fist closes t=0.88→0.96, opens t=0.04→0.14.
+                Open & fist share identical time-points and mirror each other (sum=1, no gap). */}
             <motion.g
-              animate={{ y: [0, -10, -4, 0, 4, 0] }}
+              animate={{ y: [4, 0, -8, -3, 0, 4] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut',
-                times: [0, 0.1, 0.2, 0.5, 0.88, 1] }}
+                times: [0, 0.06, 0.14, 0.22, 0.5, 1] }}
             >
-              {/* Open hand (fingers forward/spread) — visible while throwing & waiting */}
+              {/* Open hand — spread fingers pointing forward */}
               <motion.g
-                animate={{ opacity: [1, 1, 1, 0, 0, 1] }}
+                animate={{ opacity: [0, 0, 1, 1, 1, 0, 0] }}
                 transition={{ duration: 1.8, repeat: Infinity,
-                  times: [0, 0.1, 0.75, 0.82, 0.96, 1] }}
+                  times: [0, 0.04, 0.14, 0.5, 0.88, 0.96, 1] }}
               >
-                {/* Palm */}
-                <ellipse cx="1"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
-                {/* Fingers spread/pointing forward (upward in SVG) */}
+                <ellipse cx="1"   cy="70" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
                 <ellipse cx="-13" cy="54" rx="4.5" ry="8"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
                 <ellipse cx="-4"  cy="49" rx="4.5" ry="9"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
                 <ellipse cx="6"   cy="49" rx="4.5" ry="9"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
                 <ellipse cx="15"  cy="53" rx="4.0" ry="8"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-                {/* Thumb out to the side */}
                 <ellipse cx="-19" cy="68" rx="5"   ry="3.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-                {/* Knuckle highlight */}
                 <ellipse cx="1"   cy="65" rx="11"  ry="4"   fill="rgba(255,255,255,0.20)" />
               </motion.g>
-
-              {/* Fist (closed) — visible when catching */}
+              {/* Fist — closes exactly when ball lands */}
               <motion.g
-                animate={{ opacity: [0, 0, 0, 1, 1, 0] }}
+                animate={{ opacity: [1, 1, 0, 0, 0, 1, 1] }}
                 transition={{ duration: 1.8, repeat: Infinity,
-                  times: [0, 0.75, 0.82, 0.88, 0.96, 1] }}
+                  times: [0, 0.04, 0.14, 0.5, 0.88, 0.96, 1] }}
               >
-                {/* Fist body */}
                 <ellipse cx="1"  cy="68" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
-                {/* Knuckle bumps (fingers curled) */}
                 <ellipse cx="-11" cy="56" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
                 <ellipse cx="-3"  cy="54" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
                 <ellipse cx="5"   cy="54" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
@@ -459,17 +455,19 @@ const CricketBall = memo(function CricketBall({
               </motion.g>
             </motion.g>
 
-            {/* ── RIGHT HAND ── */}
+            {/* ── RIGHT HAND ──
+                Ball arrives at t=0.5. Fist closes t=0.42→0.50, opens t=0.58→0.68.
+                Same mirror approach — open+fist opacities always sum to 1.           */}
             <motion.g
-              animate={{ y: [0, 0, 4, 0, -10, -4, 0] }}
+              animate={{ y: [0, 3, 4, 0, -8, -3, 0] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut',
-                times: [0, 0.3, 0.42, 0.5, 0.6, 0.7, 1] }}
+                times: [0, 0.3, 0.42, 0.5, 0.58, 0.68, 1] }}
             >
-              {/* Open hand (fingers forward/spread) */}
+              {/* Open hand */}
               <motion.g
-                animate={{ opacity: [1, 1, 0, 0, 1, 1] }}
+                animate={{ opacity: [1, 1, 0, 0, 0, 1, 1] }}
                 transition={{ duration: 1.8, repeat: Infinity,
-                  times: [0, 0.28, 0.35, 0.48, 0.56, 1] }}
+                  times: [0, 0.42, 0.50, 0.5, 0.58, 0.68, 1] }}
               >
                 <ellipse cx="99"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
                 <ellipse cx="85"  cy="54" rx="4.0" ry="8"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
@@ -479,12 +477,11 @@ const CricketBall = memo(function CricketBall({
                 <ellipse cx="119" cy="68" rx="5"   ry="3.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
                 <ellipse cx="99"  cy="65" rx="11"  ry="4"   fill="rgba(255,255,255,0.20)" />
               </motion.g>
-
-              {/* Fist (closed) */}
+              {/* Fist */}
               <motion.g
-                animate={{ opacity: [0, 0, 1, 1, 0, 0] }}
+                animate={{ opacity: [0, 0, 1, 1, 1, 0, 0] }}
                 transition={{ duration: 1.8, repeat: Infinity,
-                  times: [0, 0.28, 0.35, 0.48, 0.56, 1] }}
+                  times: [0, 0.42, 0.50, 0.5, 0.58, 0.68, 1] }}
               >
                 <ellipse cx="99"  cy="68" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
                 <ellipse cx="87"  cy="56" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />

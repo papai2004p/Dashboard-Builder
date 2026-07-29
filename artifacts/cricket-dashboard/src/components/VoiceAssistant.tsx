@@ -1425,7 +1425,6 @@ export default function VoiceAssistant({
   const [gesture, setGestureState]      = useState<GestureDir>('none');
   const [showHints, setShowHints]       = useState(false);
   const [isJuggling, setIsJuggling]     = useState(false);
-  const [entryRippleActive, setEntryRippleActive] = useState(false);
 
   const ballControls = useAnimation();
 
@@ -1582,12 +1581,6 @@ export default function VoiceAssistant({
   // No spin. Ball rises from below the screen, fades in, overshoots 3-5 px via
   // spring physics, then settles at y:0 (the resting position). Zero rotation.
   const triggerWakeSpinEntry = useCallback(async () => {
-    // Delay ripple by 550 ms so it fires once the ball has slid to center
-    setTimeout(() => {
-      setEntryRippleActive(true);
-      setTimeout(() => setEntryRippleActive(false), 1100);
-    }, 550);
-
     // Snap to start: 150 px below resting spot, invisible, upright, no rotation
     ballControls.set({ x: 0, y: 150, opacity: 0, rotate: 0, scale: 0.88 });
 
@@ -2136,14 +2129,16 @@ export default function VoiceAssistant({
   return (
     <>
       <GrassWaveEffect active={isActive} />
-      <EntryRipple active={entryRippleActive} />
 
-      {/* Floating assistant container — bottom-right idle, slides to center when active */}
+      {/* Floating assistant container — bottom-right idle, slides to center when active.
+          Width is fixed to 140px (ball size) when active so right:calc(50%-70px) keeps
+          the ball perfectly centered regardless of the panel width above it.          */}
       <div
         className="fixed z-[60]"
         style={{
           bottom: 24,
           right: isActive ? 'calc(50% - 70px)' : 16,
+          width: isActive ? 140 : 'auto',
           transition: 'right 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
           pointerEvents: 'none',
           display: 'flex',
@@ -2152,6 +2147,7 @@ export default function VoiceAssistant({
           gap: 12,
           willChange: 'right',
           transform: 'translateZ(0)',
+          overflow: 'visible',
         }}
       >
         {/* ── Assistant panel ── */}

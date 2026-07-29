@@ -416,7 +416,7 @@ function ResetDashboardCard({ onReset }: { onReset: () => void }) {
           </div>
         </div>
         <p className="text-xs text-slate-500 flex-1 leading-relaxed line-clamp-3">
-          Clears all sensor readings, graphs, and history. The next ESP32 reading will auto-fill everything again.
+          Clears all sensor readings, graphs, and history. The next Arduino reading will auto-fill everything again.
         </p>
         <button onClick={() => setShowConfirm(true)} className={BTN_RED}>
           <RotateCcw size={16} />

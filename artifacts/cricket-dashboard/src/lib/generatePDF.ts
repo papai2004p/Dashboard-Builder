@@ -289,7 +289,7 @@ export function generatePDF(data: PDFData): void {
     { label: 'Date', value: dateStr, green: false },
     { label: 'Time', value: timeStr, green: false },
     { label: 'Report ID', value: reportId, green: false },
-    { label: 'ESP32 Status', value: 'Connected', green: true },
+    { label: 'Arduino Status', value: 'Connected', green: true },
     { label: 'Wi-Fi Status', value: 'Connected', green: true },
     { label: 'Database Status', value: 'Connected', green: true },
   ];
@@ -747,7 +747,7 @@ export function generatePDF(data: PDFData): void {
   doc.setTextColor(147, 197, 253);
   doc.setFontSize(5);
   doc.text('Auto Refresh Every 2 Seconds', W / 2, footerY + 6, { align: 'center' });
-  doc.text('Powered by ESP32 + PHP + MySQL', W / 2, footerY + 11, { align: 'center' });
+  doc.text('Powered by Arduino + PHP + MySQL', W / 2, footerY + 11, { align: 'center' });
 
   // Right
   doc.setFontSize(5);

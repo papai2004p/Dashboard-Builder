@@ -340,7 +340,7 @@ export default function App() {
       setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000);
     };
     addNotifRef.current = addNotif;
-    addNotif('success', 'ESP32 Connected', 'Connection established successfully');
+    addNotif('success', 'Arduino Connected', 'Connection established successfully');
   }, []);
 
   // Timeline setup
@@ -444,7 +444,7 @@ export default function App() {
       addNotifRef.current?.('info',    'Manual Mode Enabled',    'Automatic control paused');
       addEventRef.current('mode', 'Manual Mode Enabled');
     } else {
-      addNotifRef.current?.('success', 'Automatic Mode Enabled', 'ESP32 is now controlling the system');
+      addNotifRef.current?.('success', 'Automatic Mode Enabled', 'Arduino is now controlling the system');
       addEventRef.current('mode', 'Automatic Mode Enabled');
     }
   };
@@ -533,7 +533,7 @@ export default function App() {
             <div className="flex items-center gap-2 px-2">
               <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.7)]" />
               <span className="text-sm font-bold text-green-700 flex items-center gap-1.5">
-                ESP32 Connected <Wifi size={14} strokeWidth={2.5} />
+                Arduino Connected <Wifi size={14} strokeWidth={2.5} />
               </span>
             </div>
             <div className="hidden sm:block w-px h-6 bg-slate-300" />
@@ -593,7 +593,7 @@ export default function App() {
                 );
               })}
             </div>
-            <p className="text-xs text-slate-400 mt-6 font-medium relative z-10">Driven by ESP32 soil moisture sensor</p>
+            <p className="text-xs text-slate-400 mt-6 font-medium relative z-10">Driven by Arduino soil moisture sensor</p>
           </div>
 
           {/* System Mode */}
@@ -605,7 +605,7 @@ export default function App() {
               <button className={`flex-1 relative z-10 py-2.5 text-sm font-bold transition-colors ${systemMode === 'manual' ? 'text-slate-800' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => handleModeChange('manual')}>Manual</button>
             </div>
             <p className="text-xs text-slate-400 mt-5 font-medium">
-              {systemMode === 'auto' ? 'ESP32 controlling pump & fan' : 'User controlling pump & fan'}
+              {systemMode === 'auto' ? 'Arduino controlling pump & fan' : 'User controlling pump & fan'}
             </p>
           </div>
 

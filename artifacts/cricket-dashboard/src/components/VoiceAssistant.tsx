@@ -1034,7 +1034,7 @@ function processCommand(
   if ((/auto(matic)?(\s+mode)?|switch.*auto|enable.*auto|set.*auto|automatic please/.test(t)) && !/manual/.test(t)) {
     setGesture('left');
     ctx.onModeChange('auto');
-    return resp(`Automatic mode activated! The ESP32 will now manage the pump and fan based on live soil moisture. You can relax — I've got it covered.`, 'success');
+    return resp(`Automatic mode activated! The Arduino will now manage the pump and fan based on live soil moisture. You can relax — I've got it covered.`, 'success');
   }
   if (/manual(\s+mode)?|switch.*manual|enable.*manual|set.*manual|switch to manual|disable automatic|manual please/.test(t)) {
     setGesture('left');
@@ -1042,7 +1042,7 @@ function processCommand(
     return resp(`Switched to manual mode. You're now in full control of the water pump and drying fan.`, 'success');
   }
   if (/current mode|what.*mode|which mode/.test(t)) {
-    return resp(`You're in ${ctx.mode === 'auto' ? 'Automatic' : 'Manual'} mode. ${ctx.mode === 'auto' ? 'The ESP32 is managing things automatically.' : 'You have manual control of the pump and fan.'}`);
+    return resp(`You're in ${ctx.mode === 'auto' ? 'Automatic' : 'Manual'} mode. ${ctx.mode === 'auto' ? 'The Arduino is managing things automatically.' : 'You have manual control of the pump and fan.'}`);
   }
 
   // ── Emergency stop ──
@@ -1121,8 +1121,8 @@ function processCommand(
     setGesture('up');
     return resp(`The current soil moisture is ${ctx.currentSoil}%. The pitch condition is ${ctx.condition}.`);
   }
-  if (/esp32|wifi|wi-fi|database|connection|system status/.test(t)) {
-    return resp(`All systems operational. ESP32 microcontroller is online, Wi-Fi is connected, and the database is syncing perfectly.`);
+  if (/esp32|arduino|wifi|wi-fi|database|connection|system status/.test(t)) {
+    return resp(`All systems operational. Arduino microcontroller is online, USB Serial is connected, and the database is syncing perfectly.`);
   }
   if (/last update|last reading|latest reading|recent reading/.test(t)) {
     return resp(`The latest reading — temperature ${ctx.currentTemp}°C, humidity ${ctx.currentHum}%, and soil moisture ${ctx.currentSoil}%.`);
@@ -1162,7 +1162,7 @@ function processCommand(
   // ── Reset / Refresh ──
   if (/reset|refresh|reload|clear|update reading|update graph|refresh dashboard|reload dashboard|update dashboard/.test(t)) {
     ctx.onReset();
-    return resp(`Dashboard refreshed! Sensor data will update with the next ESP32 reading cycle.`, 'success');
+    return resp(`Dashboard refreshed! Sensor data will update with the next Arduino reading cycle.`, 'success');
   }
 
   // ── Unknown ──

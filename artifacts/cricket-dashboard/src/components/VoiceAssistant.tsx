@@ -792,18 +792,39 @@ const CricketBall = memo(function CricketBall({
         </motion.g>
       </motion.g>
 
-      {/* ── Sleeping ZZZs ── */}
+      {/* ── Sleeping ZZZs — float up, scale up, fade out ── */}
       <AnimatePresence>
         {(isSleeping || isSnoring) && (
-          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {['z', 'Z', 'Z'].map((z, i) => (
-              <motion.text key={i}
-                x={62 + i * 10} y={18 - i * 12}
-                fontSize={12 + i * 5} fill="#111827" fontWeight="900"
-                stroke="#374151" strokeWidth="0.3"
-                animate={{ y: [18 - i * 12, 10 - i * 12, 18 - i * 12], opacity: [0.7, 1, 0.7] }}
-                transition={{ duration: 2, delay: i * 0.5, repeat: Infinity, ease: 'easeInOut' }}
-              >{z}</motion.text>
+          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}>
+            {[
+              { label: 'z', x: 64, y0: 26, y1: 10,  size: 9,  delay: 0.0 },
+              { label: 'Z', x: 72, y0: 16, y1: -2,  size: 14, delay: 0.9 },
+              { label: 'Z', x: 81, y0:  5, y1: -16, size: 20, delay: 1.8 },
+            ].map((z, i) => (
+              <motion.text
+                key={i}
+                x={z.x}
+                fontSize={z.size}
+                fill="#1f2937"
+                fontWeight="900"
+                stroke="#6b7280"
+                strokeWidth="0.25"
+                style={{ transformOrigin: `${z.x}px ${z.y0}px` }}
+                animate={{
+                  y:       [z.y0, (z.y0 + z.y1) / 2, z.y1],
+                  opacity: [0,    0.95,                0   ],
+                  scale:   [0.65, 1,                   1.3 ],
+                }}
+                transition={{
+                  duration: 2.6,
+                  delay: z.delay,
+                  repeat: Infinity,
+                  repeatDelay: 0.4,
+                  ease: 'easeOut',
+                  times: [0, 0.45, 1],
+                }}
+              >{z.label}</motion.text>
             ))}
           </motion.g>
         )}

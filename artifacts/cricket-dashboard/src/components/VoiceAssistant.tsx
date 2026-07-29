@@ -1002,27 +1002,47 @@ const CricketBall = memo(function CricketBall({
 });
 
 // ── Entry Ripple ──────────────────────────────────────────────────────────────
+// Centered exactly on the ball center when active:
+//   container bottom: 24px, ball height: 140px → ball center Y = 24 + 70 = 94px from screen bottom
+//   ball center X = 50% of screen (container right: calc(50% - 70px) + 70px = 50%)
+// z-index 59 keeps all rings behind the ball (z:60) but above the grass wave (z:55)
 
 const EntryRipple = memo(function EntryRipple({ active }: { active: boolean }) {
+  // Ring radii grow from the 140px ball size outward
+  const rings = [
+    { delay: 0,    color: 'rgba(134,239,172,0.55)', shadow: 'rgba(34,197,94,0.30)' },
+    { delay: 0.15, color: 'rgba(74,222,128,0.40)',  shadow: 'rgba(34,197,94,0.20)' },
+    { delay: 0.30, color: 'rgba(21,128,61,0.30)',   shadow: 'rgba(21,128,61,0.15)' },
+  ];
   return (
     <AnimatePresence>
       {active && (
         <>
-          {[0, 1, 2].map(i => (
+          {rings.map((r, i) => (
             <motion.div
               key={i}
               className="fixed rounded-full pointer-events-none"
               style={{
-                right: 24, bottom: 24,
-                width: 64, height: 64,
-                zIndex: 58,
-                border: `2px solid rgba(134,239,172,${0.6 - i * 0.15})`,
-                boxShadow: '0 0 8px rgba(34,197,94,0.25)',
+                // Place the div so its geometric center aligns with the ball center
+                left: '50%',
+                bottom: 24,           // matches container bottom
+                width: 140,
+                height: 140,
+                marginLeft: -70,      // shift left by half width → horizontal center
+                // no marginBottom: div bottom edge = 24px, center Y = 24+70 = 94px ✓
+                zIndex: 59,           // behind ball (60), above grass wave (55)
+                border: `2px solid ${r.color}`,
+                boxShadow: `0 0 12px ${r.shadow}`,
+                background: `radial-gradient(circle, ${r.color.replace(')', ', 0.04)')} 0%, transparent 70%)`,
               }}
-              initial={{ scale: 1, opacity: 0.75 - i * 0.15 }}
-              animate={{ scale: 3.5 + i * 1.8, opacity: 0 }}
+              initial={{ scale: 1, opacity: 1 }}
+              animate={{ scale: 4.2 + i * 0.9, opacity: 0 }}
               exit={{}}
-              transition={{ duration: 0.4, delay: i * 0.09, ease: [0.0, 0.0, 0.35, 1.0] }}
+              transition={{
+                duration: 0.85,
+                delay: r.delay,
+                ease: [0.0, 0.0, 0.4, 1.0],
+              }}
             />
           ))}
         </>
@@ -1554,28 +1574,34 @@ export default function VoiceAssistant({
     ballControls.set({ x: 0 });
   }, [ballControls]);
 
-  // ── Entry spin (wake from idle/sleeping) ──────────────────────────────────────
+  // ── Entry animation (wake from idle/sleeping) ─────────────────────────────────
+  // No spin. Ball rises from below the screen, fades in, overshoots 3-5 px via
+  // spring physics, then settles at y:0 (the resting position). Zero rotation.
   const triggerWakeSpinEntry = useCallback(async () => {
+    // Ripple starts immediately as ball appears — dismiss after rings finish
     setEntryRippleActive(true);
-    setTimeout(() => setEntryRippleActive(false), 550);
+    setTimeout(() => setEntryRippleActive(false), 1100);
 
-    ballControls.set({ x: 160, y: 40, rotate: 0, scale: 0.72 });
+    // Snap to start: 150 px below resting spot, invisible, upright, no rotation
+    ballControls.set({ x: 0, y: 150, opacity: 0, rotate: 0, scale: 0.88 });
+
+    // Single spring move: opacity fades in fast (150 ms), y rises with spring
+    // stiffness/damping/mass values from the spec — natural 3-5 px overshoot, no bounce
     await ballControls.start({
-      x: 0, y: 0, rotate: -720, scale: 1.08,
+      y: 0,
+      opacity: 1,
+      scale: 1,
+      rotate: 0,
       transition: {
-        x:      { duration: 0.65, ease: [0.12, 0.8, 0.35, 1.0] },
-        y:      { duration: 0.65, ease: [0.12, 0.8, 0.35, 1.0] },
-        rotate: { duration: 0.65, ease: [0.0,  0.0, 0.2,  1.0] },
-        scale:  { duration: 0.35, ease: 'easeOut' },
+        y:       { type: 'spring', stiffness: 300, damping: 28, mass: 0.82, delay: 0.05 },
+        scale:   { type: 'spring', stiffness: 300, damping: 28, mass: 0.82, delay: 0.05 },
+        opacity: { duration: 0.18, ease: 'easeOut' },
+        rotate:  { duration: 0 },
       },
     });
-    ballControls.set({ rotate: 0 });
-    await ballControls.start({
-      y:     [0, -18, 5, -7, 0],
-      scale: [1.08, 0.95, 1.04, 0.98, 1.0],
-      transition: { duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] },
-    });
-    ballControls.set({ x: 0, y: 0, rotate: 0, scale: 1 });
+
+    // Lock to exact resting position — prevents any sub-pixel drift into idle
+    ballControls.set({ x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 });
   }, [ballControls]);
 
   // Fire animations on state transitions

@@ -1,0 +1,221 @@
+FINAL ENTRY ANIMATION FIX (Do Not Change Anything Else)
+
+The current entry animation is still incorrect. Completely rebuild ONLY the entry animation while keeping the existing cricket ball design unchanged.
+
+1. Remove the Spin Completely
+
+The cricket ball must NOT rotate while entering.
+
+No spinning.
+
+No rolling.
+
+No rotating around any axis.
+
+The seam should remain facing the user during the entire animation.
+
+The face should always remain upright.
+
+The movement should feel calm and confident like Samsung Bixby or Google Gemini.
+
+2. Ball Final Position
+
+After the entry animation finishes,
+
+the cricket ball MUST always stop at exactly:
+
+Bottom Center of the screen
+
+Use a fixed anchor position.
+
+Never let different screen sizes change the resting position.
+
+The resting position should always be identical.
+
+Never drift left or right.
+
+Never end slightly above or below.
+
+3. Entry Path
+
+The current movement path is incorrect.
+
+Replace it with a professional curved motion.
+
+The ball should:
+
+appear from below the screen
+
+↓
+
+move upward along a gentle curved trajectory
+
+↓
+
+slow down naturally
+
+↓
+
+slightly overshoot by only 3–5 pixels
+
+↓
+
+settle perfectly at the bottom center.
+
+Do NOT make it bounce.
+
+Do NOT make it wobble.
+
+Do NOT make it rotate.
+
+Movement should feel premium.
+
+4. Ripple Effect Origin (Very Important)
+
+The ripple is currently coming from beside the ball.
+
+This is incorrect.
+
+The ripple must always originate from the exact center of the cricket ball.
+
+The center of the ripple and the center of the ball must always share the same X and Y coordinates.
+
+The ripple should expand equally in every direction.
+
+The ball must remain exactly in the middle of every ripple circle.
+
+Never allow the ripple to appear offset.
+
+5. Ripple Layer Order
+
+Correct rendering order:
+
+Background
+
+↓
+
+Grass ripple
+
+↓
+
+Glow
+
+↓
+
+Cricket Ball
+
+↓
+
+Listening ring
+
+↓
+
+UI
+
+The ripple must always stay behind the ball.
+
+Never render on top of the ball.
+
+Never start from the side.
+
+6. Ripple Behaviour
+
+Instead of one large ripple,
+
+create multiple soft expanding rings.
+
+Example:
+
+Ring 1
+
+starts immediately
+
+↓
+
+Ring 2
+
+150 ms later
+
+↓
+
+Ring 3
+
+300 ms later
+
+Each ring:
+
+expands
+
+↓
+
+fades
+
+↓
+
+disappears.
+
+The animation should resemble Samsung Circle to Search or Google Gemini activation, but use a grass-green themed ripple matching the cricket project.
+
+7. Entry Timing
+
+Total entry duration:
+
+700–900 ms.
+
+Suggested sequence:
+
+0–150 ms:
+Ball fades in from below.
+
+150–500 ms:
+Smooth upward movement.
+
+500–650 ms:
+Very small overshoot.
+
+650–850 ms:
+Settle perfectly.
+
+Ripple starts simultaneously with the first appearance of the ball.
+
+8. Motion Quality
+
+Use Framer Motion spring physics instead of CSS keyframes.
+
+Recommended values:
+
+stiffness: 280–320
+damping: 26–30
+mass: 0.7–0.9
+
+The animation must render at a stable 60 FPS.
+
+9. No Position Jump
+
+After the entry animation completes, the ball currently changes position.
+
+This must never happen.
+
+The final animation position and the idle position must be exactly the same coordinates.
+
+The transition from Entry → Idle must be seamless, with zero visible movement.
+
+10. Premium Finish
+
+The final effect should look like a native operating system assistant:
+
+Samsung Bixby
+Google Gemini
+Apple Siri
+
+It should feel like the assistant naturally appears from the interface rather than flying into the screen.
+
+No spinning.
+
+No drifting.
+
+No offset ripple.
+
+No sudden position changes.
+
+The cricket ball should gracefully arrive, stop perfectly at the bottom center, and immediately transition into its idle animation without any visible jump or lag.

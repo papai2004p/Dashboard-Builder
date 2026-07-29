@@ -1008,11 +1008,17 @@ const CricketBall = memo(function CricketBall({
 // z-index 59 keeps all rings behind the ball (z:60) but above the grass wave (z:55)
 
 const EntryRipple = memo(function EntryRipple({ active }: { active: boolean }) {
-  // Ring radii grow from the 140px ball size outward
+  // Rings originate from the ball's bottom-center contact point and expand outward,
+  // so it looks like the ripple is coming OUT of the ball from the bottom.
+  //   Ball bottom edge sits at: fixed bottom = 24px from screen bottom
+  //   Ring origin = that same point → center ring div there (height 8px → bottom = 24 - 4 = 20)
+  const ORIGIN_BOTTOM = 20; // px — centers the 8px ring on the ball's bottom edge
+  const RING_START = 8;     // px — starting diameter (tiny, at the contact point)
+
   const rings = [
-    { delay: 0,    color: 'rgba(134,239,172,0.55)', shadow: 'rgba(34,197,94,0.30)' },
-    { delay: 0.15, color: 'rgba(74,222,128,0.40)',  shadow: 'rgba(34,197,94,0.20)' },
-    { delay: 0.30, color: 'rgba(21,128,61,0.30)',   shadow: 'rgba(21,128,61,0.15)' },
+    { delay: 0,    color: 'rgba(134,239,172,0.65)', shadow: 'rgba(34,197,94,0.40)' },
+    { delay: 0.18, color: 'rgba(74,222,128,0.45)',  shadow: 'rgba(34,197,94,0.25)' },
+    { delay: 0.36, color: 'rgba(21,128,61,0.32)',   shadow: 'rgba(21,128,61,0.18)' },
   ];
   return (
     <AnimatePresence>
@@ -1023,25 +1029,23 @@ const EntryRipple = memo(function EntryRipple({ active }: { active: boolean }) {
               key={i}
               className="fixed rounded-full pointer-events-none"
               style={{
-                // Place the div so its geometric center aligns with the ball center
+                // Center on ball bottom-center: the origin point of the ripple
                 left: '50%',
-                bottom: 24,           // matches container bottom
-                width: 140,
-                height: 140,
-                marginLeft: -70,      // shift left by half width → horizontal center
-                // no marginBottom: div bottom edge = 24px, center Y = 24+70 = 94px ✓
+                bottom: ORIGIN_BOTTOM,
+                width: RING_START,
+                height: RING_START,
+                marginLeft: -(RING_START / 2),  // horizontal center
                 zIndex: 59,           // behind ball (60), above grass wave (55)
-                border: `2px solid ${r.color}`,
-                boxShadow: `0 0 12px ${r.shadow}`,
-                background: `radial-gradient(circle, ${r.color.replace(')', ', 0.04)')} 0%, transparent 70%)`,
+                border: `2.5px solid ${r.color}`,
+                boxShadow: `0 0 10px ${r.shadow}, 0 0 20px ${r.shadow}`,
               }}
               initial={{ scale: 1, opacity: 1 }}
-              animate={{ scale: 4.2 + i * 0.9, opacity: 0 }}
+              animate={{ scale: 38 + i * 8, opacity: 0 }}
               exit={{}}
               transition={{
-                duration: 0.85,
+                duration: 0.95,
                 delay: r.delay,
-                ease: [0.0, 0.0, 0.4, 1.0],
+                ease: [0.0, 0.0, 0.35, 1.0],
               }}
             />
           ))}

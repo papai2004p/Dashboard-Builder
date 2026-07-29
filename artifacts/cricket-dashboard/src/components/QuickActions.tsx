@@ -191,13 +191,22 @@ function AnalysisModal({
 }) {
   const [chartTab, setChartTab] = useState<'bar' | 'trend' | 'radar'>('trend');
 
-  const tStats = calcStats(tempHistory);
-  const hStats = calcStats(humHistory);
-  const sStats = calcStats(soilHistory);
+  // Snapshot data at open time so live updates don't cause glitching
+  const [snap] = useState(() => ({
+    tempHistory: [...tempHistory],
+    humHistory:  [...humHistory],
+    soilHistory: [...soilHistory],
+    pumpOn,
+    fanOn,
+  }));
 
-  const currentTemp = tempHistory.length ? tempHistory[tempHistory.length - 1].value : 0;
-  const currentHum  = humHistory.length  ? humHistory[humHistory.length - 1].value  : 0;
-  const currentSoil = soilHistory.length ? soilHistory[soilHistory.length - 1].value : 42;
+  const tStats = calcStats(snap.tempHistory);
+  const hStats = calcStats(snap.humHistory);
+  const sStats = calcStats(snap.soilHistory);
+
+  const currentTemp = snap.tempHistory.length ? snap.tempHistory[snap.tempHistory.length - 1].value : 0;
+  const currentHum  = snap.humHistory.length  ? snap.humHistory[snap.humHistory.length - 1].value  : 0;
+  const currentSoil = snap.soilHistory.length ? snap.soilHistory[snap.soilHistory.length - 1].value : 42;
 
   const trendDiff = (h: { value: number }[]) => h.length < 2 ? 0 : h[h.length - 1].value - h[0].value;
 
@@ -207,26 +216,26 @@ function AnalysisModal({
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const barData = tempHistory.slice(-10).map((t, i) => ({
+  const barData = snap.tempHistory.slice(-10).map((t, i) => ({
     index: i + 1,
     temperature: t.value,
-    humidity: humHistory.slice(-10)[i]?.value ?? 0,
-    soil: soilHistory.slice(-10)[i]?.value ?? 0,
+    humidity: snap.humHistory.slice(-10)[i]?.value ?? 0,
+    soil: snap.soilHistory.slice(-10)[i]?.value ?? 0,
   }));
 
   const radarData = [
     { metric: 'Temp Performance', value: Math.min(100, Math.max(0, ((currentTemp - 28) / (35 - 28)) * 100)) },
     { metric: 'Humidity',         value: currentHum },
     { metric: 'Soil Moisture',    value: currentSoil },
-    { metric: 'Pump Activity',    value: pumpOn ? 80 : 20 },
-    { metric: 'Fan Activity',     value: fanOn  ? 80 : 20 },
+    { metric: 'Pump Activity',    value: snap.pumpOn ? 80 : 20 },
+    { metric: 'Fan Activity',     value: snap.fanOn  ? 80 : 20 },
     { metric: 'System Health',    value: Math.min(100, Math.max(0, 100 - Math.abs(currentSoil - 50) * 2)) },
   ];
 
   const statCards = [
-    { label: 'Temperature',   icon: Thermometer, borderColor: 'border-orange-500', iconBg: 'bg-orange-500/20', iconText: 'text-orange-400', stats: tStats, unit: '°C', trend: trendDiff(tempHistory) },
-    { label: 'Humidity',      icon: Droplets,    borderColor: 'border-blue-500',   iconBg: 'bg-blue-500/20',   iconText: 'text-blue-400',   stats: hStats, unit: '%',  trend: trendDiff(humHistory)  },
-    { label: 'Soil Moisture', icon: Leaf,        borderColor: 'border-green-500',  iconBg: 'bg-green-500/20',  iconText: 'text-green-400',  stats: sStats, unit: '%',  trend: trendDiff(soilHistory) },
+    { label: 'Temperature',   icon: Thermometer, borderColor: 'border-orange-500', iconBg: 'bg-orange-500/20', iconText: 'text-orange-400', stats: tStats, unit: '°C', trend: trendDiff(snap.tempHistory) },
+    { label: 'Humidity',      icon: Droplets,    borderColor: 'border-blue-500',   iconBg: 'bg-blue-500/20',   iconText: 'text-blue-400',   stats: hStats, unit: '%',  trend: trendDiff(snap.humHistory)  },
+    { label: 'Soil Moisture', icon: Leaf,        borderColor: 'border-green-500',  iconBg: 'bg-green-500/20',  iconText: 'text-green-400',  stats: sStats, unit: '%',  trend: trendDiff(snap.soilHistory) },
   ];
 
   const tooltipStyle = { backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '10px', color: '#fff' };

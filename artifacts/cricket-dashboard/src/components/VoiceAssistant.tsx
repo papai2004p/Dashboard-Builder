@@ -1734,6 +1734,26 @@ export default function VoiceAssistant({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── TTS with phoneme mouth sync ───────────────────────────────────────────────
+  // Pick one voice once and reuse it for every utterance
+  const lockedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  useEffect(() => {
+    const pick = () => {
+      if (lockedVoiceRef.current) return;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) return;
+      lockedVoiceRef.current =
+        voices.find(v => /samantha/i.test(v.name))      ||
+        voices.find(v => /karen/i.test(v.name))         ||
+        voices.find(v => /google uk english female/i.test(v.name)) ||
+        voices.find(v => v.lang === 'en-IN')             ||
+        voices.find(v => v.lang.startsWith('en'))        ||
+        voices[0];
+    };
+    pick();
+    window.speechSynthesis.onvoiceschanged = pick;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
+
   const speak = useCallback((text: string, onDone?: () => void) => {
     window.speechSynthesis.cancel();
     isSpeakingRef.current = true;
@@ -1743,19 +1763,7 @@ export default function VoiceAssistant({
     utter.rate   = 0.92;
     utter.pitch  = 1.08;
     utter.volume = 1;
-
-    const assignVoice = () => {
-      const voices = window.speechSynthesis.getVoices();
-      const preferred =
-        voices.find(v => /samantha|karen|moira|google uk/i.test(v.name)) ||
-        voices.find(v => v.lang === 'en-IN') ||
-        voices.find(v => v.lang.startsWith('en'));
-      if (preferred) utter.voice = preferred;
-    };
-    assignVoice();
-    if (!window.speechSynthesis.getVoices().length) {
-      window.speechSynthesis.onvoiceschanged = assignVoice;
-    }
+    if (lockedVoiceRef.current) utter.voice = lockedVoiceRef.current;
 
     if (mouthIntervalRef.current) clearInterval(mouthIntervalRef.current);
     setSpeechBeat(0);
@@ -1934,7 +1942,7 @@ export default function VoiceAssistant({
     const commands = parseMultiCommand(transcript);
     const numCmds  = commands.length;
 
-    const thinkDelay = 2000;
+    const thinkDelay = 1000;
 
     const results = commands.map(cmd => processCommand(cmd, makeCtx(), setGesture, goIdle));
 

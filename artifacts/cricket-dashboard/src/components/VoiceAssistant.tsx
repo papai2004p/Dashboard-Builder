@@ -1261,15 +1261,22 @@ export default function VoiceAssistant({
   }, []);
 
   // Idle cycle — triggered after 1 min of inactivity.
-  // Enables the idle animation carousel (one animation at a time, 3–6 s each).
-  // Resets immediately when user returns (resetInactivityTimers disables it).
+  // Picks ONE animation (sleeping OR playing cricket) and holds it for the
+  // entire idle period.  No internal timer — the animation stays until the
+  // user clicks / speaks, at which point resetInactivityTimers() clears it.
   const startIdleCycle = useCallback(() => {
     if (!idleCycleActiveRef.current) return;
-    setState('idle');
-    setIsJuggling(false);
-    setIdleAnimsEnabled(true);
-    // The idleAnim useEffect picks a new animation every 3–6 s automatically.
-    // No additional timer needed — resetInactivityTimers() stops it on activity.
+
+    const pickSleep = Math.random() < 0.5;
+    if (pickSleep) {
+      setState('sleeping');
+      setIsJuggling(false);
+    } else {
+      setState('idle');
+      setIsJuggling(true);
+    }
+    // Hold this state indefinitely — no setTimeout loop.
+    // resetInactivityTimers() will stop it the moment the user interacts.
   }, []);
 
   useEffect(() => { startIdleCycleRef.current = startIdleCycle; }, [startIdleCycle]);

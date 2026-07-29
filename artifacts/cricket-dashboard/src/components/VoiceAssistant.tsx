@@ -1837,19 +1837,15 @@ export default function VoiceAssistant({
       setState('woken');
       setStatusText('Listening…');
       setTimeout(() => {
-        setState('thinking');
-        setStatusText('Thinking…');
-        setTimeout(() => {
-          setState('speaking');
-          setStatusText('Speaking');
-          setResponseText(INTRO_TEXT);
-          speak(INTRO_TEXT, () => {
-            setState('listening');
-            setStatusText('Listening…');
-            setResponseText('');
-            resetCommandTimeout();
-          });
-        }, 350 + Math.random() * 300);
+        setState('speaking');
+        setStatusText('Speaking');
+        setResponseText(INTRO_TEXT);
+        speak(INTRO_TEXT, () => {
+          setState('listening');
+          setStatusText('Listening…');
+          setResponseText('');
+          resetCommandTimeout();
+        });
       }, 250);
     } else {
       setState('listening');
@@ -1938,9 +1934,7 @@ export default function VoiceAssistant({
     const commands = parseMultiCommand(transcript);
     const numCmds  = commands.length;
 
-    // Always hold the thinking animation for 10 seconds so the
-    // magnify-glass + cheek-fist pose has time to fully render and play.
-    const thinkDelay = 10000;
+    const thinkDelay = 2000;
 
     const results = commands.map(cmd => processCommand(cmd, makeCtx(), setGesture, goIdle));
 
@@ -2032,12 +2026,9 @@ export default function VoiceAssistant({
                 firstLaunchRef.current = false;
                 setState('woken'); setStatusText('Listening…');
                 setTimeout(() => {
-                  setState('thinking'); setStatusText('Thinking…');
-                  setTimeout(() => {
-                    setState('speaking'); setStatusText('Speaking');
-                    setResponseText(INTRO_TEXT);
-                    speak(INTRO_TEXT, () => handleCommandRef.current(stripped));
-                  }, 350 + Math.random() * 250);
+                  setState('speaking'); setStatusText('Speaking');
+                  setResponseText(INTRO_TEXT);
+                  speak(INTRO_TEXT, () => handleCommandRef.current(stripped));
                 }, 200);
               } else {
                 setState('listening'); setStatusText('Listening…');
@@ -2050,15 +2041,12 @@ export default function VoiceAssistant({
                 firstLaunchRef.current = false;
                 setState('woken'); setStatusText('Listening…');
                 setTimeout(() => {
-                  setState('thinking'); setStatusText('Thinking…');
-                  setTimeout(() => {
-                    setState('speaking'); setStatusText('Speaking');
-                    setResponseText(INTRO_TEXT);
-                    speak(INTRO_TEXT, () => {
-                      setState('listening'); setStatusText('Listening…');
-                      setResponseText(''); resetCommandTimeout();
-                    });
-                  }, 350 + Math.random() * 250);
+                  setState('speaking'); setStatusText('Speaking');
+                  setResponseText(INTRO_TEXT);
+                  speak(INTRO_TEXT, () => {
+                    setState('listening'); setStatusText('Listening…');
+                    setResponseText(''); resetCommandTimeout();
+                  });
                 }, 200);
               } else {
                 setState('woken'); setStatusText('Listening…');
@@ -2476,10 +2464,9 @@ export default function VoiceAssistant({
         {/* Persistent idle hint */}
         {!isActive && !isSleeping && !isJuggling && (
           <div
-            className="pointer-events-none fixed bottom-[104px] right-6 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
+            className="pointer-events-none fixed bottom-[172px] right-6 z-[71] w-[min(92vw,180px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-3 rounded-2xl border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)] text-center leading-relaxed"
           >
-            <span className="mr-2 text-emerald-300">●</span>
-            Ball AI <span className="mx-1.5 text-white/40">•</span> Say "Hey Ball" to interact
+            🎤 Say "Hey Ball"
           </div>
         )}
       </div>

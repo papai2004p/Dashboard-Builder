@@ -1,0 +1,529 @@
+Additional Master Prompt (Give this together with the animation reference image)
+
+IMPORTANT: Use the attached animation reference image as the single source of truth for every facial expression, pose, eye movement, eyebrow movement, hand position and mouth animation. The cricket ball already exists in the app. DO NOT redesign it. DO NOT change its size, color, stitches, eyes, smile, proportions or overall appearance. Only animate the existing SVG/React ball to match the expressions shown in the reference image.
+
+1. EXACTLY MATCH THE REFERENCE IMAGE
+
+Study every frame in the reference image.
+
+Recreate every expression as closely as possible.
+
+Copy:
+
+Eye shapes
+Eye movement
+Eyebrow angle
+Mouth shape
+Hand position
+Hand size
+Finger pose
+Head tilt
+Ball rotation
+Overall emotion
+
+Do NOT invent new expressions.
+
+The uploaded reference image is the design guide.
+
+2. Professional Animation Principles
+
+Every animation should feel like:
+
+Samsung Bixby
+
+Google Gemini
+
+PW AI Guru
+
+Disney/Pixar mascot
+
+NOT like a GIF.
+
+NOT like CSS keyframes.
+
+Everything should use:
+
+• spring animations
+
+• easing
+
+• anticipation
+
+• overshoot
+
+• follow-through
+
+• squash & stretch (very subtle)
+
+Target:
+
+60 FPS
+
+No dropped frames.
+
+No lag.
+
+3. Animation Priority
+
+Never play two body animations simultaneously.
+
+Create an Animation Manager.
+
+Only ONE body animation runs.
+
+Small facial animations can run with it.
+
+Priority:
+
+Speaking
+↓
+
+Thinking
+↓
+
+Listening
+↓
+
+Command Success
+↓
+
+Command Error
+↓
+
+Idle
+
+Higher priority interrupts lower priority.
+
+4. Idle System (Organized)
+
+Instead of random animations every few seconds, create an intelligent idle system.
+
+Immediately after interaction:
+
+Neutral idle
+
+After 20 seconds:
+
+Blink
+
+Eye movement
+
+Small breathing
+
+After 40 seconds:
+
+Head tilt
+
+Smile
+
+Tiny bounce
+
+After 60 seconds:
+
+Randomly choose ONE:
+
+Sleeping
+
+OR
+
+Juggling Cricket Ball
+
+50% probability each.
+
+Do NOT repeat the same animation twice.
+
+Alternate naturally.
+
+5. Sleeping Idle
+
+Ball closes eyes.
+
+Breathes slowly.
+
+Tiny floating motion.
+
+Occasional tiny snore.
+
+Small "Z"
+
+No hands visible.
+
+Very calm.
+
+6. Cricket Ball Juggling Idle
+
+After one minute of inactivity:
+
+The assistant takes out another small cricket ball.
+
+It begins juggling.
+
+Exactly three throws.
+
+Catch.
+
+Throw.
+
+Catch.
+
+Loop.
+
+Hands are visible only here.
+
+Hands should be:
+
+Cute
+
+Rounded
+
+Red
+
+Four fingers
+
+Big
+
+Soft
+
+Not robotic.
+
+When user says:
+
+"Hey Ball"
+
+Immediately:
+
+Hide juggling ball behind back.
+
+Hands disappear.
+
+Transition to Listening.
+
+No popping.
+
+No teleporting.
+
+7. Thinking Animation
+
+Thinking starts ONLY while processing commands.
+
+Exactly like the reference image.
+
+One eyebrow raised.
+
+One hand on cheek.
+
+Cute fingers.
+
+Eyes look upward.
+
+Occasional blink.
+
+Small eye movement.
+
+Small head tilt.
+
+Magnifying glass appears.
+
+Looks through magnifying glass.
+
+Magnifying glass disappears.
+
+Repeat until thinking ends.
+
+Thinking should last naturally.
+
+Do NOT instantly answer.
+
+Minimum thinking:
+
+700 ms
+
+Maximum:
+
+2.2 sec
+
+Longer command = longer thinking.
+
+8. Speaking Animation
+
+This is currently broken.
+
+Fix completely.
+
+Whenever Ball speaks:
+
+Wake speech
+
+Normal answer
+
+Error
+
+Success
+
+Help
+
+Introduction
+
+The mouth MUST move.
+
+Not simply open-close.
+
+Create phoneme-style animation.
+
+Shapes:
+
+Closed
+
+Half open
+
+Wide
+
+Smile
+
+Round "O"
+
+Tiny teeth
+
+Movement synced with speech synthesis.
+
+Stop immediately after speech.
+
+Eyes blink naturally.
+
+Tiny head movement.
+
+Tiny body bounce.
+
+Looks alive.
+
+9. Listening Animation
+
+Wake word:
+
+"Hey Ball"
+
+Immediately:
+
+Listening overlay appears.
+
+No wake-up animation.
+
+No loading.
+
+Ball opens eyes.
+
+Looks directly at user.
+
+Soft glow.
+
+Listening pulse.
+
+Tiny breathing.
+
+10. Success Animation
+
+When command succeeds:
+
+Happy eyes
+
+Smile
+
+Thumbs up
+
+Tiny jump
+
+Green glow
+
+Duration:
+
+900 ms
+
+Return to idle.
+
+11. Error Animation
+
+Unknown command:
+
+Confused eyes.
+
+Tilt head.
+
+Small shrug.
+
+Say:
+
+"Oops! That delivery missed the stumps. Could you repeat your command?"
+
+12. Command Execution Animation
+
+If command contains:
+
+3 actions
+
+For example:
+
+Turn on fan
+
+Switch manual mode
+
+Export report
+
+Sequence:
+
+Thinking
+
+↓
+
+Execute action 1
+
+↓
+
+Tiny success
+
+↓
+
+Execute action 2
+
+↓
+
+Tiny success
+
+↓
+
+Execute action 3
+
+↓
+
+Final success
+
+Never instantly finish.
+
+Feels intelligent.
+
+13. Performance Optimisation
+
+Remove unnecessary animations.
+
+Merge repeated keyframes.
+
+Memoize components.
+
+Use requestAnimationFrame.
+
+Use GPU transforms.
+
+Only animate:
+
+transform
+
+opacity
+
+filter
+
+Never animate:
+
+width
+
+height
+
+left
+
+top
+
+margin
+
+No React re-render every frame.
+
+14. Hand Visibility Rules
+
+Hands should NOT exist most of the time.
+
+Visible ONLY during:
+
+Thinking
+
+Juggling
+
+Wave
+
+Thumbs up
+
+Pointing
+
+Celebration
+
+Otherwise completely hidden.
+
+15. Smooth State Transition
+
+Never abruptly switch.
+
+Every animation blends.
+
+Idle
+
+↓
+
+Thinking
+
+↓
+
+Speaking
+
+↓
+
+Idle
+
+Must look continuous.
+
+16. Eye Behaviour
+
+Eyes never remain static.
+
+Every few seconds:
+
+Blink
+
+Look left
+
+Look right
+
+Look up
+
+Tiny eyebrow movement
+
+Micro expression
+
+Exactly like Pixar characters.
+
+17. Mouth Behaviour
+
+Not speaking:
+
+Mouth stays relaxed.
+
+Speaking:
+
+Perfect lip sync.
+
+Thinking:
+
+Closed mouth.
+
+Confused:
+
+Crooked mouth.
+
+Happy:
+
+Wide smile.
+
+Sleeping:
+
+Tiny smile.
+
+18. Overall Goal
+
+The finished Ball Assistant should feel like a premium operating system assistant—not a web animation.
+
+The user should immediately feel the same level of polish as Samsung Bixby, Google Gemini, or PW AI Guru, while keeping the exact cricket ball character already in the app. Every animation must be smooth, responsive, synchronized with the assistant state, and consistently rendered at 60 FPS with no lag, no unnecessary animations, and no visual glitches.

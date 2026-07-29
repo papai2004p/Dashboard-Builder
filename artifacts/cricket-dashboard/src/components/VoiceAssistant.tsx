@@ -28,6 +28,9 @@ type ThinkAnim =
 
 type GestureDir = 'none' | 'left' | 'right' | 'up' | 'down';
 
+/** Idle phases: 0 = quiet, 1 = subtle (20s), 2 = expressive (40s), 3 = sleep/juggle (60s) */
+type IdlePhase = 0 | 1 | 2 | 3;
+
 interface VoiceAssistantProps {
   readings: Reading[];
   tempHistory: { time: number; value: number }[];
@@ -46,11 +49,13 @@ interface VoiceAssistantProps {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const IDLE_ANIMS: IdleAnim[] = [
+// Phase 1 idles: subtle, small
+const IDLE_ANIMS_P1: IdleAnim[] = ['blink', 'breathe', 'lookLeft', 'lookRight', 'lookUp', 'happy_blink'];
+// Phase 2 idles: more expressive
+const IDLE_ANIMS_P2: IdleAnim[] = [
   'bounce', 'blink', 'lookLeft', 'lookRight', 'smile',
   'wave', 'tilt', 'breathe', 'float', 'lookUp', 'happy',
-  'yawn', 'rubEyes', 'snore', 'roll', 'curious',
-  'tiny_bounce', 'happy_blink', 'stretch',
+  'yawn', 'curious', 'tiny_bounce', 'happy_blink', 'stretch',
 ];
 
 const THINK_ANIMS: ThinkAnim[] = [
@@ -75,12 +80,22 @@ const COMMAND_HINTS = [
   'Show recent readings.',
 ];
 
+// ── Confetti particle data ────────────────────────────────────────────────────
+
+const CONFETTI_PARTICLES = Array.from({ length: 18 }, (_, i) => ({
+  id: i,
+  x: 20 + (i % 6) * 18,
+  color: ['#fbbf24', '#34d399', '#60a5fa', '#f87171', '#a78bfa', '#fb923c'][i % 6],
+  delay: (i * 0.08) % 0.7,
+  size: 3 + (i % 3) * 1.5,
+}));
+
 // ── Cricket Ball Mascot SVG ───────────────────────────────────────────────────
 
 const CricketBall = memo(function CricketBall({
   state,
   idleAnim,
-  idleAnimsEnabled,
+  idlePhase,
   thinkAnim,
   mouthOpen,
   eyeX,
@@ -93,7 +108,7 @@ const CricketBall = memo(function CricketBall({
 }: {
   state: AssistantState;
   idleAnim: IdleAnim;
-  idleAnimsEnabled: boolean;
+  idlePhase: IdlePhase;
   thinkAnim: ThinkAnim;
   mouthOpen: number;
   eyeX: number;
@@ -101,7 +116,7 @@ const CricketBall = memo(function CricketBall({
   blinkNow: boolean;
   gesture: GestureDir;
   speaking: boolean;
-  speechBeat: number; // 0–1 rhythmic beat during speech
+  speechBeat: number;
   isJuggling: boolean;
 }) {
   const isIdle      = state === 'idle';
@@ -109,12 +124,13 @@ const CricketBall = memo(function CricketBall({
   const isThinking  = state === 'thinking';
   const isSpeaking  = state === 'speaking';
   const isListening = state === 'listening' || state === 'woken';
+  const isWoken     = state === 'woken';
   const isExcited   = state === 'excited';
   const isError     = state === 'error';
   const isSuccess   = state === 'success';
   const isHappy     = isExcited || isSuccess;
 
-  // Use idle anims only if enabled
+  const idleAnimsEnabled = idlePhase >= 1;
   const activeIdle = idleAnimsEnabled ? idleAnim : 'breathe';
 
   const gestureEyeX = gesture === 'left' ? -5 : gesture === 'right' ? 5 : 0;
@@ -122,14 +138,14 @@ const CricketBall = memo(function CricketBall({
 
   const eyeOffX =
     gestureEyeX !== 0 ? gestureEyeX :
-    (isIdle && activeIdle === 'lookLeft')   ? -4 :
-    (isIdle && activeIdle === 'lookRight')  ?  4 :
-    (isIdle && activeIdle === 'curious')    ?  3 :
-    (isThinking && thinkAnim === 'looklr')  ? eyeX * 4 : eyeX;
+    (isIdle && activeIdle === 'lookLeft')  ? -4 :
+    (isIdle && activeIdle === 'lookRight') ?  4 :
+    (isIdle && activeIdle === 'curious')   ?  3 :
+    (isThinking && thinkAnim === 'looklr') ? eyeX * 4 : eyeX;
 
   const eyeOffY =
     gestureEyeY !== 0 ? gestureEyeY :
-    (isIdle && activeIdle === 'lookUp')     ? -4 :
+    (isIdle && activeIdle === 'lookUp') ? -4 :
     (isThinking && (thinkAnim === 'lookup' || thinkAnim === 'eyebrow')) ? -2 : eyeY;
 
   const isYawning = isIdle && activeIdle === 'yawn';
@@ -141,7 +157,7 @@ const CricketBall = memo(function CricketBall({
     isSnoring  ? 0.08 :
     isRubbing  ? 0.15 :
     isYawning  ? 0.25 :
-    blinkNow || (isIdle && (activeIdle === 'blink' || activeIdle === 'happy_blink')) ||
+    blinkNow || (idleAnimsEnabled && (activeIdle === 'blink' || activeIdle === 'happy_blink')) ||
     (isThinking && thinkAnim === 'blink') ? 0.12 : 1;
 
   const lbrowY =
@@ -149,21 +165,20 @@ const CricketBall = memo(function CricketBall({
     (isThinking && thinkAnim === 'eyebrows') ? -3 :
     (isIdle && activeIdle === 'curious')     ? -5 :
     isListening || isExcited   ? -3 :
-    (isIdle && activeIdle === 'happy') || (isIdle && activeIdle === 'happy_blink') ? -2 :
+    (isIdle && (activeIdle === 'happy' || activeIdle === 'happy_blink')) ? -2 :
     isYawning ? 2 :
     isError   ? 3 : 0;
   const rbrowY =
     (isThinking && thinkAnim === 'eyebrow')  ?  0 :
     (isThinking && thinkAnim === 'eyebrows') ? -3 :
     isListening || isExcited   ? -3 :
-    (isIdle && activeIdle === 'happy') || (isIdle && activeIdle === 'happy_blink') ? -2 :
+    (isIdle && (activeIdle === 'happy' || activeIdle === 'happy_blink')) ? -2 :
     isYawning ? 2 :
     isError   ? 3 : 0;
   const lbrowRot = isError ? 15 : (isIdle && activeIdle === 'curious') ? 8 : 0;
   const rbrowRot = isError ? -15 : 0;
 
-  // ── Two-lip mouth system for realistic open/close ──
-  // Upper lip control point (lower Y value = arches higher = top of mouth)
+  // ── Mouth: two-lip system ──────────────────────────────────────────────────
   const upperLipCtrlY =
     isYawning   ? 61 :
     isSpeaking  ? 63 :
@@ -175,7 +190,6 @@ const CricketBall = memo(function CricketBall({
     (isIdle && activeIdle === 'happy') ? 61 :
     isThinking  ? 70 : 67;
 
-  // Lower lip control point (drops down when mouth opens)
   const lowerLipCtrlY =
     isYawning   ? 93 :
     isSpeaking  ? 74 + mouthOpen * 13 + speechBeat * 4 :
@@ -193,44 +207,121 @@ const CricketBall = memo(function CricketBall({
   const showMouthFill = (isSpeaking && mouthOpen > 0.1) || isYawning;
   const mouthFillOpacity = isYawning ? 0.82 : Math.min(0.88, 0.3 + mouthOpen * 0.65);
 
-  // ── Hand visibility — spec: visible during Thinking, Playing, Celebration, Wave, Pointing
-  //    Hidden during: Idle (non-wave), Listening, Speaking, Wake, Sleeping ──
+  // ── Hand visibility (per reference image spec) ─────────────────────────────
+  // Hands shown ONLY during: Thinking, Juggling, Wave, Thumbs-up, Shrug, Greeting, Celebration
   const showLeftHand =
     (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
     isRubbing ||
-    isHappy; // celebration
+    isHappy ||   // celebration: both up
+    isWoken ||   // greeting: left raised
+    isError;     // shrug: both out
+
   const showRightHand =
     (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
     isRubbing ||
     (isThinking && (thinkAnim === 'handCheek' || thinkAnim === 'scratch')) ||
-    isHappy; // celebration
+    isHappy ||   // thumbs-up (success) / celebration
+    isError;     // shrug
 
-  // Cheek opacity: speaking bounces with speechBeat
+  // Cheek glow
   const cheekBase =
     isHappy || (isIdle && (activeIdle === 'happy' || activeIdle === 'happy_blink')) ? 0.9 :
     isListening ? 0.6 :
     isSpeaking ? 0.4 + speechBeat * 0.35 :
     isYawning  ? 0.65 : 0.35;
 
-  const rHandX =
-    (isIdle && activeIdle === 'wave')           ? 88 :
-    (isIdle && activeIdle === 'stretch')        ? 95 :
-    (isRubbing)                                  ? 42 :
-    (isThinking && thinkAnim === 'handCheek')   ? 72 :
-    (isThinking && thinkAnim === 'scratch')     ? 76 : 92;
-  const rHandY =
-    (isIdle && activeIdle === 'wave')           ? 40 :
-    (isIdle && activeIdle === 'stretch')        ? 22 :
-    (isRubbing)                                  ? 42 :
-    (isThinking && thinkAnim === 'handCheek')   ? 55 :
-    (isThinking && thinkAnim === 'scratch')     ? 48 : 55;
-
   const ballStop1 = isError ? '#f87171' : isHappy ? '#fca5a5' : '#f87171';
   const ballStop2 = isError ? '#b91c1c' : isHappy ? '#ef4444' : '#dc2626';
   const ballStop3 = isError ? '#450a0a' : isHappy ? '#7f1d1d' : '#7f1d1d';
 
+  // ── Hand SVG component (reusable rounded cartoon hand) ─────────────────────
+  // Coords are relative to a local origin; parent <g> sets position + rotation.
+  // fingers: 'up' | 'right' | 'down'
+  const HandShape = ({
+    cx, cy, rotate = 0, scale = 1, mirrorX = false,
+    variant = 'open',
+  }: {
+    cx: number; cy: number; rotate?: number; scale?: number;
+    mirrorX?: boolean;
+    /** open = fingers up/spread | fist = closed | thumbUp | pointRight */
+    variant?: 'open' | 'fist' | 'thumbUp' | 'shrug';
+  }) => {
+    const flip = mirrorX ? 'scale(-1,1)' : '';
+    const t = `translate(${cx} ${cy}) rotate(${rotate}) scale(${scale}) ${flip}`;
+
+    if (variant === 'thumbUp') {
+      // Fist facing right, thumb pointing up
+      return (
+        <g transform={t} style={{ willChange: 'transform' }}>
+          {/* Fist body */}
+          <ellipse cx="0" cy="2" rx="10" ry="8" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+          {/* Knuckle bumps (top of fist) */}
+          <ellipse cx="-5"  cy="-4.5" rx="3.2" ry="2.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          <ellipse cx="0"   cy="-5.5" rx="3.2" ry="2.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          <ellipse cx="5"   cy="-4.5" rx="3.2" ry="2.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          {/* Thumb pointing straight up */}
+          <ellipse cx="-10" cy="-9"   rx="3.5" ry="7.5"  fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
+          {/* Highlight */}
+          <ellipse cx="0"   cy="0"    rx="6"   ry="3"    fill="rgba(255,255,255,0.18)" />
+        </g>
+      );
+    }
+
+    if (variant === 'shrug') {
+      // Palm facing viewer, fingers spread, slight outward tilt
+      return (
+        <g transform={t} style={{ willChange: 'transform' }}>
+          {/* Palm */}
+          <ellipse cx="0" cy="0" rx="11" ry="9" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+          {/* Four fingers spread upward */}
+          <ellipse cx="-8"  cy="-11" rx="3"   ry="6.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.35" />
+          <ellipse cx="-2"  cy="-13" rx="3.2" ry="7"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.35" />
+          <ellipse cx="4"   cy="-13" rx="3.2" ry="7"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.35" />
+          <ellipse cx="10"  cy="-11" rx="2.8" ry="6.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.35" />
+          {/* Thumb to the side */}
+          <ellipse cx="13"  cy="3"   rx="4.5" ry="2.8" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          {/* Knuckle highlight */}
+          <ellipse cx="0"   cy="-3"  rx="7"   ry="3"   fill="rgba(255,255,255,0.18)" />
+        </g>
+      );
+    }
+
+    if (variant === 'fist') {
+      return (
+        <g transform={t} style={{ willChange: 'transform' }}>
+          <ellipse cx="0" cy="0" rx="10" ry="8" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+          <ellipse cx="-5" cy="-5.5" rx="3" ry="2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          <ellipse cx="0"  cy="-6.5" rx="3" ry="2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          <ellipse cx="5"  cy="-5.5" rx="3" ry="2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+          <ellipse cx="0"  cy="-1"   rx="6" ry="2.5" fill="rgba(255,255,255,0.15)" />
+        </g>
+      );
+    }
+
+    // Default: open hand, fingers pointing upward
+    return (
+      <g transform={t} style={{ willChange: 'transform' }}>
+        {/* Palm */}
+        <ellipse cx="0"  cy="2"  rx="11" ry="9"  fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+        {/* Four fingers */}
+        <ellipse cx="-8" cy="-9"  rx="3"   ry="6.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.35" />
+        <ellipse cx="-2" cy="-11" rx="3.2" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.35" />
+        <ellipse cx="4"  cy="-11" rx="3.2" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.35" />
+        <ellipse cx="10" cy="-9"  rx="2.8" ry="6.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.35" />
+        {/* Thumb */}
+        <ellipse cx="-13" cy="4"  rx="4.5" ry="2.8" fill="#ef4444" stroke="#991b1b" strokeWidth="0.3" />
+        {/* Knuckle highlight */}
+        <ellipse cx="0"  cy="-2"  rx="7"   ry="3"   fill="rgba(255,255,255,0.18)" />
+      </g>
+    );
+  };
+
   return (
-    <svg viewBox="-15 -10 130 130" xmlns="http://www.w3.org/2000/svg" style={{ overflow: 'visible', willChange: 'transform' }}>
+    <svg
+      viewBox="-15 -10 130 130"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ overflow: 'visible', willChange: 'transform' }}
+    >
       <defs>
         <radialGradient id="va-ballGrad" cx="35%" cy="28%" r="65%">
           <stop offset="0%"   stopColor={ballStop1} />
@@ -240,10 +331,6 @@ const CricketBall = memo(function CricketBall({
         <radialGradient id="va-highlight" cx="28%" cy="22%" r="50%">
           <stop offset="0%"   stopColor="rgba(255,255,255,0.55)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-        </radialGradient>
-        <radialGradient id="va-skinGrad" cx="40%" cy="35%" r="60%">
-          <stop offset="0%"   stopColor="#fca5a5" />
-          <stop offset="100%" stopColor="#dc2626" />
         </radialGradient>
         <radialGradient id="va-cheekGrad" cx="50%" cy="50%" r="50%">
           <stop offset="0%"   stopColor="rgba(251,113,133,0.55)" />
@@ -278,11 +365,6 @@ const CricketBall = memo(function CricketBall({
           fill="none" stroke="#22c55e" strokeWidth="1.5" opacity={0.3}
           animate={{ r: [52, 60, 52], opacity: [0.15, 0.45, 0.15] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
-        />
-        <motion.circle cx="50" cy="50" r="63"
-          fill="none" stroke="#22c55e" strokeWidth="1" opacity={0.15}
-          animate={{ r: [60, 70, 60], opacity: [0.08, 0.25, 0.08] }}
-          transition={{ duration: 2.0, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
         />
       </>)}
       {isSpeaking && (
@@ -323,133 +405,70 @@ const CricketBall = memo(function CricketBall({
         />
       </>)}
 
-      {/* Legs hidden */}
-
-      {/* ── Left hand — cute fingers, visible only per spec ── */}
-      <motion.g
-        animate={{ opacity: showLeftHand ? 1 : 0,
-          ...((isIdle && activeIdle === 'wave')    ? { y: [0, -4, 0] } : {}),
-          ...((isIdle && activeIdle === 'stretch') ? { y: [0, -14, 0], x: [-3, 0, -3] } : {}),
-          ...(isRubbing ? { x: [-2, 2, -2], y: [-2, 2, -2] } : {}),
-        }}
-        transition={{ opacity: { duration: 0.25 }, y: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' }, x: { duration: 1.5, repeat: Infinity } }}
-      >
-        {/* Palm */}
-        <ellipse cx="8" cy="56" rx="9.5" ry="6.8" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.35" />
-        {/* Four fingers */}
-        <ellipse cx="1"  cy="50.5" rx="2.3" ry="3.6" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        <ellipse cx="6"  cy="49"   rx="2.4" ry="4.0" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        <ellipse cx="11" cy="49"   rx="2.4" ry="4.0" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        <ellipse cx="16" cy="50.5" rx="2.1" ry="3.4" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        {/* Thumb */}
-        <ellipse cx="-1" cy="58.5" rx="2.6" ry="1.9" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        {/* Knuckle highlight */}
-        <ellipse cx="8" cy="54" rx="5" ry="2.5" fill="rgba(255,255,255,0.12)" />
-      </motion.g>
-
-      {/* ── Right hand — cute fingers, position varies by state ── */}
-      <motion.g
-        animate={{ opacity: showRightHand ? 1 : 0,
-          ...((isIdle && activeIdle === 'wave')    ? { y: [-10, 0, -10], rotate: [-12, 12, -12] } : {}),
-          ...((isIdle && activeIdle === 'stretch') ? { y: [0, -12, 0], x: [3, 0, 3] } : {}),
-          ...((isRubbing || (isThinking && thinkAnim === 'scratch')) ? { x: [-2, 2, -2], y: [-2, 2, -2] } : {}),
-        }}
-        transition={{ opacity: { duration: 0.25 }, y: { duration: (isIdle && activeIdle === 'wave') ? 0.5 : 1.5, repeat: Infinity }, x: { duration: 1.5, repeat: Infinity }, rotate: { duration: 0.5, repeat: Infinity } }}
-        style={{ transformOrigin: `${rHandX}px ${rHandY}px` }}
-      >
-        {/* Palm */}
-        <ellipse cx={rHandX} cy={rHandY} rx="9.5" ry="6.8" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.35" />
-        {/* Four fingers */}
-        <ellipse cx={rHandX - 7}  cy={rHandY - 6}   rx="2.1" ry="3.4" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        <ellipse cx={rHandX - 2}  cy={rHandY - 7.5} rx="2.4" ry="4.0" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        <ellipse cx={rHandX + 3}  cy={rHandY - 7.5} rx="2.4" ry="4.0" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        <ellipse cx={rHandX + 8}  cy={rHandY - 6}   rx="2.3" ry="3.6" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        {/* Thumb */}
-        <ellipse cx={rHandX + 10} cy={rHandY + 2.5} rx="2.6" ry="1.9" fill="url(#va-skinGrad)" stroke="#b91c1c" strokeWidth="0.28" />
-        {/* Knuckle highlight */}
-        <ellipse cx={rHandX} cy={rHandY - 2} rx="5" ry="2.5" fill="rgba(255,255,255,0.12)" />
-      </motion.g>
-
-      {/* ── Cricket juggling mode: big side-hands + ball arcing over head ── */}
+      {/* ── Juggling mode: large side-hands + arcing cricket ball ── */}
       <AnimatePresence>
         {isJuggling && (
-          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
-
-            {/* ── Left hand (left side of ball, fingers pointing up) ── */}
+          <motion.g
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            {/* Left hand (juggles at left side) */}
             <motion.g
-              animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 1.0, repeat: Infinity, ease: 'easeInOut' }}
+              animate={{ y: [0, -5, 0] }}
+              transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
             >
-              {/* Palm */}
-              <ellipse cx="1"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.6" />
-              {/* Fingers — pointing upward */}
-              <ellipse cx="-11" cy="55" rx="4.5" ry="7.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              <ellipse cx="-3"  cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              <ellipse cx="5"   cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              <ellipse cx="13"  cy="53" rx="4.0" ry="7.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              {/* Thumb */}
-              <ellipse cx="-17" cy="70" rx="4.5" ry="3.2" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              {/* Knuckle highlight */}
-              <ellipse cx="1" cy="66" rx="10" ry="4" fill="rgba(255,255,255,0.18)" />
+              <ellipse cx="1"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
+              <ellipse cx="-11" cy="55" rx="4.5" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="-3"  cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="5"   cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="13"  cy="53" rx="4.0" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="-17" cy="70" rx="4.5" ry="3.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="1"   cy="66" rx="10"  ry="4"   fill="rgba(255,255,255,0.18)" />
             </motion.g>
 
-            {/* ── Right hand (right side of ball, fingers pointing up) ── */}
+            {/* Right hand (catches at right side) */}
             <motion.g
-              animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 1.0, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+              animate={{ y: [0, -5, 0] }}
+              transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut', delay: 0.45 }}
             >
-              {/* Palm */}
-              <ellipse cx="99" cy="70" rx="20" ry="14" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.6" />
-              {/* Fingers — pointing upward */}
-              <ellipse cx="87"  cy="55" rx="4.0" ry="7.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              <ellipse cx="95"  cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              <ellipse cx="103" cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              <ellipse cx="111" cy="53" rx="4.5" ry="7.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              {/* Thumb */}
-              <ellipse cx="117" cy="70" rx="4.5" ry="3.2" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.5" />
-              {/* Knuckle highlight */}
-              <ellipse cx="99" cy="66" rx="10" ry="4" fill="rgba(255,255,255,0.18)" />
+              <ellipse cx="99"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
+              <ellipse cx="87"  cy="55" rx="4.0" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="95"  cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="103" cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="111" cy="53" rx="4.5" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="117" cy="70" rx="4.5" ry="3.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+              <ellipse cx="99"  cy="66" rx="10"  ry="4"   fill="rgba(255,255,255,0.18)" />
             </motion.g>
 
-            {/* ── Tiny cricket ball — arcs HIGH above the ball's head ── */}
-            {/* Path: left-hand top → peak way above → right-hand top → peak → back */}
-            <motion.circle
-              r="10" fill="#dc2626" stroke="#991b1b" strokeWidth="0.5"
-              animate={{
-                cx: [1,   50,  99,  50,  1 ],
-                cy: [55, -55,  55, -55, 55 ],
-              }}
+            {/* Tiny cricket ball arcing over head */}
+            <motion.circle r="10" fill="#dc2626" stroke="#991b1b" strokeWidth="0.5"
+              animate={{ cx: [1, 50, 99, 50, 1], cy: [50, -58, 50, -58, 50] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
             />
-            {/* Seam on tiny ball */}
             <motion.path
               fill="none" stroke="white" strokeWidth="1.4" strokeLinecap="round"
               animate={{
                 d: [
-                  'M -4 55 Q 1 49 6 55',
-                  'M 44 -55 Q 50 -61 56 -55',
-                  'M 94 55 Q 99 49 104 55',
-                  'M 44 -55 Q 50 -61 56 -55',
-                  'M -4 55 Q 1 49 6 55',
+                  'M -4 50 Q 1 44 6 50',
+                  'M 44 -58 Q 50 -64 56 -58',
+                  'M 94 50 Q 99 44 104 50',
+                  'M 44 -58 Q 50 -64 56 -58',
+                  'M -4 50 Q 1 44 6 50',
                 ],
               }}
               transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
             />
-            {/* Highlight on tiny ball */}
-            <motion.circle
-              r="4" fill="rgba(255,255,255,0.4)"
-              animate={{
-                cx: [-1,  47,  96,  47,  -1],
-                cy: [51, -59,  51, -59,  51],
-              }}
+            <motion.circle r="4" fill="rgba(255,255,255,0.4)"
+              animate={{ cx: [-1, 47, 96, 47, -1], cy: [46, -62, 46, -62, 46] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', times: [0, 0.25, 0.5, 0.75, 1] }}
             />
-
-            {/* Arc trail (dotted) — shows the parabolic path */}
+            {/* Arc trail */}
             <motion.path
-              fill="none" stroke="rgba(252,165,165,0.5)" strokeWidth="1.2"
+              fill="none" stroke="rgba(252,165,165,0.45)" strokeWidth="1.2"
               strokeDasharray="4 5" strokeLinecap="round"
-              d="M 1 55 Q 50 -70 99 55"
+              d="M 1 50 Q 50 -75 99 50"
               animate={{ opacity: [0.3, 0.6, 0.3] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
             />
@@ -457,7 +476,217 @@ const CricketBall = memo(function CricketBall({
         )}
       </AnimatePresence>
 
-      {/* ── Main ball ── */}
+      {/* ── Confetti (excited / celebration) ── */}
+      <AnimatePresence>
+        {isExcited && (
+          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {CONFETTI_PARTICLES.map(p => (
+              <motion.rect
+                key={p.id}
+                x={p.x} y={-8} width={p.size} height={p.size * 1.6}
+                fill={p.color}
+                rx="1"
+                animate={{
+                  y: [-8, 110],
+                  x: [p.x, p.x + (p.id % 2 === 0 ? 12 : -12)],
+                  rotate: [0, 360 * (p.id % 2 === 0 ? 1 : -1)],
+                  opacity: [0, 1, 1, 0],
+                }}
+                transition={{
+                  duration: 1.2 + (p.id % 4) * 0.18,
+                  delay: p.delay,
+                  repeat: Infinity,
+                  repeatDelay: 0.4,
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                }}
+              />
+            ))}
+          </motion.g>
+        )}
+      </AnimatePresence>
+
+      {/* ── LEFT HAND ── */}
+      <AnimatePresence>
+        {showLeftHand && !isJuggling && (
+          <motion.g
+            key="left-hand"
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.7 }}
+            transition={{ type: 'spring', damping: 18, stiffness: 280 }}
+          >
+            {/* GREETING / WOKEN — left hand raised high, waving */}
+            {isWoken && (
+              <motion.g
+                animate={{ rotate: [-20, 20, -20] }}
+                transition={{ duration: 0.45, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ transformOrigin: '4px 18px' }}
+              >
+                <HandShape cx={4} cy={8} rotate={0} />
+              </motion.g>
+            )}
+
+            {/* CELEBRATION (excited) — both hands raised */}
+            {isExcited && !isSuccess && (
+              <motion.g
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 0.5, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <HandShape cx={2} cy={5} rotate={-15} />
+              </motion.g>
+            )}
+
+            {/* SUCCESS — left also raised with right-thumbsup */}
+            {isSuccess && (
+              <motion.g
+                animate={{ y: [0, -5, 0] }}
+                transition={{ duration: 0.6, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <HandShape cx={2} cy={8} rotate={-10} />
+              </motion.g>
+            )}
+
+            {/* ERROR — shrug: left hand extended to left */}
+            {isError && (
+              <motion.g
+                animate={{ y: [0, 3, 0], rotate: [-8, 8, -8] }}
+                transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ transformOrigin: '-8px 52px' }}
+              >
+                <HandShape cx={-8} cy={52} rotate={20} variant="shrug" mirrorX />
+              </motion.g>
+            )}
+
+            {/* IDLE WAVE */}
+            {isIdle && activeIdle === 'wave' && (
+              <motion.g
+                animate={{ rotate: [-18, 18, -18], y: [-2, -6, -2] }}
+                transition={{ duration: 0.45, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ transformOrigin: '4px 18px' }}
+              >
+                <HandShape cx={4} cy={12} rotate={-5} />
+              </motion.g>
+            )}
+
+            {/* IDLE STRETCH */}
+            {isIdle && activeIdle === 'stretch' && (
+              <motion.g
+                animate={{ y: [0, -14, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <HandShape cx={6} cy={20} rotate={10} />
+              </motion.g>
+            )}
+
+            {/* RUB EYES */}
+            {isRubbing && (
+              <motion.g
+                animate={{ x: [-3, 3, -3], y: [-2, 2, -2] }}
+                transition={{ duration: 0.3, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <HandShape cx={30} cy={42} rotate={30} scale={0.8} />
+              </motion.g>
+            )}
+          </motion.g>
+        )}
+      </AnimatePresence>
+
+      {/* ── RIGHT HAND ── */}
+      <AnimatePresence>
+        {showRightHand && !isJuggling && (
+          <motion.g
+            key="right-hand"
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.7 }}
+            transition={{ type: 'spring', damping: 18, stiffness: 280 }}
+          >
+            {/* THINKING — right hand on cheek */}
+            {isThinking && thinkAnim === 'handCheek' && (
+              <motion.g
+                animate={{ y: [0, -2, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <HandShape cx={76} cy={54} rotate={120} scale={0.9} />
+              </motion.g>
+            )}
+
+            {/* THINKING — scratch */}
+            {isThinking && thinkAnim === 'scratch' && (
+              <motion.g
+                animate={{ x: [-2, 2, -2], y: [-2, 2, -2] }}
+                transition={{ duration: 0.22, repeat: Infinity, ease: 'linear' }}
+              >
+                <HandShape cx={76} cy={46} rotate={110} scale={0.85} />
+              </motion.g>
+            )}
+
+            {/* SUCCESS — right hand THUMBS UP */}
+            {isSuccess && (
+              <motion.g
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 0.55, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <HandShape cx={90} cy={65} rotate={0} variant="thumbUp" />
+              </motion.g>
+            )}
+
+            {/* EXCITED / CELEBRATION — right hand raised */}
+            {isExcited && !isSuccess && (
+              <motion.g
+                animate={{ y: [0, -7, 0] }}
+                transition={{ duration: 0.5, repeat: Infinity, ease: 'easeInOut', delay: 0.12 }}
+              >
+                <HandShape cx={98} cy={5} rotate={15} />
+              </motion.g>
+            )}
+
+            {/* ERROR — shrug: right hand extended to right */}
+            {isError && (
+              <motion.g
+                animate={{ y: [0, 3, 0], rotate: [-8, 8, -8] }}
+                transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut', delay: 0.1 }}
+                style={{ transformOrigin: '110px 52px' }}
+              >
+                <HandShape cx={110} cy={52} rotate={-20} variant="shrug" />
+              </motion.g>
+            )}
+
+            {/* IDLE WAVE */}
+            {isIdle && activeIdle === 'wave' && (
+              <motion.g
+                animate={{ rotate: [-12, 12, -12], y: [-8, 0, -8] }}
+                transition={{ duration: 0.5, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ transformOrigin: '92px 40px' }}
+              >
+                <HandShape cx={92} cy={30} rotate={5} />
+              </motion.g>
+            )}
+
+            {/* IDLE STRETCH */}
+            {isIdle && activeIdle === 'stretch' && (
+              <motion.g
+                animate={{ y: [0, -12, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', delay: 0.1 }}
+              >
+                <HandShape cx={96} cy={22} rotate={-10} />
+              </motion.g>
+            )}
+
+            {/* RUB EYES */}
+            {isRubbing && (
+              <motion.g
+                animate={{ x: [-3, 3, -3], y: [-2, 2, -2] }}
+                transition={{ duration: 0.3, repeat: Infinity, ease: 'easeInOut', delay: 0.08 }}
+              >
+                <HandShape cx={62} cy={42} rotate={-30} scale={0.8} />
+              </motion.g>
+            )}
+          </motion.g>
+        )}
+      </AnimatePresence>
+
+      {/* ── Main ball circle ── */}
       <motion.circle
         cx="50" cy="50" r="44"
         fill="url(#va-ballGrad)" filter="url(#va-shadow)"
@@ -473,8 +702,9 @@ const CricketBall = memo(function CricketBall({
       <ellipse cx="36" cy="31" rx="18" ry="12" fill="url(#va-highlight)" />
 
       {/* ── Seam lines ── */}
-      <path d="M 29 8 Q 44 50 29 92" fill="none" stroke="white" strokeWidth="1.8"
-        strokeLinecap="round" opacity="0.65" />
+      <path d="M 29 8 Q 44 50 29 92"
+        fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.65"
+      />
       {[18,28,38,48,58,68,78].map((cy, i) => (
         <line key={`sl-${i}`}
           x1={27 - Math.sin(i * 0.9) * 3} y1={cy}
@@ -492,29 +722,27 @@ const CricketBall = memo(function CricketBall({
 
       {/* ── Cheeks ── */}
       <motion.ellipse cx="22" cy="57" rx="9" ry="6" fill="url(#va-cheekGrad)"
-        animate={{ opacity: cheekBase }}
-        transition={{ duration: 0.12 }}
+        animate={{ opacity: cheekBase }} transition={{ duration: 0.12 }}
       />
       <motion.ellipse cx="78" cy="57" rx="9" ry="6" fill="url(#va-cheekGrad)"
-        animate={{ opacity: cheekBase }}
-        transition={{ duration: 0.12 }}
+        animate={{ opacity: cheekBase }} transition={{ duration: 0.12 }}
       />
 
       {/* ── Eyebrows ── */}
       <motion.path d="M 28 33 Q 36 28 44 32"
         fill="none" stroke="#1c1917" strokeWidth="2.5" strokeLinecap="round"
         animate={{ y: lbrowY, rotate: lbrowRot }}
-        transition={{ duration: 0.35, ease: 'easeInOut' }}
+        transition={{ type: 'spring', damping: 22, stiffness: 260 }}
         style={{ transformOrigin: '36px 30px' }}
       />
       <motion.path d="M 56 32 Q 64 28 72 33"
         fill="none" stroke="#1c1917" strokeWidth="2.5" strokeLinecap="round"
         animate={{ y: rbrowY, rotate: rbrowRot }}
-        transition={{ duration: 0.35, ease: 'easeInOut' }}
+        transition={{ type: 'spring', damping: 22, stiffness: 260 }}
         style={{ transformOrigin: '64px 30px' }}
       />
 
-      {/* ── Speaking head tilt micro-movement ── */}
+      {/* ── Speaking head micro-tilt ── */}
       {isSpeaking && (
         <motion.g
           animate={{ rotate: [-1.5, 1.5, -1.5] }}
@@ -526,9 +754,10 @@ const CricketBall = memo(function CricketBall({
       {/* ── Eyes ── */}
       <motion.g
         animate={{ x: eyeOffX, y: eyeOffY }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
+        transition={{ type: 'spring', damping: 20, stiffness: 200 }}
         style={{ willChange: 'transform' }}
       >
+        {/* Left eye */}
         <motion.ellipse cx="36" cy="46" rx="8.5" ry="8"
           style={{ transformOrigin: '36px 46px' }}
           animate={{ scaleY: blinkScale }}
@@ -545,6 +774,7 @@ const CricketBall = memo(function CricketBall({
           <circle cx={36 + eyeOffX * 0.2} cy="49" r="0.8" fill="white" opacity="0.5" />
         </motion.g>
 
+        {/* Right eye */}
         <motion.ellipse cx="64" cy="46" rx="8.5" ry="8"
           style={{ transformOrigin: '64px 46px' }}
           animate={{ scaleY: blinkScale }}
@@ -562,7 +792,7 @@ const CricketBall = memo(function CricketBall({
         </motion.g>
       </motion.g>
 
-      {/* ── Sleeping / Snoring ZZZs ── */}
+      {/* ── Sleeping ZZZs ── */}
       <AnimatePresence>
         {(isSleeping || isSnoring) && (
           <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -579,15 +809,13 @@ const CricketBall = memo(function CricketBall({
         )}
       </AnimatePresence>
 
-      {/* ── Yawn overlay (tear only — mouth handled by two-lip system) ── */}
+      {/* ── Yawn tear ── */}
       <AnimatePresence>
         {isYawning && (
-          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.ellipse cx="67" cy="52" rx="2" ry="3" fill="#93c5fd" opacity={0.7}
-              animate={{ y: [0, 5, 0], opacity: [0.7, 0.2, 0.7] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-            />
-          </motion.g>
+          <motion.ellipse cx="67" cy="52" rx="2" ry="3" fill="#93c5fd" opacity={0.7}
+            initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, 5, 0] }} exit={{ opacity: 0 }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+          />
         )}
       </AnimatePresence>
 
@@ -603,7 +831,7 @@ const CricketBall = memo(function CricketBall({
         )}
       </AnimatePresence>
 
-      {/* ── Success tick ── */}
+      {/* ── Success ✓ ── */}
       <AnimatePresence>
         {isSuccess && (
           <motion.g initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
@@ -625,24 +853,14 @@ const CricketBall = memo(function CricketBall({
               <motion.circle key={i}
                 cx={50 + Math.cos(angle * Math.PI / 180) * 54}
                 cy={50 + Math.sin(angle * Math.PI / 180) * 54}
-                r="3"
-                fill="#fbbf24"
-                animate={{ opacity: [0, 1, 0], scale: [0.5, 1.5, 0.5] }}
+                r="3.5" fill="#fbbf24"
+                animate={{ opacity: [0, 1, 0], scale: [0.5, 1.6, 0.5] }}
                 transition={{ duration: 0.5, delay: i * 0.08, repeat: Infinity, repeatDelay: 0.3 }}
               />
             ))}
           </motion.g>
         )}
       </AnimatePresence>
-
-      {/* ── Mouth (two-lip system: upper lip + lower lip + interior fill) ── */}
-      {showMouthFill && (
-        <path d={mouthFillPath} fill="#3d0000" opacity={mouthFillOpacity} />
-      )}
-      {/* Upper lip */}
-      <path d={upperLipPath} fill="none" stroke="#1c1917" strokeWidth="2.8" strokeLinecap="round" />
-      {/* Lower lip */}
-      <path d={lowerLipPath} fill="none" stroke="#1c1917" strokeWidth="2.8" strokeLinecap="round" />
 
       {/* ── Thinking overlays ── */}
       <AnimatePresence>
@@ -666,7 +884,6 @@ const CricketBall = memo(function CricketBall({
             <rect x="56" y="8" width="32" height="22" rx="3" fill="white" opacity="0.95" />
             <polyline points="59,27 63,20 68,23 73,14 78,17 85,11"
               fill="none" stroke="#22c55e" strokeWidth="1.5" />
-            <text x="60" y="14" fontSize="5" fill="#94a3b8">📊</text>
           </motion.g>
         )}
         {isThinking && thinkAnim === 'dots' && (
@@ -687,9 +904,6 @@ const CricketBall = memo(function CricketBall({
             <ellipse cx="70" cy="11" rx="6" ry="7" fill="#fbbf24" />
             <path d="M 66 17 Q 66 21 70 22 Q 74 21 74 17 Z" fill="#f59e0b" />
             <rect x="67.5" y="22" width="5" height="2.5" rx="1" fill="#92400e" />
-            <motion.circle cx="70" cy="7" r="2.5" fill="white" opacity="0.7"
-              animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.7, repeat: Infinity }}
-            />
           </motion.g>
         )}
         {isThinking && thinkAnim === 'notebook' && (
@@ -743,11 +957,6 @@ const CricketBall = memo(function CricketBall({
                   animate={{ opacity: [0, 1, 0] }}
                   transition={{ duration: 0.8, delay: s.delay, repeat: Infinity, repeatDelay: 0.3 }}
                 />
-                <motion.line x1={s.cx} y1={s.cy - s.r * 1.4} x2={s.cx} y2={s.cy + s.r * 1.4}
-                  stroke="#fbbf24" strokeWidth="1" strokeLinecap="round"
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 0.8, delay: s.delay, repeat: Infinity, repeatDelay: 0.3 }}
-                />
               </motion.g>
             ))}
           </motion.g>
@@ -774,12 +983,25 @@ const CricketBall = memo(function CricketBall({
             />
           </motion.g>
         )}
+        {isThinking && thinkAnim === 'eyebrow' && (
+          <motion.text x="64" y="16" fontSize="14" fill="#fbbf24" fontWeight="bold"
+            initial={{ opacity: 0 }} animate={{ opacity: [0.6, 1, 0.6] }} exit={{ opacity: 0 }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+          >?</motion.text>
+        )}
       </AnimatePresence>
+
+      {/* ── Mouth ── */}
+      {showMouthFill && (
+        <path d={mouthFillPath} fill="#3d0000" opacity={mouthFillOpacity} />
+      )}
+      <path d={upperLipPath} fill="none" stroke="#1c1917" strokeWidth="2.8" strokeLinecap="round" />
+      <path d={lowerLipPath} fill="none" stroke="#1c1917" strokeWidth="2.8" strokeLinecap="round" />
     </svg>
   );
 });
 
-// ── Entry Ripple — grass trail behind ball entering from bottom-right ─────────
+// ── Entry Ripple ──────────────────────────────────────────────────────────────
 
 const EntryRipple = memo(function EntryRipple({ active }: { active: boolean }) {
   return (
@@ -895,10 +1117,7 @@ const VoiceWaveform = memo(function VoiceWaveform({ active }: { active: boolean 
   );
 });
 
-// ── Phoneme-driven mouth frame builder ───────────────────────────────────────
-// Maps each character to a mouth-openness value (0–1) so the lips move like a
-// real speaker: wide-open on "a"/"o", nearly closed on bilabials "b"/"p"/"m",
-// and small pauses on punctuation.
+// ── Phoneme-driven mouth frame builder ────────────────────────────────────────
 
 function buildMouthFrames(text: string): number[] {
   const frames: number[] = [];
@@ -909,12 +1128,12 @@ function buildMouthFrames(text: string): number[] {
     else if (/[eE]/.test(ch))     frames.push(0.54 + Math.random() * 0.14);
     else if (/[iI]/.test(ch))     frames.push(0.44 + Math.random() * 0.12);
     else if (/[uU]/.test(ch))     frames.push(0.60 + Math.random() * 0.13);
-    else if (/[bBpPmM]/.test(ch)) frames.push(0.03 + Math.random() * 0.05); // lips press together
+    else if (/[bBpPmM]/.test(ch)) frames.push(0.03 + Math.random() * 0.05);
     else if (/[fFvV]/.test(ch))   frames.push(0.18 + Math.random() * 0.10);
     else if (/[szSZ]/.test(ch))   frames.push(0.28 + Math.random() * 0.10);
-    else if (/[.,!?;:]/.test(ch)) { frames.push(0.04); frames.push(0.02); }  // micro-pause
-    else if (ch === ' ')           frames.push(0.07 + Math.random() * 0.06); // word gap
-    else                           frames.push(0.21 + Math.random() * 0.19); // generic consonant
+    else if (/[.,!?;:]/.test(ch)) { frames.push(0.04); frames.push(0.02); }
+    else if (ch === ' ')           frames.push(0.07 + Math.random() * 0.06);
+    else                           frames.push(0.21 + Math.random() * 0.19);
   }
   return frames;
 }
@@ -923,14 +1142,12 @@ function buildMouthFrames(text: string): number[] {
 
 function parseMultiCommand(raw: string): string[] {
   const t = raw.toLowerCase().trim();
-  // Split on "and"/"then"/"also" only when followed by an action verb
   const actionPrefix = /^(turn|switch|enable|disable|show|open|close|export|refresh|scroll|set|activate|deactivate|start|stop|go|get)/;
   const parts = t
     .split(/\s+(?:and|then|also|plus)\s+/)
     .flatMap(p => p.split(/,\s*/))
     .map(p => p.trim())
     .filter(p => p.length > 2);
-  // Only treat as multi-command if we have ≥2 parts and at least the 2nd looks like a command
   if (parts.length >= 2 && (actionPrefix.test(parts[1]) || /pump|fan|mode|export|pdf|excel|refresh|analys/.test(parts[1]))) {
     return parts;
   }
@@ -963,13 +1180,10 @@ function processCommand(
   const t = raw.toLowerCase().trim();
   const resp = (r: string, hint?: AssistantState) => ({ response: r, stateHint: hint });
 
-  // ── Sleep / dismiss ──
   if (/\b(sleep|stop listening|go to sleep|bye|goodbye|see you|dismiss|close|quiet|that's all|that is all|stop)\b/.test(t)) {
     setTimeout(goIdle, 800);
     return resp(`Alright! I'll keep an eye on the pitch while you rest. Just say "Hey Ball" when you need me!`);
   }
-
-  // ── Greetings ──
   if (/^(hi|hello|hey|good morning|good afternoon|good evening|good night|howdy|namaste)(\s|$)/.test(t)) {
     const h = new Date().getHours();
     const gr = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
@@ -991,7 +1205,6 @@ function processCommand(
     return resp(`I'm right here! Ready and listening. What can I do for you?`, 'excited');
   }
 
-  // ── Navigation ──
   if (/scroll up|go up/.test(t)) {
     window.scrollBy({ top: -350, behavior: 'smooth' });
     return resp(`Scrolled up.`);
@@ -1030,11 +1243,10 @@ function processCommand(
     return resp(`Light mode activated.`);
   }
 
-  // ── Mode ──
   if ((/auto(matic)?(\s+mode)?|switch.*auto|enable.*auto|set.*auto|automatic please/.test(t)) && !/manual/.test(t)) {
     setGesture('left');
     ctx.onModeChange('auto');
-    return resp(`Automatic mode activated! The Arduino will now manage the pump and fan based on live soil moisture. You can relax — I've got it covered.`, 'success');
+    return resp(`Automatic mode activated! The Arduino will now manage the pump and fan based on live soil moisture.`, 'success');
   }
   if (/manual(\s+mode)?|switch.*manual|enable.*manual|set.*manual|switch to manual|disable automatic|manual please/.test(t)) {
     setGesture('left');
@@ -1045,7 +1257,6 @@ function processCommand(
     return resp(`You're in ${ctx.mode === 'auto' ? 'Automatic' : 'Manual'} mode. ${ctx.mode === 'auto' ? 'The Arduino is managing things automatically.' : 'You have manual control of the pump and fan.'}`);
   }
 
-  // ── Emergency stop ──
   if (/emergency stop|stop everything|stop all|kill all|shut down everything/.test(t)) {
     if (ctx.mode === 'auto') return resp(`I'm in automatic mode. Please switch to manual mode first for emergency control.`);
     ctx.onPumpToggle(false);
@@ -1053,7 +1264,6 @@ function processCommand(
     return resp(`Emergency stop executed! Both the water pump and drying fan have been turned off immediately.`, 'error');
   }
 
-  // ── Pump ──
   const pumpOn  = /pump\s*(on|start)|turn\s*(on|up)\s*(the\s*)?pump|(start|switch\s*on|enable|activate|please\s*start|can\s*you\s*start|please\s*turn\s*on|switch\s*the\s*pump\s*on|water\s*the\s*pitch|start\s*water|start\s*irrig|irrig\s*on|enable\s*irrig)(\s*(the\s*)?(pump|water|irrig))?/.test(t)
     && !/off|stop|turn\s*off/.test(t);
   const pumpOff = /pump\s*(off|stop)|turn\s*(off|down)\s*(the\s*)?pump|(stop|switch\s*off|disable|deactivate|please\s*stop|can\s*you\s*stop|turn\s*off\s*(the\s*)?(pump|water|irrig)|stop\s*water|stop\s*irrig)(\s*(the\s*)?(pump|water|irrig))?/.test(t);
@@ -1074,7 +1284,6 @@ function processCommand(
     return resp(`The water pump is currently ${ctx.pumpOn ? 'ON and actively irrigating the pitch' : 'OFF'}.`);
   }
 
-  // ── Fan ──
   const fanOn  = /fan\s*(on|start)|turn\s*(on|up)\s*(the\s*)?fan|(start|switch\s*on|enable|activate|please\s*start|can\s*you\s*start|please\s*turn\s*on|switch\s*the\s*fan\s*on|dry\s*the\s*pitch|start\s*dry)(\s*(the\s*)?(fan|drying|dryer))?|fan\s*please/.test(t)
     && !/off|stop|turn\s*off/.test(t);
   const fanOff = /fan\s*(off|stop)|turn\s*(off|down)\s*(the\s*)?fan|(stop|switch\s*off|disable|deactivate|please\s*stop|can\s*you\s*stop|turn\s*off\s*(the\s*)?fan|stop\s*dry)(\s*(the\s*)?(fan|drying))?/.test(t);
@@ -1095,7 +1304,6 @@ function processCommand(
     return resp(`The drying fan is currently ${ctx.fanOn ? 'ON and actively drying the pitch' : 'OFF'}.`);
   }
 
-  // ── Sensor stats ──
   if (/highest temp/.test(t)) return resp(`The highest recorded temperature is ${ctx.tStats.max}°C.`);
   if (/lowest temp/.test(t))  return resp(`The lowest recorded temperature is ${ctx.tStats.min}°C.`);
   if (/average temp/.test(t)) return resp(`The average temperature is ${ctx.tStats.avg}°C.`);
@@ -1106,7 +1314,6 @@ function processCommand(
   if (/lowest (soil|moist)/.test(t))  return resp(`The lowest soil moisture recorded is ${ctx.sStats.min}%.`);
   if (/average (soil|moist)/.test(t)) return resp(`The average soil moisture is ${ctx.sStats.avg}%.`);
 
-  // ── Live sensor reads ──
   if (/\b(temp|temperature)\b/.test(t)) {
     setGesture('up');
     const s = ctx.currentTemp > 34 ? 'slightly high — monitor carefully' : ctx.currentTemp < 29 ? 'on the cooler side' : 'within the normal range';
@@ -1128,7 +1335,6 @@ function processCommand(
     return resp(`The latest reading — temperature ${ctx.currentTemp}°C, humidity ${ctx.currentHum}%, and soil moisture ${ctx.currentSoil}%.`);
   }
 
-  // ── Pitch condition ──
   if (/how is the pitch|pitch condition|pitch health|current condition|today.*report|pitch status|status/.test(t)) {
     const advice =
       ctx.condition === 'Balanced' ? 'The pitch is in excellent condition — ready for play!' :
@@ -1140,7 +1346,6 @@ function processCommand(
     return resp(`Based on current trends, the pitch is likely to remain ${ctx.condition} for the next 20–30 minutes. Keep monitoring soil moisture closely.`);
   }
 
-  // ── Exports ──
   if (/pdf|export report|download report|generate report|save report|create report/.test(t)) {
     setGesture('down');
     ctx.onExportPDF();
@@ -1152,20 +1357,17 @@ function processCommand(
     return resp(`Exporting all sensor readings to Excel. The file will download shortly.`);
   }
 
-  // ── Analytics ──
   if (/analys|sensor analys|open analys|show chart|view data|view chart|show graph|open graph/.test(t)) {
     setGesture('down');
     ctx.onOpenAnalysis();
     return resp(`Opening the sensor analytics panel with live charts and statistics.`);
   }
 
-  // ── Reset / Refresh ──
   if (/reset|refresh|reload|clear|update reading|update graph|refresh dashboard|reload dashboard|update dashboard/.test(t)) {
     ctx.onReset();
     return resp(`Dashboard refreshed! Sensor data will update with the next Arduino reading cycle.`, 'success');
   }
 
-  // ── Unknown ──
   return resp(
     `Oops! That delivery missed the stumps. Could you repeat your command?`,
     'error'
@@ -1181,16 +1383,16 @@ export default function VoiceAssistant({
 }: VoiceAssistantProps) {
 
   // ── Core state ──
-  const [state, setState]               = useState<AssistantState>('idle');
-  const [idleAnim, setIdleAnim]         = useState<IdleAnim>('breathe');
-  const [idleAnimsEnabled, setIdleAnimsEnabled] = useState(false); // enabled after 60s of inactivity
-  const [thinkAnim, setThinkAnim]       = useState<ThinkAnim>('eyebrow');
-  const [mouthOpen, setMouthOpen]       = useState(0);
-  const [speechBeat, setSpeechBeat]     = useState(0);
-  const [eyeX, setEyeX]                 = useState(0);
-  const [eyeY, setEyeY]                 = useState(0);
-  const [blinkNow, setBlinkNow]         = useState(false);
-  const [statusText, setStatusText]     = useState('');
+  const [state, setState]           = useState<AssistantState>('idle');
+  const [idleAnim, setIdleAnim]     = useState<IdleAnim>('breathe');
+  const [idlePhase, setIdlePhase]   = useState<IdlePhase>(0);
+  const [thinkAnim, setThinkAnim]   = useState<ThinkAnim>('eyebrow');
+  const [mouthOpen, setMouthOpen]   = useState(0);
+  const [speechBeat, setSpeechBeat] = useState(0);
+  const [eyeX, setEyeX]             = useState(0);
+  const [eyeY, setEyeY]             = useState(0);
+  const [blinkNow, setBlinkNow]     = useState(false);
+  const [statusText, setStatusText] = useState('');
   const [commandText, setCommandText]   = useState('');
   const [responseText, setResponseText] = useState('');
   const [interimText, setInterimText]   = useState('');
@@ -1198,13 +1400,12 @@ export default function VoiceAssistant({
   const [permDenied, setPermDenied]     = useState(false);
   const [gesture, setGestureState]      = useState<GestureDir>('none');
   const [showHints, setShowHints]       = useState(false);
-  const [isJuggling, setIsJuggling]         = useState(false);
+  const [isJuggling, setIsJuggling]     = useState(false);
   const [entryRippleActive, setEntryRippleActive] = useState(false);
 
-  // Ball container animation controls (for jump/shake)
   const ballControls = useAnimation();
 
-  // ── Refs (stable, safe in SpeechRecognition callbacks) ──
+  // ── Refs ──
   const stateRef          = useRef<AssistantState>('idle');
   const ctxRef            = useRef({ readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel });
   const recRef            = useRef<any>(null);
@@ -1225,48 +1426,58 @@ export default function VoiceAssistant({
   const gestureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restartDelayRef   = useRef(150);
   const speechBeatRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const cycleTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idleCycleActiveRef  = useRef(false);
-  const startIdleCycleRef   = useRef<() => void>(() => {});
+  const cycleTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleCycleActiveRef = useRef(false);
+  const startIdleCycleRef  = useRef<() => void>(() => {});
 
-  // Inactivity timers
-  const inactivityTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);   // 60s → enable idle anims
-  const autoSleepTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);   // 3min → sleep
-  const lastActivityTimeRef = useRef<number>(Date.now());
+  // Inactivity timers (three-phase per spec)
+  const phase1TimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phase2TimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phase3TimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep refs in sync
   useEffect(() => { stateRef.current = state; }, [state]);
   useEffect(() => {
     ctxRef.current = { readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel };
   });
 
-  // ── Inactivity tracking ───────────────────────────────────────────────────────
+  // ── 3-phase idle system ───────────────────────────────────────────────────────
+  // Phase 1 (20s): subtle blink/breathe/eye movement
+  // Phase 2 (40s): head tilt, smile, bounce
+  // Phase 3 (60s): sleep OR juggle (50/50)
   const resetInactivityTimers = useCallback(() => {
-    // Break any running idle cycle — user activity always wins
     idleCycleActiveRef.current = false;
-    lastActivityTimeRef.current = Date.now();
-    setIdleAnimsEnabled(false);
     setIsJuggling(false);
+    setIdlePhase(0);
+    setIdleAnim('breathe');
 
-    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-    if (autoSleepTimerRef.current)  clearTimeout(autoSleepTimerRef.current);
-    if (cycleTimerRef.current)      clearTimeout(cycleTimerRef.current);
+    [phase1TimerRef, phase2TimerRef, phase3TimerRef, cycleTimerRef].forEach(r => {
+      if (r.current) clearTimeout(r.current);
+    });
 
-    // After 60 seconds idle → start deterministic Sleep → Play Cricket cycle
-    inactivityTimerRef.current = setTimeout(() => {
+    // Phase 1 — 20 s: enable subtle idle animations
+    phase1TimerRef.current = setTimeout(() => {
       if (stateRef.current !== 'idle') return;
+      setIdlePhase(1);
+    }, 20_000);
+
+    // Phase 2 — 40 s: enable expressive animations
+    phase2TimerRef.current = setTimeout(() => {
+      if (stateRef.current !== 'idle') return;
+      setIdlePhase(2);
+    }, 40_000);
+
+    // Phase 3 — 60 s: sleep or juggle
+    phase3TimerRef.current = setTimeout(() => {
+      if (stateRef.current !== 'idle') return;
+      setIdlePhase(3);
       idleCycleActiveRef.current = true;
       startIdleCycleRef.current();
     }, 60_000);
   }, []);
 
-  // Idle cycle — triggered after 1 min of inactivity.
-  // Picks ONE animation (sleeping OR playing cricket) and holds it for the
-  // entire idle period.  No internal timer — the animation stays until the
-  // user clicks / speaks, at which point resetInactivityTimers() clears it.
+  // Idle cycle — picks sleeping OR juggling, holds indefinitely
   const startIdleCycle = useCallback(() => {
     if (!idleCycleActiveRef.current) return;
-
     const pickSleep = Math.random() < 0.5;
     if (pickSleep) {
       setState('sleeping');
@@ -1275,135 +1486,103 @@ export default function VoiceAssistant({
       setState('idle');
       setIsJuggling(true);
     }
-    // Hold this state indefinitely — no setTimeout loop.
-    // resetInactivityTimers() will stop it the moment the user interacts.
   }, []);
-
   useEffect(() => { startIdleCycleRef.current = startIdleCycle; }, [startIdleCycle]);
 
-  // Track user activity
-  // • mousemove / keydown only resets the 60 s timer when NOT already in the cycle
-  // • click / touchstart / scroll ALWAYS breaks the cycle
+  // Activity listeners
   useEffect(() => {
-    const onPassiveActivity = () => {
+    const onPassive = () => {
       if (stateRef.current === 'idle' && !idleCycleActiveRef.current) {
         resetInactivityTimers();
       }
     };
     const onInterrupt = () => {
-      // Any click, touch, or scroll always breaks the idle cycle and restarts the 60 s timer
       if (stateRef.current === 'idle' || stateRef.current === 'sleeping') {
         resetInactivityTimers();
       }
     };
-    window.addEventListener('mousemove',  onPassiveActivity, { passive: true });
-    window.addEventListener('keydown',    onPassiveActivity, { passive: true });
-    window.addEventListener('click',      onInterrupt,       { passive: true });
-    window.addEventListener('touchstart', onInterrupt,       { passive: true });
-    window.addEventListener('scroll',     onInterrupt,       { passive: true, capture: true });
-    resetInactivityTimers(); // start on mount
-
+    window.addEventListener('mousemove',  onPassive,    { passive: true });
+    window.addEventListener('keydown',    onPassive,    { passive: true });
+    window.addEventListener('click',      onInterrupt,  { passive: true });
+    window.addEventListener('touchstart', onInterrupt,  { passive: true });
+    window.addEventListener('scroll',     onInterrupt,  { passive: true, capture: true });
+    resetInactivityTimers();
     return () => {
-      window.removeEventListener('mousemove',  onPassiveActivity);
-      window.removeEventListener('keydown',    onPassiveActivity);
+      window.removeEventListener('mousemove',  onPassive);
+      window.removeEventListener('keydown',    onPassive);
       window.removeEventListener('click',      onInterrupt);
       window.removeEventListener('touchstart', onInterrupt);
       window.removeEventListener('scroll',     onInterrupt, { capture: true } as EventListenerOptions);
     };
   }, [resetInactivityTimers]);
 
-  // Reset inactivity when state changes away from idle
   useEffect(() => {
     if (state !== 'idle') {
-      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-      if (autoSleepTimerRef.current)  clearTimeout(autoSleepTimerRef.current);
-      // NOTE: Do NOT touch cycleTimerRef — the idle cycle manages its own timer
-      setIdleAnimsEnabled(false);
+      [phase1TimerRef, phase2TimerRef, phase3TimerRef].forEach(r => {
+        if (r.current) clearTimeout(r.current);
+      });
+      setIdlePhase(0);
     } else {
-      // When returning to 'idle', only restart inactivity tracking if NOT inside
-      // the idle cycle (during juggling phase, state = 'idle' but cycle is active)
       if (!idleCycleActiveRef.current) {
         resetInactivityTimers();
       }
     }
   }, [state, resetInactivityTimers]);
 
-  // ── Gesture helper ───────────────────────────────────────────────────────────
+  // ── Gesture helper ────────────────────────────────────────────────────────────
   const setGesture = useCallback((dir: GestureDir) => {
     setGestureState(dir);
     if (gestureTimeoutRef.current) clearTimeout(gestureTimeoutRef.current);
     gestureTimeoutRef.current = setTimeout(() => setGestureState('none'), 2000);
   }, []);
 
-  // ── Jump animation (one-shot) ─────────────────────────────────────────────────
+  // ── Jump (success) ────────────────────────────────────────────────────────────
   const triggerJump = useCallback(async () => {
     await ballControls.start({
-      y: [-20, 4, -10, 2, 0],
-      transition: { duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }
+      y: [-22, 5, -11, 2, 0],
+      transition: { duration: 0.75, ease: [0.25, 0.46, 0.45, 0.94] },
     });
     ballControls.set({ y: 0 });
   }, [ballControls]);
 
-  // ── Shake animation (error) ───────────────────────────────────────────────────
+  // ── Shake (error) ─────────────────────────────────────────────────────────────
   const triggerShake = useCallback(async () => {
     await ballControls.start({
-      x: [-8, 8, -6, 6, -4, 4, 0],
-      transition: { duration: 0.5, ease: 'easeInOut' }
+      x: [-9, 9, -7, 7, -4, 4, 0],
+      transition: { duration: 0.52, ease: 'easeInOut' },
     });
     ballControls.set({ x: 0 });
   }, [ballControls]);
 
-  // ── Entry Animation (complete rebuild per spec) ───────────────────────────────
-  // The ball enters from the bottom-right following the spin-axis image:
-  //   • Ball velocity direction: LEFT (ball travels from right → center)
-  //   • Spin axis: diagonal → ball rotates counter-clockwise as it travels
-  // Timing: 650ms travel + 180ms bounce. Ripple trails behind the ball.
+  // ── Entry spin (wake from idle/sleeping) ──────────────────────────────────────
   const triggerWakeSpinEntry = useCallback(async () => {
-    // Fire the entry ripple at the ball's starting position (bottom-right corner)
     setEntryRippleActive(true);
     setTimeout(() => setEntryRippleActive(false), 550);
 
-    // Start position: 160px right + 40px below the final resting spot.
-    // The CSS `right` transition simultaneously moves the container left → center.
-    // Combined: ball appears to fly in from far bottom-right at 60 FPS.
     ballControls.set({ x: 160, y: 40, rotate: 0, scale: 0.72 });
-
-    // Phase 1 — Travel (650ms): left + slightly up, counter-clockwise spin,
-    // motion blur opening to crisp, cubic ease-out deceleration.
     await ballControls.start({
-      x: 0,
-      y: 0,
-      rotate: -720,        // counter-clockwise = left-travelling ball (per spin-axis image)
-      scale: 1.08,
+      x: 0, y: 0, rotate: -720, scale: 1.08,
       transition: {
-        x:      { duration: 0.65, ease: [0.12, 0.8, 0.35, 1.0] },   // cubic ease-out
+        x:      { duration: 0.65, ease: [0.12, 0.8, 0.35, 1.0] },
         y:      { duration: 0.65, ease: [0.12, 0.8, 0.35, 1.0] },
-        rotate: { duration: 0.65, ease: [0.0,  0.0, 0.2,  1.0] },   // ease-out spin
+        rotate: { duration: 0.65, ease: [0.0,  0.0, 0.2,  1.0] },
         scale:  { duration: 0.35, ease: 'easeOut' },
       },
     });
-
-    // Phase 2 — Bounce (180ms): small realistic bounce at landing
     ballControls.set({ rotate: 0 });
     await ballControls.start({
       y:     [0, -18, 5, -7, 0],
       scale: [1.08, 0.95, 1.04, 0.98, 1.0],
-      transition: {
-        duration: 0.18,
-        ease: [0.25, 0.46, 0.45, 0.94],
-      },
+      transition: { duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] },
     });
-
-    // Snap to neutral — never allow drifted position after entry
     ballControls.set({ x: 0, y: 0, rotate: 0, scale: 1 });
   }, [ballControls]);
 
-  // Fire jump/shake/spin based on state transitions
+  // Fire animations on state transitions
   const prevStateRef = useRef<AssistantState>('idle');
   useEffect(() => {
     const prev = prevStateRef.current;
     prevStateRef.current = state;
-
     if ((state === 'excited' || state === 'success') && prev !== state) {
       triggerJump();
     } else if (state === 'error' && prev !== 'error') {
@@ -1413,7 +1592,7 @@ export default function VoiceAssistant({
     }
   }, [state, triggerJump, triggerShake, triggerWakeSpinEntry]);
 
-  // ── Reset 7-second command timeout ───────────────────────────────────────────
+  // ── Command timeout ───────────────────────────────────────────────────────────
   const resetCommandTimeout = useCallback(() => {
     if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
     commandTimeoutRef.current = setTimeout(() => {
@@ -1423,7 +1602,7 @@ export default function VoiceAssistant({
     }, 7000);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── TTS — pauses mic while speaking ─────────────────────────────────────────
+  // ── TTS with phoneme mouth sync ───────────────────────────────────────────────
   const speak = useCallback((text: string, onDone?: () => void) => {
     window.speechSynthesis.cancel();
     isSpeakingRef.current = true;
@@ -1447,32 +1626,26 @@ export default function VoiceAssistant({
       window.speechSynthesis.onvoiceschanged = assignVoice;
     }
 
-    // ── Phoneme-driven mouth animation ──────────────────────────────────────
-    // Pre-compute per-character openness, then drive a smooth 30 fps lerp so
-    // lips open/close exactly like a real speaker (vowels wide, bilabials shut,
-    // punctuation pauses, etc.).  Word-boundary events snap the index when the
-    // browser supports them, keeping lip sync tight.
     if (mouthIntervalRef.current) clearInterval(mouthIntervalRef.current);
     setSpeechBeat(0);
     setMouthOpen(0.28);
 
-    const frames      = buildMouthFrames(text);
-    const msPerChar   = Math.round(74 / (utter.rate || 1)); // ≈74 ms/char at rate 0.92
-    const tickMs      = 33;                                  // ~30 fps smooth step
-    const ticksPerFrame = msPerChar / tickMs;                // advance one frame every N ticks
+    const frames        = buildMouthFrames(text);
+    const msPerChar     = Math.round(74 / (utter.rate || 1));
+    const tickMs        = 33; // ~30 fps smooth step
+    const ticksPerFrame = msPerChar / tickMs;
 
-    let frameIdx  = 0;
-    let tickAccum = 0;
+    let frameIdx    = 0;
+    let tickAccum   = 0;
     let smoothMouth = 0.28;
     let targetMouth = 0.28;
 
     mouthIntervalRef.current = setInterval(() => {
       tickAccum += 1;
       if (tickAccum >= ticksPerFrame && frameIdx < frames.length) {
-        tickAccum  = 0;
+        tickAccum   = 0;
         targetMouth = frames[frameIdx++];
       }
-      // Exponential lerp — fast attack, slow release = natural jaw movement
       const lerpRate = targetMouth > smoothMouth ? 0.52 : 0.38;
       smoothMouth += (targetMouth - smoothMouth) * lerpRate;
       const v = Math.max(0, Math.min(1, smoothMouth));
@@ -1480,7 +1653,6 @@ export default function VoiceAssistant({
       setSpeechBeat(v > 0.50 ? v * 0.85 : 0);
     }, tickMs);
 
-    // Word-boundary snap: keeps lip sync accurate when the browser fires it
     utter.onboundary = (e: SpeechSynthesisEvent) => {
       if (e.name === 'word' && typeof e.charIndex === 'number') {
         frameIdx  = Math.min(e.charIndex, frames.length - 1);
@@ -1494,28 +1666,23 @@ export default function VoiceAssistant({
       setSpeechBeat(0);
       isSpeakingRef.current = false;
       if (shouldListenRef.current) {
-        setTimeout(() => {
-          try { recRef.current?.start(); } catch (_) {}
-        }, 200);
+        setTimeout(() => { try { recRef.current?.start(); } catch (_) {} }, 200);
       }
       onDone?.();
     };
-
     utter.onend   = cleanup;
     utter.onerror = cleanup;
-
     window.speechSynthesis.speak(utter);
   }, []);
 
-  // ── Go idle ──────────────────────────────────────────────────────────────────
+  // ── Go idle ───────────────────────────────────────────────────────────────────
   const goIdle = useCallback(() => {
     window.speechSynthesis.cancel();
     if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
-    // Stop any running idle cycle on explicit dismiss
     idleCycleActiveRef.current = false;
     setIsJuggling(false);
     if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
-    recModeRef.current = 'wakeword';
+    recModeRef.current   = 'wakeword';
     lastFinalRef.current = '';
     setState('idle');
     setStatusText('');
@@ -1528,7 +1695,7 @@ export default function VoiceAssistant({
 
   // ── Enter listening mode ──────────────────────────────────────────────────────
   const enterListening = useCallback((skipIntro = false) => {
-    recModeRef.current = 'command';
+    recModeRef.current   = 'command';
     lastFinalRef.current = '';
     setCommandText('');
     setResponseText('');
@@ -1536,7 +1703,6 @@ export default function VoiceAssistant({
 
     if (firstLaunchRef.current && !skipIntro) {
       firstLaunchRef.current = false;
-      // Show the full Listening → Thinking → Speaking flow
       setState('woken');
       setStatusText('Listening…');
       setTimeout(() => {
@@ -1561,11 +1727,10 @@ export default function VoiceAssistant({
     }
   }, [speak, resetCommandTimeout]);
 
-  // ── Wake assistant ─────────────────────────────────────────────────────────
+  // ── Wake assistant ────────────────────────────────────────────────────────────
   const wakeAssistantRef = useRef<() => void>(() => {});
   const wakeAssistant = useCallback(() => {
     if (stateRef.current !== 'idle' && stateRef.current !== 'sleeping') return;
-    // Immediately stop idle cycle & juggling — no delay (per spec)
     idleCycleActiveRef.current = false;
     setIsJuggling(false);
     if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
@@ -1573,7 +1738,7 @@ export default function VoiceAssistant({
   }, [enterListening]);
   useEffect(() => { wakeAssistantRef.current = wakeAssistant; }, [wakeAssistant]);
 
-  // ── Handle command ─────────────────────────────────────────────────────────
+  // ── Handle command ────────────────────────────────────────────────────────────
   const handleCommandRef = useRef<(t: string) => void>(() => {});
   const handleCommand = useCallback((transcript: string) => {
     if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
@@ -1596,21 +1761,18 @@ export default function VoiceAssistant({
 
     const t = transcript.toLowerCase().trim();
 
-    // Repeat
     if (/\b(repeat|say that again|again|what did you say)\b/.test(t)) {
       const rpt = lastResponseRef.current || `I haven't said anything yet! Ask me something first.`;
-      const delay = 300 + Math.random() * 400;
       setTimeout(() => {
         setState('speaking'); setStatusText('Speaking'); setResponseText(rpt);
         speak(rpt, () => {
           setState('listening'); setStatusText('Listening…');
           resetCommandTimeout();
         });
-      }, delay);
+      }, 300 + Math.random() * 400);
       return;
     }
 
-    // ── Build command context (local copies so multi-commands see updated state) ──
     let localPumpOn = ctx.pumpOn;
     let localFanOn  = ctx.fanOn;
     let localMode   = ctx.systemMode as 'auto' | 'manual';
@@ -1622,15 +1784,13 @@ export default function VoiceAssistant({
       hStats: calcStat(ctx.humHistory),
       sStats: calcStat(ctx.soilHistory),
       readings: ctx.readings,
-      onPumpToggle: (v: boolean)            => { localPumpOn = v;  ctx.onPumpToggle(v); },
-      onFanToggle:  (v: boolean)            => { localFanOn  = v;  ctx.onFanToggle(v);  },
-      onModeChange: (m: 'auto' | 'manual') => { localMode   = m;  ctx.onModeChange(m); },
+      onPumpToggle: (v: boolean)           => { localPumpOn = v; ctx.onPumpToggle(v); },
+      onFanToggle:  (v: boolean)           => { localFanOn  = v; ctx.onFanToggle(v);  },
+      onModeChange: (m: 'auto' | 'manual') => { localMode   = m; ctx.onModeChange(m); },
       onReset:       ctx.onReset,
       onOpenAnalysis: ctx.onOpenAnalysis,
       onExportPDF: () => {
-        try {
-          generatePDF({ readings: ctx.readings, tempHistory: ctx.tempHistory, humHistory: ctx.humHistory, soilHistory: ctx.soilHistory, pumpOn: ctx.pumpOn, fanOn: ctx.fanOn, mode: ctx.systemMode });
-        } catch (e) { console.error('PDF error', e); }
+        try { generatePDF({ readings: ctx.readings, tempHistory: ctx.tempHistory, humHistory: ctx.humHistory, soilHistory: ctx.soilHistory, pumpOn: ctx.pumpOn, fanOn: ctx.fanOn, mode: ctx.systemMode }); } catch (e) { console.error('PDF error', e); }
       },
       onExportExcel: () => {
         try {
@@ -1644,19 +1804,15 @@ export default function VoiceAssistant({
       },
     });
 
-    // ── Multi-command parsing ──
     const commands = parseMultiCommand(transcript);
-    const isComplex = commands.length > 1 || transcript.split(/\s+/).length > 8;
+    const numCmds  = commands.length;
 
-    // Thinking delay scaled by command count — per spec
-    const numCmds = commands.length;
     const thinkDelay =
-      numCmds >= 4 ? 1500 + Math.random() * 500 :
-      numCmds === 3 ? 1200 :
+      numCmds >= 4 ? 1500 + Math.random() * 700 :
+      numCmds === 3 ? 1200 + Math.random() * 300 :
       numCmds === 2 ? 700  + Math.random() * 200 :
-                      300  + Math.random() * 200;
+                      350  + Math.random() * 350;
 
-    // Process all sub-commands, accumulate responses
     const results = commands.map(cmd => processCommand(cmd, makeCtx(), setGesture, goIdle));
 
     let response: string;
@@ -1666,8 +1822,7 @@ export default function VoiceAssistant({
       response  = results[0].response;
       stateHint = results[0].stateHint;
     } else {
-      // Join responses with natural separators
-      response = results.map(r => r.response).join(' ');
+      response  = results.map(r => r.response).join(' ');
       stateHint =
         results.find(r => r.stateHint === 'error')?.stateHint   ??
         results.find(r => r.stateHint === 'success')?.stateHint ??
@@ -1678,10 +1833,7 @@ export default function VoiceAssistant({
 
     if (stateHint === 'error') {
       failCountRef.current += 1;
-      if (failCountRef.current >= 3) {
-        setShowHints(true);
-        failCountRef.current = 0;
-      }
+      if (failCountRef.current >= 3) { setShowHints(true); failCountRef.current = 0; }
     } else {
       failCountRef.current = 0;
       setShowHints(false);
@@ -1698,7 +1850,7 @@ export default function VoiceAssistant({
             setStatusText('Listening…');
             resetCommandTimeout();
           }
-        }, stateHint === 'success' || stateHint === 'excited' || stateHint === 'error' ? 600 : 0);
+        }, stateHint === 'success' || stateHint === 'excited' || stateHint === 'error' ? 700 : 0);
       });
     }, thinkDelay);
   }, [speak, goIdle, setGesture, resetCommandTimeout]);
@@ -1711,11 +1863,11 @@ export default function VoiceAssistant({
     if (!SR) { setIsSupported(false); return; }
 
     const rec = new SR();
-    rec.lang = COMMAND_LANG;
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.lang            = COMMAND_LANG;
+    rec.continuous      = true;
+    rec.interimResults  = true;
     rec.maxAlternatives = 3;
-    recRef.current = rec;
+    recRef.current      = rec;
 
     rec.onresult = (e: any) => {
       if (isSpeakingRef.current) return;
@@ -1726,9 +1878,7 @@ export default function VoiceAssistant({
       for (let i = e.resultIndex; i < e.results.length; i++) {
         let best = e.results[i][0].transcript;
         for (let a = 1; a < e.results[i].length; a++) {
-          if (e.results[i][a].confidence > e.results[i][0].confidence) {
-            best = e.results[i][a].transcript;
-          }
+          if (e.results[i][a].confidence > e.results[i][0].confidence) best = e.results[i][a].transcript;
         }
         if (e.results[i].isFinal) finalTxt += best;
         else interimTxt += best;
@@ -1737,7 +1887,7 @@ export default function VoiceAssistant({
       const currentState = stateRef.current;
       const mode = recModeRef.current;
 
-      // ── WAKE WORD phase ──
+      // ── Wake word ──
       if (mode === 'wakeword' && (currentState === 'idle' || currentState === 'sleeping')) {
         const allText = (interimTxt + ' ' + finalTxt).toLowerCase().trim();
         if (allText && !wakeDebounceRef.current) {
@@ -1747,57 +1897,44 @@ export default function VoiceAssistant({
             setTimeout(() => { wakeDebounceRef.current = false; }, 2500);
             const stripped = WAKE_WORDS.reduce((s, w) => s.replace(w, ''), allText).trim();
             if (stripped.length > 2) {
-              // Wake word + inline command — play intro first if needed, then handle command
-              recModeRef.current = 'command';
+              recModeRef.current   = 'command';
               lastFinalRef.current = '';
               if (firstLaunchRef.current) {
                 firstLaunchRef.current = false;
-                setState('woken');
-                setStatusText('Listening…');
+                setState('woken'); setStatusText('Listening…');
                 setTimeout(() => {
-                  setState('thinking');
-                  setStatusText('Thinking…');
+                  setState('thinking'); setStatusText('Thinking…');
                   setTimeout(() => {
-                    setState('speaking');
-                    setStatusText('Speaking');
+                    setState('speaking'); setStatusText('Speaking');
                     setResponseText(INTRO_TEXT);
                     speak(INTRO_TEXT, () => handleCommandRef.current(stripped));
                   }, 350 + Math.random() * 250);
                 }, 200);
               } else {
-                setState('listening');
-                setStatusText('Listening…');
+                setState('listening'); setStatusText('Listening…');
                 handleCommandRef.current(stripped);
               }
             } else {
-              // Wake word only — show panel and wait for command
-              recModeRef.current = 'command';
+              recModeRef.current   = 'command';
               lastFinalRef.current = '';
               if (firstLaunchRef.current) {
                 firstLaunchRef.current = false;
-                setState('woken');
-                setStatusText('Listening…');
+                setState('woken'); setStatusText('Listening…');
                 setTimeout(() => {
-                  setState('thinking');
-                  setStatusText('Thinking…');
+                  setState('thinking'); setStatusText('Thinking…');
                   setTimeout(() => {
-                    setState('speaking');
-                    setStatusText('Speaking');
+                    setState('speaking'); setStatusText('Speaking');
                     setResponseText(INTRO_TEXT);
                     speak(INTRO_TEXT, () => {
-                      setState('listening');
-                      setStatusText('Listening…');
-                      setResponseText('');
-                      resetCommandTimeout();
+                      setState('listening'); setStatusText('Listening…');
+                      setResponseText(''); resetCommandTimeout();
                     });
                   }, 350 + Math.random() * 250);
                 }, 200);
               } else {
-                setState('woken');
-                setStatusText('Listening…');
+                setState('woken'); setStatusText('Listening…');
                 speak(`Go ahead, I'm listening.`, () => {
-                  setState('listening');
-                  setStatusText('Listening…');
+                  setState('listening'); setStatusText('Listening…');
                   resetCommandTimeout();
                 });
               }
@@ -1807,20 +1944,17 @@ export default function VoiceAssistant({
         return;
       }
 
-      // ── COMMAND phase ──
+      // ── Command ──
       if (mode === 'command' && currentState === 'listening') {
         if (interimTxt || finalTxt) resetCommandTimeout();
         if (interimTxt) setInterimText(interimTxt);
-
         if (finalTxt) {
           const deduped = finalTxt.trim();
           if (deduped && deduped !== lastFinalRef.current) {
             lastFinalRef.current = deduped;
             setInterimText('');
             const cmd = WAKE_WORDS.reduce((s, w) => s.replace(w, ''), deduped.toLowerCase()).trim();
-            if (cmd.length > 1) {
-              handleCommandRef.current(cmd || deduped);
-            }
+            if (cmd.length > 1) handleCommandRef.current(cmd || deduped);
           }
         }
       }
@@ -1830,69 +1964,43 @@ export default function VoiceAssistant({
       if (!shouldListenRef.current || isSpeakingRef.current) return;
       const delay = restartDelayRef.current;
       restartDelayRef.current = Math.min(delay * 1.5, 2000);
-      setTimeout(() => {
-        restartDelayRef.current = 150;
-        try { rec.start(); } catch (_) {}
-      }, delay);
+      setTimeout(() => { restartDelayRef.current = 150; try { rec.start(); } catch (_) {} }, delay);
     };
 
     rec.onerror = (e: any) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        // Stop the restart loop before updating state
         shouldListenRef.current = false;
         try { rec.stop(); } catch (_) {}
         setIsSupported(false);
         setPermDenied(true);
         return;
       }
-      // For transient errors (network, no-speech, aborted) just let onend restart
     };
 
     try { rec.start(); } catch (_) {}
+    return () => { shouldListenRef.current = false; try { rec.stop(); } catch (_) {} };
+  }, []); // Created ONCE
 
-    return () => {
-      shouldListenRef.current = false;
-      try { rec.stop(); } catch (_) {}
-    };
-  }, []); // Created once
-
-  // ── Porcupine (uncomment when configured) ───────────────────────────────────
-  //  useEffect(() => {
-  //    if (!isPorcupineConfigured()) return;
-  //    import('@picovoice/porcupine-web').then(({ PorcupineWorker }) => {
-  //      PorcupineWorker.create(
-  //        PICOVOICE_ACCESS_KEY,
-  //        [{ publicPath: PICOVOICE_WAKE_MODEL_PATH, label: 'hey_ball', sensitivity: 0.7 }],
-  //        (detection) => { if (detection.label === 'hey_ball') wakeAssistantRef.current(); },
-  //        { publicPath: '/porcupine_params.pv' },
-  //      ).then(engine => { engine.start(); return () => engine.stop(); });
-  //    });
-  //  }, []);
-
-  // ── Idle animation cycle ──────────────────────────────────────────────────────
+  // ── Idle animation cycle (phase-aware) ───────────────────────────────────────
   useEffect(() => {
-    if (state !== 'idle' || !idleAnimsEnabled) {
+    if (state !== 'idle' || idlePhase === 0 || idlePhase === 3) {
       if (idleIntervalRef.current) clearInterval(idleIntervalRef.current);
-      if (!idleAnimsEnabled) setIdleAnim('breathe');
+      if (idlePhase === 0) setIdleAnim('breathe');
       return;
     }
-    const pick = () => {
-      // Duration 3–6 s per animation, so interval picks next anim after a random wait
-      const next = IDLE_ANIMS[Math.floor(Math.random() * IDLE_ANIMS.length)];
-      setIdleAnim(next);
-    };
+    const anims = idlePhase === 1 ? IDLE_ANIMS_P1 : IDLE_ANIMS_P2;
+    const pick = () => setIdleAnim(anims[Math.floor(Math.random() * anims.length)]);
     pick();
-    // Each anim lasts 3–6s; we schedule random gaps of 3–6s between picks
     let t: ReturnType<typeof setTimeout>;
     const schedule = () => {
-      const ms = 3000 + Math.random() * 3000;
+      const ms = idlePhase === 1 ? 4000 + Math.random() * 4000 : 3000 + Math.random() * 3000;
       t = setTimeout(() => { pick(); schedule(); }, ms);
     };
     schedule();
     return () => { clearTimeout(t); };
-  }, [state, idleAnimsEnabled]);
+  }, [state, idlePhase]);
 
-  // ── Idle blink ────────────────────────────────────────────────────────────────
+  // ── Periodic blink ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (state !== 'idle') return;
     const scheduleBlink = () => {
@@ -1919,7 +2027,7 @@ export default function VoiceAssistant({
     return () => { if (eyeIntervalRef.current) clearInterval(eyeIntervalRef.current); };
   }, [state]);
 
-  // ── Thinking animation cycle (2–3.5 s per expression) ───────────────────────
+  // ── Thinking animation cycle ──────────────────────────────────────────────────
   useEffect(() => {
     if (state !== 'thinking') { if (thinkIntervalRef.current) clearInterval(thinkIntervalRef.current); return; }
     const pick = () => setThinkAnim(THINK_ANIMS[Math.floor(Math.random() * THINK_ANIMS.length)]);
@@ -1939,22 +2047,20 @@ export default function VoiceAssistant({
     idleCycleActiveRef.current = false;
     [mouthIntervalRef, eyeIntervalRef, idleIntervalRef, thinkIntervalRef]
       .forEach(r => { if (r.current) clearInterval(r.current); });
-    [commandTimeoutRef, blinkTimeoutRef, gestureTimeoutRef, inactivityTimerRef, autoSleepTimerRef, cycleTimerRef]
+    [commandTimeoutRef, blinkTimeoutRef, gestureTimeoutRef, phase1TimerRef, phase2TimerRef, phase3TimerRef, cycleTimerRef]
       .forEach(r => { if (r.current) clearTimeout(r.current); });
   }, []);
 
-  // ── Unsupported fallback ──────────────────────────────────────────────────────
+  // ── Unsupported ───────────────────────────────────────────────────────────────
   if (!isSupported) {
     return (
       <>
         <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-[71] w-[min(92vw,560px)] bg-slate-950/95 backdrop-blur-xl text-white rounded-2xl px-5 py-3.5 border border-white/20 shadow-[0_10px_36px_rgba(0,0,0,0.3)] text-center">
           <p className="text-sm sm:text-base font-semibold tracking-tight">
             <span className="mr-2 text-emerald-300">●</span>
-            Ball AI <span className="mx-1.5 text-white/40">•</span> Say “Hey Ball” to interact
+            Ball AI <span className="mx-1.5 text-white/40">•</span> Say "Hey Ball" to interact
           </p>
-          <p className="mt-1.5 text-[11px] sm:text-xs text-slate-300">
-            Voice controls are currently unavailable in this browser.
-          </p>
+          <p className="mt-1.5 text-[11px] sm:text-xs text-slate-300">Voice controls are currently unavailable in this browser.</p>
         </div>
         <div className="fixed bottom-6 right-4 sm:right-6 z-[72] bg-white/95 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-xl border border-red-200 text-xs text-red-600 max-w-[min(230px,calc(100vw-32px))]">
           <p className="font-bold mb-1">🎤 Microphone {permDenied ? 'blocked' : 'unavailable'}</p>
@@ -1967,47 +2073,40 @@ export default function VoiceAssistant({
   const isActive   = state !== 'idle' && state !== 'sleeping';
   const isSleeping = state === 'sleeping';
 
-  // Gentle float when not active (only uses 'breathe' before idle anims kick in)
-  const idleY      = isActive ? 0 : (idleAnimsEnabled && ['bounce', 'float', 'breathe', 'tiny_bounce'].includes(idleAnim)) ? [0, -8, 0] : [0, -4, 0];
-  const idleRotate = isActive ? 0 : (idleAnimsEnabled && ['tilt', 'roll', 'curious'].includes(idleAnim)) ? [-6, 6, -6] : 0;
-  const idleScale  = isActive ? 1 : (idleAnimsEnabled && ['breathe', 'stretch'].includes(idleAnim)) ? [1, 1.04, 1] : 1;
+  // Body float/tilt — only use transform, never width/height
+  const idleY      = isActive ? 0 : (idlePhase >= 1 && ['bounce', 'float', 'breathe', 'tiny_bounce'].includes(idleAnim)) ? [0, -8, 0] : [0, -4, 0];
+  const idleRotate = isActive ? 0 : (idlePhase >= 2 && ['tilt', 'roll', 'curious'].includes(idleAnim)) ? [-6, 6, -6] : 0;
+  const idleScale  = isActive ? 1 : (idlePhase >= 1 && ['breathe', 'stretch'].includes(idleAnim)) ? [1, 1.04, 1] : 1;
 
   const statusColor =
-    state === 'listening'                        ? 'text-green-400'   :
-    state === 'thinking'                         ? 'text-amber-400'   :
-    state === 'speaking' || state === 'woken'    ? 'text-blue-400'    :
-    state === 'excited' || state === 'success'   ? 'text-emerald-400' :
-    state === 'error'                            ? 'text-red-400'     : 'text-slate-400';
+    state === 'listening'                     ? 'text-green-400'   :
+    state === 'thinking'                      ? 'text-amber-400'   :
+    state === 'speaking' || state === 'woken' ? 'text-blue-400'    :
+    state === 'excited'  || state === 'success' ? 'text-emerald-400' :
+    state === 'error'                         ? 'text-red-400'     : 'text-slate-400';
 
   const dotColor =
-    state === 'listening'                        ? 'bg-green-400'   :
-    state === 'thinking'                         ? 'bg-amber-400'   :
-    state === 'speaking' || state === 'woken'    ? 'bg-blue-400'    :
-    state === 'excited' || state === 'success'   ? 'bg-emerald-400' :
-    state === 'error'                            ? 'bg-red-400'     : 'bg-slate-500';
+    state === 'listening'                     ? 'bg-green-400'   :
+    state === 'thinking'                      ? 'bg-amber-400'   :
+    state === 'speaking' || state === 'woken' ? 'bg-blue-400'    :
+    state === 'excited'  || state === 'success' ? 'bg-emerald-400' :
+    state === 'error'                         ? 'bg-red-400'     : 'bg-slate-500';
 
   const statusLabel =
-    state === 'listening'  ? 'Listening…'   :
-    state === 'thinking'   ? 'Thinking…'    :
-    state === 'speaking'   ? 'Speaking'     :
-    state === 'woken'      ? 'Listening…'   :
-    state === 'excited'    ? 'Excited!'     :
-    state === 'success'    ? 'Done!'        :
-    state === 'error'      ? 'Hmm…'        : '';
+    state === 'listening' ? 'Listening…'  :
+    state === 'thinking'  ? 'Thinking…'   :
+    state === 'speaking'  ? 'Speaking'    :
+    state === 'woken'     ? 'Listening…'  :
+    state === 'excited'   ? 'Excited!'    :
+    state === 'success'   ? 'Done!'       :
+    state === 'error'     ? 'Hmm…'       : '';
 
   return (
     <>
-      {/* Grass ripple screen effect */}
       <GrassWaveEffect active={isActive} />
-      {/* Entry ripple — grass trail behind ball flying in from bottom-right */}
       <EntryRipple active={entryRippleActive} />
 
-      {/* Floating assistant container
-          Position strategy: always use `right` so CSS can animate a single
-          numeric property with no jump from auto.
-          • Idle   →  right: 24 px  (corner)
-          • Active →  right: calc(50% - 70px)
-                      (ball is 140 px wide; 50%−70px puts its centre at 50vw) */}
+      {/* Floating assistant container — uses transform for position, never left/top */}
       <div
         className="fixed z-[60]"
         style={{
@@ -2023,7 +2122,6 @@ export default function VoiceAssistant({
           transform: 'translateZ(0)',
         }}
       >
-
         {/* ── Assistant panel ── */}
         <AnimatePresence>
           {isActive && (
@@ -2045,7 +2143,7 @@ export default function VoiceAssistant({
                   transform: 'translateZ(0)',
                 }}
               >
-                {/* Header row */}
+                {/* Header */}
                 <div className="flex items-center gap-2.5 mb-3">
                   <motion.div
                     className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotColor}`}
@@ -2073,19 +2171,15 @@ export default function VoiceAssistant({
                   <button
                     onClick={goIdle}
                     className="ml-auto flex-shrink-0 w-6 h-6 rounded-lg bg-white/8 hover:bg-white/15 text-slate-400 hover:text-white transition-colors flex items-center justify-center text-xs"
-                  >
-                    ✕
-                  </button>
+                  >✕</button>
                 </div>
 
-                {/* Voice waveform */}
+                {/* Voice waveform (listening) */}
                 {state === 'listening' && (
-                  <div className="mb-3">
-                    <VoiceWaveform active />
-                  </div>
+                  <div className="mb-3"><VoiceWaveform active /></div>
                 )}
 
-                {/* Speaking body-bob indicator */}
+                {/* Speaking indicator */}
                 {state === 'speaking' && (
                   <div className="flex items-end gap-[2px] h-4 mb-3">
                     {[0.6, 0.9, 1, 0.8, 0.7, 1, 0.85].map((h, i) => (
@@ -2111,15 +2205,13 @@ export default function VoiceAssistant({
                   </div>
                 )}
 
-                {/* Interim transcript */}
+                {/* Interim text */}
                 <AnimatePresence>
                   {interimText && state === 'listening' && (
                     <motion.p
                       className="text-[11px] text-slate-400 italic mb-2 truncate"
                       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    >
-                      {interimText}…
-                    </motion.p>
+                    >{interimText}…</motion.p>
                   )}
                 </AnimatePresence>
 
@@ -2136,15 +2228,13 @@ export default function VoiceAssistant({
                   )}
                 </AnimatePresence>
 
-                {/* Response text */}
+                {/* Response */}
                 <AnimatePresence>
                   {responseText && (
                     <motion.p
                       className="text-sm text-white/90 leading-relaxed font-medium"
                       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    >
-                      {responseText}
-                    </motion.p>
+                    >{responseText}</motion.p>
                   )}
                 </AnimatePresence>
 
@@ -2152,7 +2242,7 @@ export default function VoiceAssistant({
                   <p className="text-[11px] text-slate-500 mt-1">Say a command or ask a question…</p>
                 )}
 
-                {/* Three-failure hint panel */}
+                {/* Hint panel (3 failures) */}
                 <AnimatePresence>
                   {showHints && (
                     <motion.div
@@ -2163,8 +2253,7 @@ export default function VoiceAssistant({
                       <ul className="space-y-1">
                         {COMMAND_HINTS.map((hint, i) => (
                           <li key={i} className="text-[11px] text-slate-300 flex items-center gap-1.5">
-                            <span className="text-green-500 flex-shrink-0">•</span>
-                            {hint}
+                            <span className="text-green-500 flex-shrink-0">•</span>{hint}
                           </li>
                         ))}
                       </ul>
@@ -2187,31 +2276,30 @@ export default function VoiceAssistant({
         <motion.div
           className="cursor-pointer relative flex-shrink-0"
           animate={ballControls}
-          style={{ pointerEvents: 'auto', width: isActive ? 140 : 64, height: isActive ? 140 : 64, willChange: 'transform' }}
+          style={{
+            pointerEvents: 'auto',
+            width: isActive ? 140 : 64,
+            height: isActive ? 140 : 64,
+            willChange: 'transform',
+          }}
         >
-          {/* Size/float wrapper */}
           <motion.div
             style={{ width: '100%', height: '100%', willChange: 'transform' }}
             animate={{
-              width:  isActive ? 140 : 64,
-              height: isActive ? 140 : 64,
-              y:      isActive ? 0 : idleY,
-              rotate: isActive ? 0 : idleRotate,
-              scale:  isActive ? 1 : idleScale,
+              scaleX: isActive ? 1 : 1,
+              scaleY: isActive ? 1 : idleScale as any,
+              y:      isActive ? 0 : idleY as any,
+              rotate: isActive ? 0 : idleRotate as any,
             }}
             transition={{
-              width:  { type: 'spring', damping: 18, stiffness: 200 },
-              height: { type: 'spring', damping: 18, stiffness: 200 },
-              y:      { duration: (idleAnimsEnabled && idleAnim === 'bounce') ? 1.8 : 3, repeat: Infinity, ease: 'easeInOut' },
+              scaleX: { type: 'spring', damping: 18, stiffness: 200 },
+              scaleY: { duration: idlePhase >= 1 && idleAnim === 'breathe' ? 2.5 : 1, repeat: Infinity, ease: 'easeInOut' },
+              y:      { duration: (idlePhase >= 1 && idleAnim === 'bounce') ? 1.8 : 3, repeat: Infinity, ease: 'easeInOut' },
               rotate: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
-              scale:  { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
             }}
             onClick={() => {
-              if (state === 'idle' || state === 'sleeping') {
-                wakeAssistant();
-              } else if (state !== 'thinking') {
-                goIdle();
-              }
+              if (state === 'idle' || state === 'sleeping') wakeAssistant();
+              else if (state !== 'thinking') goIdle();
             }}
             title={state === 'idle' ? 'Tap to activate Ball AI, or say "Hey Ball"' : 'Tap to dismiss'}
             whileHover={{ scale: isActive ? 1.05 : 1.14 }}
@@ -2229,11 +2317,10 @@ export default function VoiceAssistant({
                 transition: 'box-shadow 0.4s ease',
               }}
             />
-
             <CricketBall
               state={state}
               idleAnim={idleAnim}
-              idleAnimsEnabled={idleAnimsEnabled}
+              idlePhase={idlePhase}
               thinkAnim={thinkAnim}
               mouthOpen={mouthOpen}
               eyeX={eyeX}
@@ -2247,7 +2334,7 @@ export default function VoiceAssistant({
           </motion.div>
         </motion.div>
 
-        {/* ONE label above the ball — idle cycle states (sleeping or juggling) */}
+        {/* Status label above ball (sleeping / juggling) */}
         <AnimatePresence>
           {!isActive && (isSleeping || isJuggling) && (
             <motion.div
@@ -2263,13 +2350,13 @@ export default function VoiceAssistant({
           )}
         </AnimatePresence>
 
-        {/* Persistent idle hint — always readable at the bottom of the app */}
+        {/* Persistent idle hint */}
         {!isActive && !isSleeping && !isJuggling && (
           <div
             className="pointer-events-none fixed bottom-[104px] right-6 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
           >
             <span className="mr-2 text-emerald-300">●</span>
-            Ball AI <span className="mx-1.5 text-white/40">•</span> Say “Hey Ball” to interact
+            Ball AI <span className="mx-1.5 text-white/40">•</span> Say "Hey Ball" to interact
           </div>
         )}
       </div>

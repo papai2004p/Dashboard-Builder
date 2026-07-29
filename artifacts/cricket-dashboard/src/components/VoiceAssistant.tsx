@@ -211,7 +211,6 @@ const CricketBall = memo(function CricketBall({
   // ── Hand visibility (per reference image spec) ─────────────────────────────
   // Hands shown ONLY during: Thinking, Juggling, Wave, Thumbs-up, Shrug, Greeting, Celebration
   const showLeftHand =
-    isThinking ||  // thinking: left fist on cheek
     (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
     isRubbing ||
     isHappy ||   // celebration: both up
@@ -219,7 +218,6 @@ const CricketBall = memo(function CricketBall({
     isError;     // shrug: both out
 
   const showRightHand =
-    isThinking ||  // thinking: right fist holding magnifying glass
     (isIdle && (activeIdle === 'wave' || activeIdle === 'stretch')) ||
     isRubbing ||
     isHappy ||   // thumbs-up (success) / celebration
@@ -301,19 +299,19 @@ const CricketBall = memo(function CricketBall({
     }
 
     if (variant === 'fistMagnify') {
-      // Fist gripping a magnifying glass — glass lens extends upward-right
+      // Fist gripping a magnifying glass — lens rises straight up from fist
       return (
         <g transform={t} style={{ willChange: 'transform' }}>
-          {/* Handle connecting fist to lens */}
-          <line x1="5" y1="-6" x2="11" y2="-15" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
-          {/* Lens outer frame */}
-          <circle cx="14" cy="-20" r="8" fill="none" stroke="#94a3b8" strokeWidth="2.4" />
+          {/* Handle — thick rod going upward from fist */}
+          <line x1="1" y1="-8" x2="1" y2="-21" stroke="#78716c" strokeWidth="4" strokeLinecap="round" />
+          {/* Lens outer rim */}
+          <circle cx="1" cy="-32" r="11" fill="none" stroke="#9ca3af" strokeWidth="3" />
           {/* Lens glass tint */}
-          <circle cx="14" cy="-20" r="5.5" fill="rgba(147,197,253,0.38)" />
-          {/* Lens shine */}
-          <circle cx="11" cy="-23" r="1.6" fill="rgba(255,255,255,0.72)" />
-          {/* Question mark hint inside lens */}
-          <text x="11.5" y="-16.5" fontSize="6" fill="#64748b" fontWeight="bold" style={{ userSelect: 'none' }}>?</text>
+          <circle cx="1" cy="-32" r="7.5" fill="rgba(186,230,253,0.45)" />
+          {/* Lens inner glare — top-left shine */}
+          <circle cx="-3" cy="-36" r="2.5" fill="rgba(255,255,255,0.75)" />
+          {/* Subtle cross-hair reflection */}
+          <line x1="1" y1="-39" x2="1" y2="-25" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2" strokeLinecap="round" />
           {/* Fist body */}
           <ellipse cx="0" cy="0" rx="10" ry="8" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
           {/* Knuckle bumps */}
@@ -592,16 +590,6 @@ const CricketBall = memo(function CricketBall({
             exit={{ opacity: 0, scale: 0.7 }}
             transition={{ type: 'spring', damping: 18, stiffness: 280 }}
           >
-            {/* THINKING — left fist on cheek, floating freely */}
-            {isThinking && (
-              <motion.g
-                animate={{ y: [0, -5, 0] }}
-                transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
-              >
-                <HandShape cx={6} cy={58} rotate={-15} variant="fist" scale={0.88} />
-              </motion.g>
-            )}
-
             {/* GREETING / WOKEN — left hand raised high, waving */}
             {isWoken && (
               <motion.g
@@ -688,15 +676,6 @@ const CricketBall = memo(function CricketBall({
             exit={{ opacity: 0, scale: 0.7 }}
             transition={{ type: 'spring', damping: 18, stiffness: 280 }}
           >
-            {/* THINKING — right fist holding magnifying glass, floating freely */}
-            {isThinking && (
-              <motion.g
-                animate={{ y: [0, -6, 0] }}
-                transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <HandShape cx={88} cy={26} rotate={5} variant="fistMagnify" scale={0.95} />
-              </motion.g>
-            )}
 
             {/* SUCCESS — right hand THUMBS UP */}
             {isSuccess && (
@@ -796,6 +775,35 @@ const CricketBall = memo(function CricketBall({
           stroke="white" strokeWidth="1" strokeLinecap="round" opacity="0.55"
         />
       ))}
+
+      {/* ── Thinking hands — rendered IN FRONT of ball, both at cheek level ── */}
+      <AnimatePresence>
+        {isThinking && (
+          <motion.g
+            key="thinking-hands"
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.7 }}
+            transition={{ type: 'spring', damping: 18, stiffness: 260 }}
+          >
+            {/* LEFT — fist pressed against cheek, floating */}
+            <motion.g
+              animate={{ y: [0, -5, 0] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
+            >
+              <HandShape cx={2} cy={65} rotate={-10} variant="fist" scale={1.6} />
+            </motion.g>
+
+            {/* RIGHT — fist holding magnifying glass upright, same level, floating */}
+            <motion.g
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <HandShape cx={98} cy={65} rotate={0} variant="fistMagnify" scale={1.6} />
+            </motion.g>
+          </motion.g>
+        )}
+      </AnimatePresence>
 
       {/* ── Cheeks ── */}
       <motion.ellipse cx="22" cy="57" rx="9" ry="6" fill="url(#va-cheekGrad)"

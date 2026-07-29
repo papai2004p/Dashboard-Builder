@@ -221,9 +221,9 @@ function ReadingHistorySection({ readings, pumpOn, fanOn, mode }: { readings: Re
           </span>
         </div>
 
-        <div className="overflow-auto" style={{ maxHeight: '280px' }}>
+        <div className="overflow-auto" style={{ height: '296px' }}>
           {readings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
               <Clock size={32} strokeWidth={1.5} />
               <p className="font-semibold text-sm">No Data Yet</p>
               <p className="text-xs">Readings appear every 2 seconds</p>
@@ -705,7 +705,7 @@ export default function App() {
         <footer className="pt-8 pb-4 text-center flex flex-col gap-1.5">
           <p className="text-base font-extrabold text-slate-700">AI Smart Cricket Pitch Dashboard</p>
           <p className="text-sm font-semibold text-slate-500">Class XII Informatics Practices Project</p>
-          <p className="text-xs font-medium text-slate-400 mt-2">Auto Refresh Every 2 Seconds &nbsp;·&nbsp; Built for Exhibition</p>
+          <p className="text-xs font-semibold text-slate-800 mt-2">Auto Refresh Every 2 Seconds &nbsp;·&nbsp; Built for Exhibition</p>
         </footer>
 
       </div>

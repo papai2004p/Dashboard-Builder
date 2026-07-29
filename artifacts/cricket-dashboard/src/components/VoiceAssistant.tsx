@@ -1260,31 +1260,16 @@ export default function VoiceAssistant({
     }, 60_000);
   }, []);
 
-  // Idle cycle — each iteration randomly picks ONE animation (sleep OR play).
-  // Never shows both together. Loops forever until user interrupts.
+  // Idle cycle — triggered after 1 min of inactivity.
+  // Enables the idle animation carousel (one animation at a time, 3–6 s each).
+  // Resets immediately when user returns (resetInactivityTimers disables it).
   const startIdleCycle = useCallback(() => {
     if (!idleCycleActiveRef.current) return;
-
-    // Random choice each iteration — keeps it feeling alive, not robotic
-    const pickSleep = Math.random() < 0.5;
-
-    if (pickSleep) {
-      setState('sleeping');
-      setIsJuggling(false);
-      cycleTimerRef.current = setTimeout(() => {
-        if (!idleCycleActiveRef.current) return;
-        setState('idle');
-        startIdleCycleRef.current(); // randomly pick next
-      }, 20_000);
-    } else {
-      setState('idle');
-      setIsJuggling(true);
-      cycleTimerRef.current = setTimeout(() => {
-        if (!idleCycleActiveRef.current) return;
-        setIsJuggling(false);
-        startIdleCycleRef.current(); // randomly pick next
-      }, 15_000);
-    }
+    setState('idle');
+    setIsJuggling(false);
+    setIdleAnimsEnabled(true);
+    // The idleAnim useEffect picks a new animation every 3–6 s automatically.
+    // No additional timer needed — resetInactivityTimers() stops it on activity.
   }, []);
 
   useEffect(() => { startIdleCycleRef.current = startIdleCycle; }, [startIdleCycle]);

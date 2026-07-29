@@ -1008,12 +1008,12 @@ const CricketBall = memo(function CricketBall({
 // z-index 59 keeps all rings behind the ball (z:60) but above the grass wave (z:55)
 
 const EntryRipple = memo(function EntryRipple({ active }: { active: boolean }) {
-  // Rings originate from the ball's bottom-center contact point and expand outward,
-  // so it looks like the ripple is coming OUT of the ball from the bottom.
-  //   Ball bottom edge sits at: fixed bottom = 24px from screen bottom
-  //   Ring origin = that same point → center ring div there (height 8px → bottom = 24 - 4 = 20)
-  const ORIGIN_BOTTOM = 20; // px — centers the 8px ring on the ball's bottom edge
-  const RING_START = 8;     // px — starting diameter (tiny, at the contact point)
+  // Rings originate from the ball's CENTER and expand outward, so it looks
+  // like the ripple is bursting out of the ball itself.
+  //   Ball sits at fixed bottom: 24px, height: 140px → center at bottom: 94px
+  //   Ring starts at 10px and scales up from there, centered on ball center.
+  const RING_START = 10;          // px — tiny starting diameter
+  const BALL_CENTER_BOTTOM = 89;  // px from screen bottom (94 - RING_START/2)
 
   const rings = [
     { delay: 0,    color: 'rgba(134,239,172,0.65)', shadow: 'rgba(34,197,94,0.40)' },
@@ -1029,18 +1029,18 @@ const EntryRipple = memo(function EntryRipple({ active }: { active: boolean }) {
               key={i}
               className="fixed rounded-full pointer-events-none"
               style={{
-                // Center on ball bottom-center: the origin point of the ripple
+                // Centered exactly on ball center — ripple bursts from inside the ball
                 left: '50%',
-                bottom: ORIGIN_BOTTOM,
+                bottom: BALL_CENTER_BOTTOM,
                 width: RING_START,
                 height: RING_START,
-                marginLeft: -(RING_START / 2),  // horizontal center
-                zIndex: 59,           // behind ball (60), above grass wave (55)
+                marginLeft: -(RING_START / 2),
+                zIndex: 59,
                 border: `2.5px solid ${r.color}`,
                 boxShadow: `0 0 10px ${r.shadow}, 0 0 20px ${r.shadow}`,
               }}
               initial={{ scale: 1, opacity: 1 }}
-              animate={{ scale: 38 + i * 8, opacity: 0 }}
+              animate={{ scale: 30 + i * 7, opacity: 0 }}
               exit={{}}
               transition={{
                 duration: 0.95,
@@ -2136,19 +2136,17 @@ export default function VoiceAssistant({
       <GrassWaveEffect active={isActive} />
       <EntryRipple active={entryRippleActive} />
 
-      {/* Floating assistant container — uses transform for position, never left/top */}
+      {/* Floating assistant container — always bottom-center */}
       <div
         className="fixed z-[60]"
         style={{
           bottom: 24,
-          right: isActive ? 'calc(50% - 70px)' : 16,
-          transition: 'right 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          left: 'calc(50% - 70px)',
           pointerEvents: 'none',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: 12,
-          willChange: 'right',
           transform: 'translateZ(0)',
         }}
       >
@@ -2369,7 +2367,7 @@ export default function VoiceAssistant({
           {!isActive && (isSleeping || isJuggling) && (
             <motion.div
               key={isSleeping ? 'sleep-label' : 'play-label'}
-              className="pointer-events-none fixed bottom-[104px] right-6 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
+              className="pointer-events-none fixed bottom-[104px] left-1/2 -translate-x-1/2 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
@@ -2383,7 +2381,7 @@ export default function VoiceAssistant({
         {/* Persistent idle hint */}
         {!isActive && !isSleeping && !isJuggling && (
           <div
-            className="pointer-events-none fixed bottom-[104px] right-6 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
+            className="pointer-events-none fixed bottom-[104px] left-1/2 -translate-x-1/2 z-[71] max-w-[calc(100vw-48px)] bg-slate-950/95 backdrop-blur-xl text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl whitespace-nowrap border border-white/20 shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
           >
             <span className="mr-2 text-emerald-300">●</span>
             Ball AI <span className="mx-1.5 text-white/40">•</span> Say "Hey Ball" to interact

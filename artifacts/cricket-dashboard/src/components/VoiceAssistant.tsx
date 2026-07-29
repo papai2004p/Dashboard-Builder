@@ -405,7 +405,10 @@ const CricketBall = memo(function CricketBall({
         />
       </>)}
 
-      {/* ── Juggling mode: large side-hands + arcing cricket ball ── */}
+      {/* ── Juggling mode: hands open when throwing, fist when catching ── */}
+      {/* Ball arc cycle (1.8 s): left(t=0) → top(t=0.25) → right(t=0.5) → top(t=0.75) → left(t=1)
+          LEFT  hand: throws at t≈0.1, catches at t≈0.85
+          RIGHT hand: catches at t≈0.4, throws at t≈0.6                                          */}
       <AnimatePresence>
         {isJuggling && (
           <motion.g
@@ -414,32 +417,82 @@ const CricketBall = memo(function CricketBall({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
           >
-            {/* Left hand (juggles at left side) */}
+            {/* ── LEFT HAND ── */}
             <motion.g
-              animate={{ y: [0, -5, 0] }}
-              transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+              animate={{ y: [0, -10, -4, 0, 4, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut',
+                times: [0, 0.1, 0.2, 0.5, 0.88, 1] }}
             >
-              <ellipse cx="1"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
-              <ellipse cx="-11" cy="55" rx="4.5" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="-3"  cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="5"   cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="13"  cy="53" rx="4.0" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="-17" cy="70" rx="4.5" ry="3.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="1"   cy="66" rx="10"  ry="4"   fill="rgba(255,255,255,0.18)" />
+              {/* Open hand (fingers forward/spread) — visible while throwing & waiting */}
+              <motion.g
+                animate={{ opacity: [1, 1, 1, 0, 0, 1] }}
+                transition={{ duration: 1.8, repeat: Infinity,
+                  times: [0, 0.1, 0.75, 0.82, 0.96, 1] }}
+              >
+                {/* Palm */}
+                <ellipse cx="1"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
+                {/* Fingers spread/pointing forward (upward in SVG) */}
+                <ellipse cx="-13" cy="54" rx="4.5" ry="8"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                <ellipse cx="-4"  cy="49" rx="4.5" ry="9"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                <ellipse cx="6"   cy="49" rx="4.5" ry="9"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                <ellipse cx="15"  cy="53" rx="4.0" ry="8"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                {/* Thumb out to the side */}
+                <ellipse cx="-19" cy="68" rx="5"   ry="3.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                {/* Knuckle highlight */}
+                <ellipse cx="1"   cy="65" rx="11"  ry="4"   fill="rgba(255,255,255,0.20)" />
+              </motion.g>
+
+              {/* Fist (closed) — visible when catching */}
+              <motion.g
+                animate={{ opacity: [0, 0, 0, 1, 1, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity,
+                  times: [0, 0.75, 0.82, 0.88, 0.96, 1] }}
+              >
+                {/* Fist body */}
+                <ellipse cx="1"  cy="68" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
+                {/* Knuckle bumps (fingers curled) */}
+                <ellipse cx="-11" cy="56" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
+                <ellipse cx="-3"  cy="54" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
+                <ellipse cx="5"   cy="54" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
+                <ellipse cx="13"  cy="56" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
+                <ellipse cx="1"   cy="64" rx="10" ry="4" fill="rgba(255,255,255,0.17)" />
+              </motion.g>
             </motion.g>
 
-            {/* Right hand (catches at right side) */}
+            {/* ── RIGHT HAND ── */}
             <motion.g
-              animate={{ y: [0, -5, 0] }}
-              transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut', delay: 0.45 }}
+              animate={{ y: [0, 0, 4, 0, -10, -4, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut',
+                times: [0, 0.3, 0.42, 0.5, 0.6, 0.7, 1] }}
             >
-              <ellipse cx="99"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
-              <ellipse cx="87"  cy="55" rx="4.0" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="95"  cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="103" cy="50" rx="4.5" ry="8.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="111" cy="53" rx="4.5" ry="7.5" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="117" cy="70" rx="4.5" ry="3.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
-              <ellipse cx="99"  cy="66" rx="10"  ry="4"   fill="rgba(255,255,255,0.18)" />
+              {/* Open hand (fingers forward/spread) */}
+              <motion.g
+                animate={{ opacity: [1, 1, 0, 0, 1, 1] }}
+                transition={{ duration: 1.8, repeat: Infinity,
+                  times: [0, 0.28, 0.35, 0.48, 0.56, 1] }}
+              >
+                <ellipse cx="99"  cy="70" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
+                <ellipse cx="85"  cy="54" rx="4.0" ry="8"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                <ellipse cx="94"  cy="49" rx="4.5" ry="9"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                <ellipse cx="104" cy="49" rx="4.5" ry="9"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                <ellipse cx="113" cy="53" rx="4.5" ry="8"   fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                <ellipse cx="119" cy="68" rx="5"   ry="3.2" fill="#ef4444" stroke="#991b1b" strokeWidth="0.5" />
+                <ellipse cx="99"  cy="65" rx="11"  ry="4"   fill="rgba(255,255,255,0.20)" />
+              </motion.g>
+
+              {/* Fist (closed) */}
+              <motion.g
+                animate={{ opacity: [0, 0, 1, 1, 0, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity,
+                  times: [0, 0.28, 0.35, 0.48, 0.56, 1] }}
+              >
+                <ellipse cx="99"  cy="68" rx="20" ry="14" fill="#ef4444" stroke="#991b1b" strokeWidth="0.6" />
+                <ellipse cx="87"  cy="56" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
+                <ellipse cx="95"  cy="54" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
+                <ellipse cx="103" cy="54" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
+                <ellipse cx="111" cy="56" rx="4" ry="3" fill="#ef4444" stroke="#991b1b" strokeWidth="0.4" />
+                <ellipse cx="99"  cy="64" rx="10" ry="4" fill="rgba(255,255,255,0.17)" />
+              </motion.g>
             </motion.g>
 
             {/* Tiny cricket ball arcing over head */}

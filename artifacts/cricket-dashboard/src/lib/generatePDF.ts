@@ -62,6 +62,166 @@ function rr(
   (doc as any).roundedRect(x, y, w, h, radius, radius, style);
 }
 
+// ─── Arc helper (jsPDF has no native arc-stroke; use polyline) ───────────────
+
+/** Draws a circular arc as a polyline from fromDeg → toDeg (standard math angles). */
+function arcLine(
+  doc: jsPDF,
+  cx: number, cy: number, r: number,
+  fromDeg: number, toDeg: number,
+  segments = 12,
+) {
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const a = (fromDeg + (toDeg - fromDeg) * (i / segments)) * (Math.PI / 180);
+    pts.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
+  }
+  for (let i = 1; i < pts.length; i++) {
+    doc.line(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
+  }
+}
+
+// ─── Per-card icon drawing ────────────────────────────────────────────────────
+
+type IconType = 'temp' | 'hum' | 'fan' | 'pump' | 'health' | 'wifi';
+
+/**
+ * Draws a vector icon centred at (cx, cy) scaled to radius r.
+ * All shapes stay within the r-radius bounding circle.
+ */
+function drawIcon(
+  doc: jsPDF,
+  type: IconType,
+  cx: number, cy: number,
+  color: RGB,
+  r: number,
+) {
+  const [cr, cg, cb] = color;
+  const s = r / 4;   // design unit: r=4 → s=1; r=5.5 → s=1.375; r=3.5 → s=0.875
+
+  if (type === 'temp') {
+    // ── Thermometer: tube + mercury + tick marks ──────────────────────────
+    // Shift drawing centre upward so bulb sits at lower 40% of circle
+    const icy = cy + 0.8 * s;
+    const tw = 1.6 * s, th = 3.6 * s, br = 1.9 * s;
+    const ty = icy - th - br * 0.35;
+    // White bg: tube + bulb
+    doc.setFillColor(255, 255, 255);
+    rr(doc, cx - tw / 2, ty, tw, th + br * 0.35 + 0.3, tw / 2, 'F');
+    doc.circle(cx, icy, br, 'F');
+    // Coloured mercury fill
+    doc.setFillColor(cr, cg, cb);
+    rr(doc, cx - tw * 0.36, ty + th * 0.28, tw * 0.72, th * 0.72 + br * 0.35 + 0.3, tw * 0.36, 'F');
+    doc.circle(cx, icy, br * 0.68, 'F');
+    // Tube outline
+    doc.setDrawColor(cr, cg, cb);
+    doc.setLineWidth(0.28);
+    rr(doc, cx - tw / 2, ty, tw, th + br * 0.35 + 0.3, tw / 2, 'S');
+    // 3 tick marks on right side
+    doc.setLineWidth(0.28);
+    [0.28, 0.52, 0.76].forEach((frac) => {
+      const yt = ty + frac * th;
+      doc.line(cx + tw / 2, yt, cx + tw / 2 + 1.1 * s, yt);
+    });
+
+  } else if (type === 'hum') {
+    // ── Water drop: pointed top + round bottom + shine ────────────────────
+    const icy = cy + 0.5 * s;
+    const dr = 2.05 * s;
+    const tipY = icy - 4.0 * s;
+    const baseY = icy + dr * 0.55;
+    // White bg
+    doc.setFillColor(255, 255, 255);
+    (doc as any).triangle(cx - dr * 1.1, baseY, cx + dr * 1.1, baseY, cx, tipY, 'F');
+    doc.circle(cx, icy, dr, 'F');
+    // Coloured fill (slightly inset)
+    doc.setFillColor(cr, cg, cb);
+    (doc as any).triangle(cx - dr * 0.88, baseY - 0.25, cx + dr * 0.88, baseY - 0.25, cx, tipY + 0.9 * s, 'F');
+    doc.circle(cx, icy, dr * 0.8, 'F');
+    // White shine ellipse
+    doc.setFillColor(255, 255, 255);
+    (doc as any).ellipse(cx - dr * 0.32, icy - dr * 0.28, dr * 0.22, dr * 0.34, 'F');
+
+  } else if (type === 'fan') {
+    // ── Fan: 4 offset blades + hub ────────────────────────────────────────
+    const bd = 2.0 * s;
+    const brx = 2.0 * s, bry = 1.0 * s;
+    doc.setFillColor(cr, cg, cb);
+    // Blades at quasi-45° positions with alternating radii for spin effect
+    ;(doc as any).ellipse(cx - bd * 0.55, cy - bd * 0.78, brx, bry, 'F');
+    ;(doc as any).ellipse(cx + bd * 0.78, cy - bd * 0.55, bry, brx, 'F');
+    ;(doc as any).ellipse(cx + bd * 0.55, cy + bd * 0.78, brx, bry, 'F');
+    ;(doc as any).ellipse(cx - bd * 0.78, cy + bd * 0.55, bry, brx, 'F');
+    // Hub: white ring + accent centre
+    doc.setFillColor(255, 255, 255);
+    doc.circle(cx, cy, 1.35 * s, 'F');
+    doc.setFillColor(cr, cg, cb);
+    doc.circle(cx, cy, 0.68 * s, 'F');
+
+  } else if (type === 'pump') {
+    // ── Faucet: horizontal pipe + valve knob + spout + drop ──────────────
+    const pipeY = cy - 1.2 * s;
+    const pw = 6.0 * s, ph = 1.5 * s;
+    const sw2 = 1.4 * s, sh2 = 2.4 * s;
+    // White bg
+    doc.setFillColor(255, 255, 255);
+    rr(doc, cx - pw / 2, pipeY, pw, ph, ph / 2, 'F');               // pipe
+    doc.circle(cx, pipeY - 1.05 * s, 1.3 * s, 'F');                 // valve knob
+    doc.setLineWidth(0.35);
+    doc.setDrawColor(255, 255, 255);
+    doc.line(cx, pipeY - 0.5 * s, cx, pipeY);                        // stem
+    rr(doc, cx - sw2 / 2, pipeY + ph, sw2, sh2, sw2 / 2, 'F');     // spout
+    // Drop
+    doc.circle(cx, pipeY + ph + sh2 + 0.85 * s, 0.9 * s, 'F');
+    (doc as any).triangle(
+      cx - 0.7 * s, pipeY + ph + sh2,
+      cx + 0.7 * s, pipeY + ph + sh2,
+      cx, pipeY + ph + sh2 - 0.9 * s, 'F',
+    );
+    // Coloured fill over bg
+    doc.setFillColor(cr, cg, cb);
+    rr(doc, cx - pw / 2 + 0.35, pipeY + 0.35, pw - 0.7, ph - 0.35, (ph - 0.35) / 2, 'F');
+    doc.circle(cx, pipeY - 1.05 * s, 0.95 * s, 'F');
+    rr(doc, cx - sw2 / 2 + 0.3, pipeY + ph + 0.3, sw2 - 0.6, sh2 - 0.3, (sw2 - 0.6) / 2, 'F');
+
+  } else if (type === 'health') {
+    // ── Shield + checkmark ────────────────────────────────────────────────
+    const icy = cy + 0.3 * s;
+    const sw = 5.0 * s, she = 5.8 * s;
+    const sy = icy - she * 0.5;
+    // White bg shield
+    doc.setFillColor(255, 255, 255);
+    rr(doc, cx - sw / 2, sy, sw, she * 0.68, 1.2, 'F');
+    (doc as any).triangle(cx - sw / 2, sy + she * 0.68, cx + sw / 2, sy + she * 0.68, cx, sy + she, 'F');
+    // Coloured fill (inset)
+    doc.setFillColor(cr, cg, cb);
+    rr(doc, cx - sw / 2 + 0.4, sy + 0.4, sw - 0.8, she * 0.68 - 0.4, 0.9, 'F');
+    (doc as any).triangle(
+      cx - sw / 2 + 0.5, sy + she * 0.68 - 0.1,
+      cx + sw / 2 - 0.5, sy + she * 0.68 - 0.1,
+      cx, sy + she - 0.55, 'F',
+    );
+    // White checkmark
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.65 * s);
+    const ckY = sy + she * 0.38;
+    doc.line(cx - 1.55 * s, ckY, cx - 0.35 * s, ckY + 1.5 * s);
+    doc.line(cx - 0.35 * s, ckY + 1.5 * s, cx + 1.85 * s, ckY - 1.15 * s);
+
+  } else if (type === 'wifi') {
+    // ── WiFi: dot + 3 arcs opening upward ────────────────────────────────
+    // Dot sits at bottom of circle; arcs sweep upward
+    const dotY = cy + 3.0 * s;
+    doc.setFillColor(cr, cg, cb);
+    doc.circle(cx, dotY, 0.72 * s, 'F');
+    doc.setDrawColor(cr, cg, cb);
+    [1.65 * s, 2.7 * s, 3.75 * s].forEach((ar, idx) => {
+      doc.setLineWidth(0.55 + idx * 0.12);
+      arcLine(doc, cx, dotY, ar, 210, 330);
+    });
+  }
+}
+
 /** Draws a green accent bar + bold section title. */
 function sectionTitle(doc: jsPDF, x: number, y: number, title: string) {
   doc.setFillColor(10, 100, 45);
@@ -441,22 +601,22 @@ export function generatePDF(data: PDFData): void {
   const CH  = 32;
   const CY  = 66;                          // title + 7.8 line + 2.2 pad
 
-  type ECard = { label: string; value: string; status: string; ok: boolean; accent: RGB; light: RGB };
+  type ECard = { label: string; value: string; status: string; ok: boolean; accent: RGB; light: RGB; icon: IconType };
   const ecards: ECard[] = [
     { label: 'TEMPERATURE', value: `${currentTemp.toFixed(1)}°C`,
       status: currentTemp > 34 ? 'High' : currentTemp < 29 ? 'Low' : 'Normal',
-      ok: currentTemp >= 29 && currentTemp <= 34, accent: [215, 55, 45], light: [255, 232, 230] },
+      ok: currentTemp >= 29 && currentTemp <= 34, accent: [215, 55, 45], light: [255, 232, 230], icon: 'temp' },
     { label: 'HUMIDITY', value: `${currentHum.toFixed(1)}%`,
       status: currentHum > 75 ? 'High' : currentHum < 60 ? 'Low' : 'Normal',
-      ok: currentHum >= 60 && currentHum <= 75, accent: [35, 125, 205], light: [222, 240, 255] },
+      ok: currentHum >= 60 && currentHum <= 75, accent: [35, 125, 205], light: [222, 240, 255], icon: 'hum' },
     { label: 'FAN STATUS', value: fanOn ? 'ON' : 'OFF',
       status: `Mode: ${mode === 'auto' ? 'Auto' : 'Manual'}`,
-      ok: true, accent: [125, 65, 190], light: [242, 232, 255] },
+      ok: true, accent: [125, 65, 190], light: [242, 232, 255], icon: 'fan' },
     { label: 'PUMP STATUS', value: pumpOn ? 'ON' : 'OFF',
       status: `Mode: ${mode === 'auto' ? 'Auto' : 'Manual'}`,
-      ok: true, accent: [12, 150, 128], light: [218, 248, 242] },
+      ok: true, accent: [12, 150, 128], light: [218, 248, 242], icon: 'pump' },
     { label: 'SYSTEM HEALTH', value: '100%',
-      status: 'Excellent', ok: true, accent: [28, 168, 88], light: [218, 248, 228] },
+      status: 'Excellent', ok: true, accent: [28, 168, 88], light: [218, 248, 228], icon: 'health' },
   ];
 
   ecards.forEach((card, i) => {
@@ -474,11 +634,11 @@ export function generatePDF(data: PDFData): void {
     rr(doc, cx, CY, CW5, 2.5, 2, 'F');
     doc.rect(cx, CY + 1.3, CW5, 1.2, 'F');
 
-    // Icon circle (light bg, accent dot)  centred at CY+10
+    // Icon circle — light bg, then detailed vector icon
+    const icx = cx + CW5 / 2, icy = CY + 10;
     doc.setFillColor(card.light[0], card.light[1], card.light[2]);
-    doc.circle(cx + CW5 / 2, CY + 10, 5.5, 'F');
-    doc.setFillColor(card.accent[0], card.accent[1], card.accent[2]);
-    doc.circle(cx + CW5 / 2, CY + 10, 2.5, 'F');
+    doc.circle(icx, icy, 5.5, 'F');
+    drawIcon(doc, card.icon, icx, icy, card.accent, 5.5);
 
     // Label  (CY + 18.5)
     doc.setTextColor(100, 116, 139);
@@ -511,11 +671,11 @@ export function generatePDF(data: PDFData): void {
   const SY = 110, SH = 16, SG = 5;
   const SW = (CW - SG * 2) / 3;   // ≈ 61.3 mm
 
-  type SCard = { name: string; status: string; detail: string; color: RGB };
+  type SCard = { name: string; status: string; detail: string; color: RGB; icon: IconType };
   const scards: SCard[] = [
-    { name: 'DHT11 — Temperature', status: 'Working Normal', detail: 'Last Calibrated: 20 May 2024', color: [215, 55, 45] },
-    { name: 'DHT11 — Humidity',    status: 'Working Normal', detail: 'Last Calibrated: 20 May 2024', color: [35, 125, 205] },
-    { name: 'ESP32 Controller',    status: 'Connected',      detail: 'Signal Strength: −62 dBm',    color: [28, 168, 88] },
+    { name: 'DHT11 — Temperature', status: 'Working Normal', detail: 'Last Calibrated: 20 May 2024', color: [215, 55, 45],  icon: 'temp' },
+    { name: 'DHT11 — Humidity',    status: 'Working Normal', detail: 'Last Calibrated: 20 May 2024', color: [35, 125, 205], icon: 'hum'  },
+    { name: 'ESP32 Controller',    status: 'Connected',      detail: 'Signal Strength: -62 dBm',     color: [28, 168, 88],  icon: 'wifi' },
   ];
 
   scards.forEach((s, i) => {
@@ -531,12 +691,12 @@ export function generatePDF(data: PDFData): void {
     doc.setFillColor(s.color[0], s.color[1], s.color[2]);
     doc.rect(sx, SY, 3, SH, 'F');
 
-    // Icon circle  centred at SY+8
+    // Icon circle — light bg, then detailed vector icon
+    const sIcx = sx + 10, sIcy = SY + 8;
     const lC: RGB = [Math.min(255, s.color[0] + 172), Math.min(255, s.color[1] + 172), Math.min(255, s.color[2] + 172)];
     doc.setFillColor(lC[0], lC[1], lC[2]);
-    doc.circle(sx + 10, SY + 8, 4.5, 'F');
-    doc.setFillColor(s.color[0], s.color[1], s.color[2]);
-    doc.circle(sx + 10, SY + 8, 2.2, 'F');
+    doc.circle(sIcx, sIcy, 4.5, 'F');
+    drawIcon(doc, s.icon, sIcx, sIcy, s.color, 3.5);
 
     // Sensor name  (SY + 5.5)
     doc.setTextColor(12, 40, 22);

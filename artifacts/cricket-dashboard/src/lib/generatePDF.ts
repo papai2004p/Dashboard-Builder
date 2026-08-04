@@ -1,5 +1,24 @@
+/**
+ * generatePDF.ts
+ *
+ * Produces a professional A4 PDF report for the AI Smart Cricket Pitch Dashboard.
+ *
+ * Layout (all measurements in mm, A4 = 210 × 297):
+ *
+ *  y=  0 – 42   HEADER           (cricket theme illustrations + branding)
+ *  y= 42 – 54   INFO BAR         (pitch location / date)
+ *  y= 56 – 98   EXECUTIVE SUMMARY (5 metric cards)
+ *  y=100 – 126  SENSOR OVERVIEW  (3 sensor cards)
+ *  y=128 – 186  TRENDS & ANALYTICS (two line charts)
+ *  y=188 – 258  RECENT READINGS + SYSTEM STATUS (table + status panel)
+ *  y=259 – 279  DATA SUMMARY     (max / min / avg for each sensor)
+ *  y=281 – 297  FOOTER
+ */
+
 import jsPDF from 'jspdf';
 import type { Reading } from './types';
+
+// ─── Public types ────────────────────────────────────────────────────────────
 
 export interface PDFData {
   readings: Reading[];
@@ -11,9 +30,15 @@ export interface PDFData {
   mode: 'auto' | 'manual';
 }
 
+// ─── Internal types ──────────────────────────────────────────────────────────
+
+type RGB = [number, number, number];
+
+// ─── Utility helpers ─────────────────────────────────────────────────────────
+
 function calcStats(history: { value: number }[]) {
   if (!history.length) return { max: '0.0', min: '0.0', avg: '0.0' };
-  const vals = history.map(h => h.value);
+  const vals = history.map((h) => h.value);
   return {
     max: Math.max(...vals).toFixed(1),
     min: Math.min(...vals).toFixed(1),
@@ -27,734 +52,753 @@ function pitchLabel(soil: number) {
   return 'Balanced';
 }
 
-type RGB = [number, number, number];
-
-function drawLineChart(
+/** Rounded-rect shorthand (jsPDF typings omit this method). */
+function rr(
   doc: jsPDF,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
+  x: number, y: number, w: number, h: number,
+  radius: number,
+  style: 'F' | 'S' | 'FD' = 'F',
+) {
+  (doc as any).roundedRect(x, y, w, h, radius, radius, style);
+}
+
+/** Draws a green accent bar + bold section title. */
+function sectionTitle(doc: jsPDF, x: number, y: number, title: string) {
+  doc.setFillColor(10, 100, 45);
+  doc.rect(x, y, 3, 7, 'F');
+  doc.setTextColor(10, 35, 15);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(title, x + 5.5, y + 5.3);
+  doc.setDrawColor(200, 235, 210);
+  doc.setLineWidth(0.25);
+  doc.line(x, y + 7.8, x + 194, y + 7.8);
+}
+
+// ─── Line chart helper ───────────────────────────────────────────────────────
+
+/**
+ * Draws a self-contained line chart card.
+ * All coordinates are calculated from the supplied (x, y, w, h) bounding box.
+ * Nothing is drawn outside that box.
+ */
+function lineChart(
+  doc: jsPDF,
+  x: number, y: number, w: number, h: number,
   data: { value: number }[],
   color: RGB,
   domain: [number, number],
   title: string,
-  yUnit: string,
+  unit: string,
+  xLabels: string[],
 ) {
   const [minV, maxV] = domain;
   const range = maxV - minV || 1;
-  const PAD_L = 14, PAD_R = 4, PAD_T = 14, PAD_B = 10;
-  const innerW = w - PAD_L - PAD_R;
-  const innerH = h - PAD_T - PAD_B;
-  const pts = data.slice(-15);
+  const PL = 18, PR = 5, PT = 13, PB = 11;
+  const iW = w - PL - PR;
+  const iH = h - PT - PB;
+  const pts = data.slice(-14);
 
-  // Card bg
+  // Card background + border
   doc.setFillColor(255, 255, 255);
-  (doc as any).roundedRect(x, y, w, h, 2, 2, 'F');
+  rr(doc, x, y, w, h, 2, 'F');
   doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  (doc as any).roundedRect(x, y, w, h, 2, 2, 'S');
+  doc.setLineWidth(0.25);
+  rr(doc, x, y, w, h, 2, 'S');
 
-  // Color top bar
+  // Colored top accent bar (fully contained in card)
   doc.setFillColor(color[0], color[1], color[2]);
-  (doc as any).roundedRect(x, y, w, 3, 2, 2, 'F');
-  doc.rect(x, y + 1.5, w, 1.5, 'F');
+  rr(doc, x, y, w, 2.5, 2, 'F');
+  doc.rect(x, y + 1.3, w, 1.2, 'F');
 
-  // Title
+  // Chart title
   doc.setTextColor(30, 41, 59);
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(title, x + PAD_L, y + 10);
+  doc.text(title, x + PL, y + 10);
 
-  // Subtitle
-  doc.setTextColor(148, 163, 184);
-  doc.setFontSize(5.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Last 15 Readings', x + w - PAD_R, y + 10, { align: 'right' });
-
-  // Y-unit
+  // Y-unit (top-left, above grid)
   doc.setTextColor(148, 163, 184);
   doc.setFontSize(4.5);
-  doc.text(yUnit, x + 3, y + PAD_T + 1);
+  doc.setFont('helvetica', 'normal');
+  doc.text(unit, x + 1.5, y + PT + 1.5);
 
-  // Grid lines
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.15);
+  // Grid lines + Y-axis labels
   for (let i = 0; i <= 4; i++) {
-    const gy = y + PAD_T + (innerH / 4) * i;
-    doc.line(x + PAD_L, gy, x + PAD_L + innerW, gy);
+    const gy = y + PT + (iH / 4) * i;
+    doc.setDrawColor(241, 245, 249);
+    doc.setLineWidth(0.18);
+    doc.line(x + PL, gy, x + PL + iW, gy);
     const val = (maxV - (range / 4) * i).toFixed(0);
     doc.setTextColor(148, 163, 184);
     doc.setFontSize(4);
-    doc.text(val, x + PAD_L - 1, gy + 1.2, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(val, x + PL - 1.5, gy + 1.2, { align: 'right' });
   }
 
-  // Data line
-  if (pts.length >= 2) {
-    const chartPts = pts.map((d, i) => ({
-      px: x + PAD_L + (i / (pts.length - 1)) * innerW,
-      py: y + PAD_T + innerH - ((Math.min(Math.max(d.value, minV), maxV) - minV) / range) * innerH,
-    }));
+  // X-axis baseline
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.3);
+  doc.line(x + PL, y + PT + iH, x + PL + iW, y + PT + iH);
 
-    // Area fill (light)
-    doc.setFillColor(color[0], color[1], color[2]);
-    // Draw filled polygon using lines approach: fill between line and bottom
-    // Use a light version of the color
-    const lightColor: RGB = [
-      Math.min(255, color[0] + 160),
-      Math.min(255, color[1] + 160),
-      Math.min(255, color[2] + 160),
-    ];
-    doc.setFillColor(lightColor[0], lightColor[1], lightColor[2]);
-    // Build polygon points string
-    const polyX: number[] = [];
-    const polyY: number[] = [];
-    chartPts.forEach(p => { polyX.push(p.px); polyY.push(p.py); });
-    polyX.push(chartPts[chartPts.length - 1].px);
-    polyY.push(y + PAD_T + innerH);
-    polyX.push(chartPts[0].px);
-    polyY.push(y + PAD_T + innerH);
-    // Fill the area by drawing narrow vertical rects at each point
-    for (let i = 0; i < chartPts.length - 1; i++) {
-      const segW = chartPts[i + 1].px - chartPts[i].px;
-      const topY = Math.min(chartPts[i].py, chartPts[i + 1].py);
-      const botY = y + PAD_T + innerH;
-      doc.setFillColor(lightColor[0], lightColor[1], lightColor[2]);
-      doc.rect(chartPts[i].px, topY, segW, botY - topY, 'F');
-    }
-
-    // Main line
-    doc.setDrawColor(color[0], color[1], color[2]);
-    doc.setLineWidth(0.9);
-    for (let i = 1; i < chartPts.length; i++) {
-      doc.line(chartPts[i - 1].px, chartPts[i - 1].py, chartPts[i].px, chartPts[i].py);
-    }
-
-    // Dots
-    chartPts.forEach((p, i) => {
-      doc.setFillColor(color[0], color[1], color[2]);
-      doc.setDrawColor(255, 255, 255);
-      doc.setLineWidth(0.3);
-      doc.circle(p.px, p.py, 0.9, 'FD');
-    });
-
-    // X-axis time labels from readings (if available)
-    const labelIdxs = [0, Math.floor((pts.length - 1) / 2), pts.length - 1];
-    labelIdxs.forEach(idx => {
-      if (idx < chartPts.length) {
-        doc.setTextColor(148, 163, 184);
-        doc.setFontSize(3.8);
-        const t = `t${idx + 1}`;
-        doc.text(t, chartPts[idx].px, y + PAD_T + innerH + 4, { align: 'center' });
-      }
-    });
-  }
-}
-
-function drawMiniSparkline(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  data: { value: number }[],
-  color: RGB,
-  domain: [number, number],
-) {
-  const [minV, maxV] = domain;
-  const range = maxV - minV || 1;
-  const pts = data.slice(-15);
   if (pts.length < 2) return;
 
-  doc.setDrawColor(color[0], color[1], color[2]);
-  doc.setLineWidth(0.5);
-
-  const chartPts = pts.map((d, i) => ({
-    px: x + (i / (pts.length - 1)) * w,
-    py: y + h - ((Math.min(Math.max(d.value, minV), maxV) - minV) / range) * h,
+  // Chart points
+  const cpts = pts.map((d, i) => ({
+    px: x + PL + (i / (pts.length - 1)) * iW,
+    py:
+      y + PT + iH -
+      ((Math.min(Math.max(d.value, minV), maxV) - minV) / range) * iH,
   }));
 
-  for (let i = 1; i < chartPts.length; i++) {
-    doc.line(chartPts[i - 1].px, chartPts[i - 1].py, chartPts[i].px, chartPts[i].py);
+  const botY = y + PT + iH;
+  const lightC: RGB = [
+    Math.min(255, color[0] + 175),
+    Math.min(255, color[1] + 175),
+    Math.min(255, color[2] + 175),
+  ];
+
+  // Area fill
+  for (let i = 0; i < cpts.length - 1; i++) {
+    const topY = Math.min(cpts[i].py, cpts[i + 1].py);
+    doc.setFillColor(lightC[0], lightC[1], lightC[2]);
+    doc.rect(cpts[i].px, topY, cpts[i + 1].px - cpts[i].px, botY - topY, 'F');
   }
+
+  // Line
+  doc.setDrawColor(color[0], color[1], color[2]);
+  doc.setLineWidth(0.85);
+  for (let i = 1; i < cpts.length; i++) {
+    doc.line(cpts[i - 1].px, cpts[i - 1].py, cpts[i].px, cpts[i].py);
+  }
+
+  // Dots
+  cpts.forEach((p) => {
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(color[0], color[1], color[2]);
+    doc.setLineWidth(0.5);
+    doc.circle(p.px, p.py, 1.1, 'FD');
+  });
+
+  // X-axis labels: start, middle, end
+  [0, Math.floor((pts.length - 1) / 2), pts.length - 1].forEach((idx) => {
+    if (idx >= cpts.length) return;
+    const lbl = xLabels[idx] ?? `t${idx + 1}`;
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(3.8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(lbl, cpts[idx].px, y + PT + iH + 6.5, { align: 'center' });
+  });
 }
+
+// ─── Main PDF generator ──────────────────────────────────────────────────────
 
 export function generatePDF(data: PDFData): void {
   const { readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode } = data;
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210;
-  const now = new Date();
+  const M = 8;            // left / right margin
+  const CW = W - M * 2;  // 194 mm content width
 
+  const now = new Date();
   const tStats = calcStats(tempHistory);
   const hStats = calcStats(humHistory);
   const sStats = calcStats(soilHistory);
+
   const currentTemp = tempHistory.length ? tempHistory[tempHistory.length - 1].value : 31.2;
-  const currentHum = humHistory.length ? humHistory[humHistory.length - 1].value : 68;
+  const currentHum  = humHistory.length  ? humHistory[humHistory.length - 1].value  : 68;
   const currentSoil = soilHistory.length ? soilHistory[soilHistory.length - 1].value : 42;
-  const condition = pitchLabel(currentSoil);
+  const condition   = pitchLabel(currentSoil);
 
-  const reportId = `ASCP-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 900 + 100)).padStart(3, '0')}`;
-  const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const reportId = `PSAI-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 900000 + 100000))}`;
+  const dateStr  = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  const timeStr  = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-  let y = 0;
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 1. HEADER  y = 0 … 42
+  // ═════════════════════════════════════════════════════════════════════════════
 
-  // ─── HEADER ──────────────────────────────────────────────────────────────────
-  // Main navy background
-  doc.setFillColor(12, 32, 82);
-  doc.rect(0, 0, W, 50, 'F');
-  // Lighter blue overlay left half for gradient effect
-  doc.setFillColor(22, 70, 150);
-  doc.rect(0, 0, 105, 50, 'F');
-  // Fade band in center
-  doc.setFillColor(17, 51, 116);
-  doc.rect(80, 0, 50, 50, 'F');
+  // Dark-green left panel
+  doc.setFillColor(10, 50, 22);
+  doc.rect(0, 0, W, 42, 'F');
+  // Slightly lighter right zone
+  doc.setFillColor(14, 70, 32);
+  doc.rect(100, 0, W - 100, 42, 'F');
+  // Diagonal stripe overlay (purely decorative)
+  doc.setFillColor(16, 82, 38);
+  for (let i = 0; i < 8; i++) doc.rect(130 + i * 9, 0, 4, 42, 'F');
 
-  // Decorative white triangle top-right
-  doc.setFillColor(255, 255, 255);
-  // Using lines to simulate triangle (semi-transparent look with light color)
-  doc.setFillColor(40, 90, 175);
-  // draw overlapping rects to simulate angled cut
-  for (let i = 0; i < 30; i++) {
-    const alpha = 1 - i / 30;
-    const r = Math.round(40 + (200 - 40) * (1 - alpha));
-    const g = Math.round(90 + (220 - 90) * (1 - alpha));
-    const b = Math.round(175 + (255 - 175) * (1 - alpha));
-    doc.setFillColor(r, g, b);
-    doc.rect(W - i * 3.5, 0, 3.5, 50, 'F');
+  // ── Cricket field illustration (right half of header) ──────────────────────
+  // Outer oval
+  doc.setFillColor(18, 90, 38);
+  ;(doc as any).ellipse(W - 32, 21, 22, 16, 'F');
+  // Inner oval
+  doc.setFillColor(25, 118, 52);
+  ;(doc as any).ellipse(W - 32, 21, 16, 11, 'F');
+  // Pitch strip (brown)
+  doc.setFillColor(155, 110, 55);
+  doc.rect(W - 38, 14, 12, 14, 'F');
+  // Crease lines
+  doc.setDrawColor(220, 200, 170);
+  doc.setLineWidth(0.35);
+  doc.line(W - 38, 17.5, W - 26, 17.5);
+  doc.line(W - 38, 24.5, W - 26, 24.5);
+  // Stumps – top end
+  doc.setDrawColor(245, 240, 230);
+  doc.setLineWidth(0.6);
+  const stumpXs = [W - 36, W - 32, W - 28];
+  stumpXs.forEach((sx) => doc.line(sx, 14, sx, 17.5));
+  // Bails – top
+  doc.setLineWidth(0.4);
+  doc.line(W - 37, 14, W - 35, 14);
+  doc.line(W - 33, 14, W - 31, 14);
+  doc.line(W - 29, 14, W - 27, 14);
+  // Stumps – bottom end
+  doc.setLineWidth(0.6);
+  stumpXs.forEach((sx) => doc.line(sx, 24.5, sx, 28));
+  // Bails – bottom
+  doc.setLineWidth(0.4);
+  doc.line(W - 37, 28, W - 35, 28);
+  doc.line(W - 33, 28, W - 31, 28);
+  doc.line(W - 29, 28, W - 27, 28);
+
+  // ── Cricket ball ───────────────────────────────────────────────────────────
+  doc.setFillColor(5, 28, 12);      // shadow
+  doc.circle(W - 54, 14.5, 7.8, 'F');
+  doc.setFillColor(188, 28, 28);    // body
+  doc.circle(W - 55, 13.5, 7.8, 'F');
+  doc.setFillColor(220, 75, 75);    // shine
+  doc.circle(W - 58, 10, 3, 'F');
+  doc.setFillColor(245, 145, 145);  // specular
+  doc.circle(W - 59.5, 8.5, 1.3, 'F');
+  // Seam
+  doc.setDrawColor(250, 250, 250);
+  doc.setLineWidth(0.55);
+  doc.line(W - 55, 6, W - 55, 21);
+  doc.setLineWidth(0.38);
+  for (let i = 0; i < 5; i++) {
+    const sy = 7.5 + i * 2.8;
+    doc.line(W - 55, sy, W - 52, sy + 0.9);
+    doc.line(W - 55, sy, W - 58, sy + 0.9);
   }
 
-  // Cricket ball (red)
-  doc.setFillColor(185, 28, 28);
-  doc.circle(W - 18, 20, 11, 'F');
-  doc.setFillColor(220, 38, 38);
-  doc.circle(W - 19, 19, 11, 'F');
-  // Highlight
-  doc.setFillColor(239, 100, 100);
-  doc.circle(W - 22, 15, 4, 'F');
-  // Seam lines
-  doc.setDrawColor(255, 255, 255);
+  // ── Batsman silhouette ─────────────────────────────────────────────────────
+  doc.setFillColor(195, 230, 200);
+  doc.setDrawColor(195, 230, 200);
+  doc.circle(W - 70, 9, 2.5, 'F');
+  doc.setLineWidth(0.7);
+  doc.line(W - 70, 11.5, W - 70, 24);    // body
   doc.setLineWidth(0.5);
-  doc.line(W - 19, 9, W - 24, 29); // main vertical seam
-  doc.line(W - 15, 11, W - 17, 14); // stitch 1
-  doc.line(W - 15.5, 16, W - 17.5, 19); // stitch 2
-  doc.line(W - 16, 21, W - 18, 24); // stitch 3
-  doc.line(W - 16.5, 26, W - 18.5, 29); // stitch 4
+  doc.line(W - 70, 15, W - 64, 12);      // front arm
+  doc.line(W - 70, 15, W - 75, 18);      // back arm
+  doc.setLineWidth(1.6);
+  doc.line(W - 64, 12, W - 60, 27);      // bat
+  doc.setLineWidth(0.5);
+  doc.line(W - 70, 24, W - 65, 35);      // front leg
+  doc.line(W - 70, 24, W - 75, 35);      // back leg
 
-  // Cricket player silhouette (simplified stick figure) - subtle white
+  // ── Vertical divider ───────────────────────────────────────────────────────
   doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.4);
-  doc.setFillColor(255, 255, 255);
-  // Head
-  doc.circle(W - 50, 10, 3, 'F');
-  // Body
-  doc.line(W - 50, 13, W - 50, 28);
-  // Arms in batting position
-  doc.line(W - 50, 17, W - 44, 14);
-  doc.line(W - 50, 17, W - 56, 20);
-  // Bat
-  doc.setLineWidth(1.2);
-  doc.line(W - 44, 14, W - 40, 30);
-  doc.setLineWidth(0.4);
-  // Legs
-  doc.line(W - 50, 28, W - 44, 38);
-  doc.line(W - 50, 28, W - 56, 38);
+  doc.setLineWidth(0.3);
+  doc.line(92, 6, 92, 36);
 
-  // Title text
+  // ── Left: Shield logo ──────────────────────────────────────────────────────
+  const shX = M + 1, shY = 7, shW = 16, shH = 18;
+  doc.setFillColor(255, 255, 255);
+  doc.rect(shX, shY, shW, shH - 4, 'F');
+  ;(doc as any).triangle(shX, shY + shH - 4, shX + shW / 2, shY + shH, shX + shW, shY + shH - 4, 'F');
+  // Bat inside shield
+  doc.setDrawColor(10, 100, 45);
+  doc.setLineWidth(1.3);
+  doc.line(shX + 5, shY + 3, shX + 11, shY + 11);
+  // Ball inside shield
+  doc.setFillColor(188, 28, 28);
+  doc.circle(shX + 12, shY + 4, 2.5, 'F');
+
+  // Brand name
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
+  doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
-  doc.text('AI Smart Cricket Pitch Monitoring Report', 10, 18);
-
-  doc.setFontSize(8);
+  doc.text('PitchSense AI', shX + shW + 3, shY + 8);
+  doc.setTextColor(144, 238, 144);
+  doc.setFontSize(5.5);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(147, 197, 253);
-  doc.text('Class XII Informatics Practices Project', 10, 26);
+  doc.text('AI Smart Cricket Pitch Monitoring System', shX + shW + 3, shY + 14);
 
-  // Decorative line
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.2);
-  doc.line(10, 44, 130, 44);
-
-  y = 50;
-
-  // ─── INFO ROW ────────────────────────────────────────────────────────────────
-  doc.setFillColor(241, 245, 249);
-  doc.rect(0, y, W, 17, 'F');
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.3);
-  doc.line(0, y + 17, W, y + 17);
-
-  const infoItems = [
-    { label: 'Date', value: dateStr, green: false },
-    { label: 'Time', value: timeStr, green: false },
-    { label: 'Report ID', value: reportId, green: false },
-    { label: 'Arduino Status', value: 'Connected', green: true },
-    { label: 'Wi-Fi Status', value: 'Connected', green: true },
-    { label: 'Database Status', value: 'Connected', green: true },
-  ];
-  const colW = W / infoItems.length;
-  infoItems.forEach((item, i) => {
-    const ix = i * colW + colW / 2;
-    if (i > 0) {
-      doc.setDrawColor(203, 213, 225);
-      doc.setLineWidth(0.2);
-      doc.line(i * colW, y + 3, i * colW, y + 14);
-    }
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(5.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text(item.label, ix, y + 6, { align: 'center' });
-
-    if (item.green) {
-      // Green dot
-      doc.setFillColor(34, 197, 94);
-      doc.circle(ix - 10, y + 11.5, 1, 'F');
-      doc.setTextColor(22, 163, 74);
-    } else {
-      doc.setTextColor(30, 41, 59);
-    }
-    doc.setFontSize(6);
-    doc.setFont('helvetica', 'bold');
-    doc.text(item.value, ix + (item.green ? 2 : 0), y + 13, { align: 'center' });
-  });
-
-  y += 20;
-
-  // ─── SENSOR CARDS ────────────────────────────────────────────────────────────
-  const CARD_W = 60, CARD_H = 30, CARD_GAP = 5;
-  const sensorStartX = (W - CARD_W * 3 - CARD_GAP * 2) / 2;
-
-  const sensorCards = [
-    {
-      label: 'TEMPERATURE', value: `${currentTemp}`, unit: '°C',
-      status: currentTemp > 34 ? 'High' : currentTemp < 29 ? 'Low' : 'Normal',
-      accent: [239, 68, 68] as RGB,
-      statusColor: [22, 163, 74] as RGB,
-      history: tempHistory,
-      domain: [26, 38] as [number, number],
-    },
-    {
-      label: 'HUMIDITY', value: `${currentHum}`, unit: '%',
-      status: currentHum > 75 ? 'High' : currentHum < 60 ? 'Low' : 'Normal',
-      accent: [59, 130, 246] as RGB,
-      statusColor: currentHum > 75 ? [239, 68, 68] as RGB : currentHum < 60 ? [234, 88, 12] as RGB : [22, 163, 74] as RGB,
-      history: humHistory,
-      domain: [50, 85] as [number, number],
-    },
-    {
-      label: 'SOIL MOISTURE', value: `${currentSoil}`, unit: '%',
-      status: condition,
-      accent: [34, 197, 94] as RGB,
-      statusColor: condition === 'Balanced' ? [22, 163, 74] as RGB : condition === 'Dry' ? [234, 88, 12] as RGB : [59, 130, 246] as RGB,
-      history: soilHistory,
-      domain: [15, 85] as [number, number],
-    },
-  ];
-
-  sensorCards.forEach((card, i) => {
-    const cx = sensorStartX + i * (CARD_W + CARD_GAP);
-
-    // Card bg
-    doc.setFillColor(255, 255, 255);
-    (doc as any).roundedRect(cx, y, CARD_W, CARD_H, 2, 2, 'F');
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.3);
-    (doc as any).roundedRect(cx, y, CARD_W, CARD_H, 2, 2, 'S');
-
-    // Top accent bar
-    doc.setFillColor(card.accent[0], card.accent[1], card.accent[2]);
-    (doc as any).roundedRect(cx, y, CARD_W, 3, 2, 2, 'F');
-    doc.rect(cx, y + 1.5, CARD_W, 1.5, 'F');
-
-    // Icon bg circle (light)
-    const lightA: RGB = [Math.min(255, card.accent[0] + 155), Math.min(255, card.accent[1] + 155), Math.min(255, card.accent[2] + 155)];
-    doc.setFillColor(lightA[0], lightA[1], lightA[2]);
-    doc.circle(cx + 8, y + 11, 4.5, 'F');
-    // Icon color dot
-    doc.setFillColor(card.accent[0], card.accent[1], card.accent[2]);
-    doc.circle(cx + 8, y + 11, 2, 'F');
-
-    // Label
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(5.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text(card.label, cx + CARD_W / 2 + 3, y + 8, { align: 'center' });
-
-    // Value
-    doc.setTextColor(card.accent[0], card.accent[1], card.accent[2]);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(card.value, cx + 20, y + 20, { align: 'center' });
-
-    // Unit
-    doc.setFontSize(7);
-    doc.text(card.unit, cx + 32, y + 20);
-
-    // Status badge
-    doc.setFillColor(lightA[0], lightA[1], lightA[2]);
-    (doc as any).roundedRect(cx + 14, y + 22, 22, 5, 1, 1, 'F');
-    doc.setTextColor(card.statusColor[0], card.statusColor[1], card.statusColor[2]);
-    doc.setFontSize(5);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`✓ ${card.status}`, cx + 25, y + 25.5, { align: 'center' });
-
-    // Mini sparkline
-    drawMiniSparkline(doc, cx + 3, y + 22.5, CARD_W - 6, 5, card.history, card.accent, card.domain);
-  });
-
-  y += CARD_H + 5;
-
-  // ─── PITCH / PUMP / FAN ROW ──────────────────────────────────────────────────
-  const SYS_W = (W - 24) / 3;
-  const SYS_H = 32;
-  const sysCards = [
-    {
-      label: 'PITCH CONDITION',
-      value: condition,
-      color: condition === 'Balanced' ? [34, 197, 94] as RGB : condition === 'Dry' ? [234, 88, 12] as RGB : [59, 130, 246] as RGB,
-      sub: condition === 'Balanced'
-        ? 'The pitch has optimal moisture levels and is in good condition.'
-        : condition === 'Dry'
-        ? 'Soil moisture is low. Water pump is activated.'
-        : 'Soil moisture is high. Drying fan is activated.',
-      icon: '🌱',
-    },
-    {
-      label: 'WATER PUMP',
-      value: pumpOn ? 'ON' : 'OFF',
-      color: pumpOn ? [59, 130, 246] as RGB : [100, 116, 139] as RGB,
-      sub: mode === 'auto' ? 'Automatic Mode\nPump is ' + (pumpOn ? 'ON' : 'OFF') : 'Manual Mode\nPump is ' + (pumpOn ? 'ON' : 'OFF'),
-      icon: '💧',
-    },
-    {
-      label: 'DRYING FAN',
-      value: fanOn ? 'ON' : 'OFF',
-      color: fanOn ? [34, 197, 94] as RGB : [100, 116, 139] as RGB,
-      sub: mode === 'auto' ? 'Automatic Mode\nFan is ' + (fanOn ? 'ON' : 'OFF') : 'Manual Mode\nFan is ' + (fanOn ? 'ON' : 'OFF'),
-      icon: '🌀',
-    },
-  ];
-
-  sysCards.forEach((card, i) => {
-    const cx = 8 + i * (SYS_W + 4);
-    doc.setFillColor(255, 255, 255);
-    (doc as any).roundedRect(cx, y, SYS_W, SYS_H, 2, 2, 'F');
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.3);
-    (doc as any).roundedRect(cx, y, SYS_W, SYS_H, 2, 2, 'S');
-
-    // Label
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(6);
-    doc.setFont('helvetica', 'bold');
-    doc.text(card.label, cx + SYS_W / 2, y + 6, { align: 'center' });
-
-    // Icon circle
-    const lightC: RGB = [Math.min(255, card.color[0] + 155), Math.min(255, card.color[1] + 155), Math.min(255, card.color[2] + 155)];
-    doc.setFillColor(lightC[0], lightC[1], lightC[2]);
-    doc.circle(cx + SYS_W / 2, y + 15, 7, 'F');
-
-    // Value badge (ON/OFF or BALANCED)
-    if (i === 0) {
-      // Pitch condition - big text
-      doc.setTextColor(card.color[0], card.color[1], card.color[2]);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text(card.value, cx + SYS_W / 2, y + 17, { align: 'center' });
-    } else {
-      // Toggle-style badge
-      doc.setFillColor(card.color[0], card.color[1], card.color[2]);
-      (doc as any).roundedRect(cx + SYS_W / 2 - 8, y + 10, 16, 8, 2, 2, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text(card.value, cx + SYS_W / 2, y + 15.5, { align: 'center' });
-    }
-
-    // Sub text
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(5.5);
-    doc.setFont('helvetica', 'normal');
-    const subLines = card.sub.split('\n');
-    subLines.forEach((line, li) => {
-      doc.text(line, cx + SYS_W / 2, y + 24 + li * 5, { align: 'center' });
-    });
-  });
-
-  y += SYS_H + 5;
-
-  // ─── TREND CHARTS ────────────────────────────────────────────────────────────
-  const CHART_H = 50;
-  const CHART_W = (W - 20) / 2 - 2;
-  drawLineChart(doc, 8, y, CHART_W, CHART_H, tempHistory, [239, 68, 68], [26, 38], 'TEMPERATURE TREND', '°C');
-  drawLineChart(doc, 8 + CHART_W + 4, y, CHART_W, CHART_H, humHistory, [59, 130, 246], [50, 85], 'HUMIDITY TREND', '%');
-
-  y += CHART_H + 5;
-
-  // ─── QUICK ACTIONS STRIP ─────────────────────────────────────────────────────
-  const qaItems = [
-    { label: 'Recent Reading\nHistory', color: [99, 102, 241] as RGB },
-    { label: 'Download PDF', color: [239, 68, 68] as RGB },
-    { label: 'Export Excel', color: [34, 197, 94] as RGB },
-    { label: 'View Analysis', color: [245, 158, 11] as RGB },
-    { label: 'Refresh Data', color: [249, 115, 22] as RGB },
-  ];
-  const QA_W = (W - 20) / qaItems.length - 2;
-  const QA_H = 14;
-  // Section label
-  doc.setFillColor(241, 245, 249);
-  doc.rect(0, y, W, 5, 'F');
-  doc.setTextColor(71, 85, 105);
-  doc.setFontSize(6);
+  // ── Centre: title ──────────────────────────────────────────────────────────
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('QUICK ACTIONS', W / 2, y + 3.5, { align: 'center' });
-  y += 7;
+  doc.text('REPORT SUMMARY', 96, 17, { align: 'center' });
+  doc.setTextColor(144, 238, 144);
+  doc.setFontSize(6);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Intelligent Cricket Pitch Monitoring & Analytics', 96, 23, { align: 'center' });
 
-  qaItems.forEach((qa, i) => {
-    const qx = 8 + i * (QA_W + 2);
-    doc.setFillColor(255, 255, 255);
-    (doc as any).roundedRect(qx, y, QA_W, QA_H, 1.5, 1.5, 'F');
-    doc.setDrawColor(qa.color[0], qa.color[1], qa.color[2]);
-    doc.setLineWidth(0.5);
-    (doc as any).roundedRect(qx, y, QA_W, QA_H, 1.5, 1.5, 'S');
-    // Color dot icon
-    doc.setFillColor(qa.color[0], qa.color[1], qa.color[2]);
-    doc.circle(qx + 4, y + QA_H / 2, 2.5, 'F');
-    // Label
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(5);
-    doc.setFont('helvetica', 'bold');
-    const lines = qa.label.split('\n');
-    lines.forEach((ln, li) => {
-      doc.text(ln, qx + QA_W / 2 + 2, y + (QA_H / 2) - 1 + li * 4, { align: 'center' });
-    });
-  });
+  // ── Right: Report info box ─────────────────────────────────────────────────
+  // Dark box: x=W-74, y=4, w=66, h=34
+  doc.setFillColor(5, 28, 13);
+  rr(doc, W - 74, 4, 66, 34, 2, 'F');
+  doc.setDrawColor(45, 145, 75);
+  doc.setLineWidth(0.4);
+  rr(doc, W - 74, 4, 66, 34, 2, 'S');
 
-  y += QA_H + 5;
-
-  // ─── READING HISTORY + DATA SUMMARY (side by side) ───────────────────────────
-  const HIST_W = 118;
-  const SUMM_W = W - 20 - HIST_W - 4;
-  const HIST_H = 52;
-
-  // Reading History
-  doc.setFillColor(255, 255, 255);
-  (doc as any).roundedRect(8, y, HIST_W, HIST_H, 2, 2, 'F');
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  (doc as any).roundedRect(8, y, HIST_W, HIST_H, 2, 2, 'S');
-
-  // History header
-  doc.setTextColor(30, 41, 59);
+  // PDF icon badge: x=W-72, y=6, w=12, h=14
+  doc.setFillColor(220, 50, 50);
+  rr(doc, W - 72, 6, 12, 14, 1.5, 'F');
+  doc.setTextColor(255, 255, 255);
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('RECENT READING HISTORY', 12, y + 5);
-  doc.setTextColor(100, 116, 139);
-  doc.setFontSize(5);
-  doc.setFont('helvetica', 'normal');
-  doc.text('(Latest 15)', 12 + 48, y + 5);
+  doc.text('PDF', W - 66, 14, { align: 'center' });
 
-  // Table header
-  const cols = [
-    { label: 'Time', w: 22 },
-    { label: 'Temp (°C)', w: 18 },
-    { label: 'Humidity (%)', w: 20 },
-    { label: 'Soil Moist. (%)', w: 23 },
-    { label: 'Pitch Condition', w: 23 },
-  ];
-  const tableX = 10;
-  const tableY = y + 8;
-  const rowH = 5.5;
-
-  // Table header bg
-  doc.setFillColor(37, 99, 235);
-  doc.rect(tableX, tableY, HIST_W - 4, rowH, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(5);
+  // "REPORT GENERATED" label
+  doc.setTextColor(200, 240, 200);
+  doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
-  let hx = tableX;
-  cols.forEach(col => {
-    doc.text(col.label, hx + col.w / 2, tableY + 3.8, { align: 'center' });
-    hx += col.w;
+  doc.text('REPORT GENERATED', W - 57, 10);
+
+  // Info rows: Date / Time / Report ID
+  // Each row: label at fixed x, colon, value — no overlap
+  const INFO_LABEL_X = W - 57;
+  const INFO_COLON_X = W - 42;
+  const INFO_VALUE_X = W - 40;
+  const infoRows: [string, string][] = [
+    ['Date', dateStr],
+    ['Time', timeStr],
+    ['Report ID', reportId],
+  ];
+  infoRows.forEach(([label, value], i) => {
+    const iy = 16 + i * 6.8;
+    doc.setTextColor(180, 220, 180);
+    doc.setFontSize(5.2);
+    doc.setFont('helvetica', 'normal');
+    doc.text(label, INFO_LABEL_X, iy);
+    doc.text(':', INFO_COLON_X, iy);
+    doc.setTextColor(255, 255, 255);
+    doc.text(value, INFO_VALUE_X, iy);
   });
 
-  // Table rows (up to 15)
-  const tableReadings = readings.slice(0, 15);
-  tableReadings.forEach((r, idx) => {
-    const ry = tableY + rowH + idx * rowH;
-    if (ry + rowH > y + HIST_H - 2) return; // clip if overflow
-    doc.setFillColor(idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 250, idx % 2 === 0 ? 255 : 252);
-    doc.rect(tableX, ry, HIST_W - 4, rowH, 'F');
+  // Green accent bottom line of header
+  doc.setFillColor(34, 197, 94);
+  doc.rect(0, 41.5, W, 1, 'F');
 
-    const cells = [r.time, `${r.temp}`, `${r.humidity}`, `${r.soil}`, r.pitchStatus];
-    let rx = tableX;
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 2. PITCH INFO BAR  y = 42 … 54
+  // ═════════════════════════════════════════════════════════════════════════════
+  doc.setFillColor(245, 250, 246);
+  doc.rect(0, 42, W, 12, 'F');
+  doc.setDrawColor(205, 235, 212);
+  doc.setLineWidth(0.25);
+  doc.line(0, 54, W, 54);
+
+  // Location dot
+  doc.setFillColor(34, 197, 94);
+  doc.circle(M + 2.2, 47.8, 1.8, 'F');
+
+  // Row 1 (y=47.5): Pitch Location label + value
+  doc.setTextColor(80, 110, 88);
+  doc.setFontSize(6);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Pitch Location:', M + 5.5, 47.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(12, 60, 28);
+  doc.text('Central Ground, Sports Complex', M + 32, 47.5);
+
+  // Row 2 (y=52): Pitch ID | Report Type
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(80, 110, 88);
+  doc.text('Pitch ID:', M + 5.5, 52);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(12, 60, 28);
+  doc.text('PITCH-001', M + 19, 52);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(80, 110, 88);
+  doc.text('|', M + 32, 52);
+  doc.text('Report Type:', M + 35, 52);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(12, 60, 28);
+  doc.text('Daily Summary', M + 56, 52);
+
+  // Reporting date badge (right, both rows vertically centred in bar)
+  doc.setFillColor(210, 240, 218);
+  rr(doc, W - 62, 43.5, 54, 9.5, 1.5, 'F');
+  doc.setTextColor(10, 100, 45);
+  doc.setFontSize(5.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Reporting Date:', W - 59, 47.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(dateStr, W - 59, 51.5);
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 3. EXECUTIVE SUMMARY  y = 56 … 98
+  // ═════════════════════════════════════════════════════════════════════════════
+  sectionTitle(doc, M, 56, 'EXECUTIVE SUMMARY');
+
+  // 5 cards: fixed width (CW − 4 gaps × 3.5) / 5 ≈ 35.7 mm
+  const N = 5, GAP = 3.5;
+  const CW5 = (CW - GAP * (N - 1)) / N;  // ≈ 35.7 mm
+  const CH  = 32;
+  const CY  = 66;                          // title + 7.8 line + 2.2 pad
+
+  type ECard = { label: string; value: string; status: string; ok: boolean; accent: RGB; light: RGB };
+  const ecards: ECard[] = [
+    { label: 'TEMPERATURE', value: `${currentTemp.toFixed(1)}°C`,
+      status: currentTemp > 34 ? 'High' : currentTemp < 29 ? 'Low' : 'Normal',
+      ok: currentTemp >= 29 && currentTemp <= 34, accent: [215, 55, 45], light: [255, 232, 230] },
+    { label: 'HUMIDITY', value: `${currentHum.toFixed(1)}%`,
+      status: currentHum > 75 ? 'High' : currentHum < 60 ? 'Low' : 'Normal',
+      ok: currentHum >= 60 && currentHum <= 75, accent: [35, 125, 205], light: [222, 240, 255] },
+    { label: 'FAN STATUS', value: fanOn ? 'ON' : 'OFF',
+      status: `Mode: ${mode === 'auto' ? 'Auto' : 'Manual'}`,
+      ok: true, accent: [125, 65, 190], light: [242, 232, 255] },
+    { label: 'PUMP STATUS', value: pumpOn ? 'ON' : 'OFF',
+      status: `Mode: ${mode === 'auto' ? 'Auto' : 'Manual'}`,
+      ok: true, accent: [12, 150, 128], light: [218, 248, 242] },
+    { label: 'SYSTEM HEALTH', value: '100%',
+      status: 'Excellent', ok: true, accent: [28, 168, 88], light: [218, 248, 228] },
+  ];
+
+  ecards.forEach((card, i) => {
+    const cx = M + i * (CW5 + GAP);
+
+    // Card bg + border
+    doc.setFillColor(255, 255, 255);
+    rr(doc, cx, CY, CW5, CH, 2, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.28);
+    rr(doc, cx, CY, CW5, CH, 2, 'S');
+
+    // Top accent bar (2.5 mm, rounded at top)
+    doc.setFillColor(card.accent[0], card.accent[1], card.accent[2]);
+    rr(doc, cx, CY, CW5, 2.5, 2, 'F');
+    doc.rect(cx, CY + 1.3, CW5, 1.2, 'F');
+
+    // Icon circle (light bg, accent dot)  centred at CY+10
+    doc.setFillColor(card.light[0], card.light[1], card.light[2]);
+    doc.circle(cx + CW5 / 2, CY + 10, 5.5, 'F');
+    doc.setFillColor(card.accent[0], card.accent[1], card.accent[2]);
+    doc.circle(cx + CW5 / 2, CY + 10, 2.5, 'F');
+
+    // Label  (CY + 18.5)
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(4.8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(card.label, cx + CW5 / 2, CY + 18.5, { align: 'center' });
+
+    // Value  (CY + 26)
+    doc.setTextColor(card.accent[0], card.accent[1], card.accent[2]);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(card.value, cx + CW5 / 2, CY + 26, { align: 'center' });
+
+    // Status badge  (CY + 28 … CY + 33)
+    doc.setFillColor(card.light[0], card.light[1], card.light[2]);
+    rr(doc, cx + 4, CY + 28, CW5 - 8, 5, 1, 'F');
+    const sc: RGB = card.ok ? [22, 163, 74] : [215, 38, 38];
+    doc.setTextColor(sc[0], sc[1], sc[2]);
+    doc.setFontSize(4.6);
+    doc.setFont('helvetica', 'bold');
+    doc.text(card.status, cx + CW5 / 2, CY + 31.5, { align: 'center' });
+  });
+  // CY + CH = 66 + 32 = 98 ✓
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 4. SENSOR OVERVIEW  y = 100 … 126
+  // ═════════════════════════════════════════════════════════════════════════════
+  sectionTitle(doc, M, 100, 'SENSOR OVERVIEW');
+
+  const SY = 110, SH = 16, SG = 5;
+  const SW = (CW - SG * 2) / 3;   // ≈ 61.3 mm
+
+  type SCard = { name: string; status: string; detail: string; color: RGB };
+  const scards: SCard[] = [
+    { name: 'DHT11 — Temperature', status: 'Working Normal', detail: 'Last Calibrated: 20 May 2024', color: [215, 55, 45] },
+    { name: 'DHT11 — Humidity',    status: 'Working Normal', detail: 'Last Calibrated: 20 May 2024', color: [35, 125, 205] },
+    { name: 'ESP32 Controller',    status: 'Connected',      detail: 'Signal Strength: −62 dBm',    color: [28, 168, 88] },
+  ];
+
+  scards.forEach((s, i) => {
+    const sx = M + i * (SW + SG);
+
+    doc.setFillColor(255, 255, 255);
+    rr(doc, sx, SY, SW, SH, 1.5, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.28);
+    rr(doc, sx, SY, SW, SH, 1.5, 'S');
+
+    // Left accent bar
+    doc.setFillColor(s.color[0], s.color[1], s.color[2]);
+    doc.rect(sx, SY, 3, SH, 'F');
+
+    // Icon circle  centred at SY+8
+    const lC: RGB = [Math.min(255, s.color[0] + 172), Math.min(255, s.color[1] + 172), Math.min(255, s.color[2] + 172)];
+    doc.setFillColor(lC[0], lC[1], lC[2]);
+    doc.circle(sx + 10, SY + 8, 4.5, 'F');
+    doc.setFillColor(s.color[0], s.color[1], s.color[2]);
+    doc.circle(sx + 10, SY + 8, 2.2, 'F');
+
+    // Sensor name  (SY + 5.5)
+    doc.setTextColor(12, 40, 22);
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'bold');
+    doc.text(s.name, sx + 18, SY + 5.5);
+
+    // Status badge  (SY + 7.5 … SY + 12)
+    doc.setFillColor(218, 252, 228);
+    rr(doc, sx + 18, SY + 7.5, 33, 4.5, 1, 'F');
+    doc.setTextColor(22, 163, 74);
+    doc.setFontSize(4.8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(s.status, sx + 34.5, SY + 10.8, { align: 'center' });
+
+    // Detail text  (SY + 14)
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(s.detail, sx + 18, SY + 14.5);
+  });
+  // SY + SH = 110 + 16 = 126 ✓
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 5. TRENDS & ANALYTICS  y = 128 … 186
+  // ═════════════════════════════════════════════════════════════════════════════
+  sectionTitle(doc, M, 128, 'TRENDS & ANALYTICS');
+
+  const CHY = 138, CHH = 48, CHW = (CW - 4) / 2;  // ≈ 95 mm each
+
+  const xLabels = readings.slice(0, 14).map((r) => r.time).reverse();
+
+  lineChart(doc, M,           CHY, CHW, CHH, tempHistory, [215, 55, 45],  [24, 40], 'Temperature Trend (°C)', '°C', xLabels);
+  lineChart(doc, M + CHW + 4, CHY, CHW, CHH, humHistory,  [35, 125, 205], [48, 90], 'Humidity Trend (%)',      '%',  xLabels);
+  // CHY + CHH = 138 + 48 = 186 ✓
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 6. RECENT READINGS + SYSTEM STATUS  y = 188 … 258
+  // ═════════════════════════════════════════════════════════════════════════════
+  const TBLW = 116;                 // table panel width
+  const SYSX = M + TBLW + 5;       // system panel x  = 129
+  const SYSW = CW - TBLW - 5;      // system panel width ≈ 73 mm
+
+  sectionTitle(doc, M,    188, 'RECENT READINGS');
+  sectionTitle(doc, SYSX, 188, 'SYSTEM STATUS');
+
+  const PY = 200, PH = 58;         // panel top, panel height
+
+  // ── Table ─────────────────────────────────────────────────────────────────
+  doc.setFillColor(255, 255, 255);
+  rr(doc, M, PY, TBLW, PH, 1.5, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.28);
+  rr(doc, M, PY, TBLW, PH, 1.5, 'S');
+
+  // Columns: widths must sum to TBLW − 2 = 114
+  type Col = { label: string; w: number };
+  const cols: Col[] = [
+    { label: 'Timestamp',   w: 29 },
+    { label: 'Temp (°C)',   w: 21 },
+    { label: 'Hum (%)',     w: 20 },
+    { label: 'Fan',         w: 15 },
+    { label: 'Pump',        w: 15 },
+    { label: 'Condition',   w: 14 },
+  ]; // sum = 114 ✓
+
+  const TBLX  = M + 1;
+  const ROWH  = 6.2;
+  const HDRY  = PY + 1.5;
+
+  // Header row
+  doc.setFillColor(10, 60, 28);
+  doc.rect(TBLX, HDRY, TBLW - 2, ROWH, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(4.8);
+  doc.setFont('helvetica', 'bold');
+  let hxp = TBLX;
+  cols.forEach((c) => {
+    doc.text(c.label, hxp + c.w / 2, HDRY + ROWH - 1.8, { align: 'center' });
+    hxp += c.w;
+  });
+
+  const maxRows = Math.floor((PH - ROWH - 3) / ROWH);
+  readings.slice(0, maxRows).forEach((r, idx) => {
+    const ry = HDRY + ROWH + idx * ROWH;
+    if (ry + ROWH > PY + PH - 1) return;
+
+    doc.setFillColor(idx % 2 === 0 ? 255 : 250, idx % 2 === 0 ? 255 : 252, idx % 2 === 0 ? 255 : 253);
+    doc.rect(TBLX, ry, TBLW - 2, ROWH, 'F');
+
+    const cells = [r.time, `${r.temp}`, `${r.humidity}`, r.fanOn ? 'ON' : 'OFF', r.pumpOn ? 'ON' : 'OFF', r.pitchStatus];
+    let rxp = TBLX;
     cells.forEach((cell, ci) => {
-      const cw = cols[ci].w;
-      if (ci === 4) {
-        // Status badge
-        const sc: RGB = r.pitchStatus === 'Balanced' ? [34, 197, 94] : r.pitchStatus === 'Dry' ? [234, 88, 12] : [59, 130, 246];
+      const cw   = cols[ci].w;
+      const midY = ry + ROWH - 2;
+
+      if (ci === 3) {
+        const c: RGB = r.fanOn  ? [34, 197, 94] : [100, 116, 139];
+        doc.setFillColor(c[0], c[1], c[2]);
+        rr(doc, rxp + 2, ry + 1, cw - 4, ROWH - 2.5, 0.8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(4.2); doc.setFont('helvetica', 'bold');
+        doc.text(cell, rxp + cw / 2, midY - 0.4, { align: 'center' });
+      } else if (ci === 4) {
+        const c: RGB = r.pumpOn ? [35, 125, 205] : [100, 116, 139];
+        doc.setFillColor(c[0], c[1], c[2]);
+        rr(doc, rxp + 2, ry + 1, cw - 4, ROWH - 2.5, 0.8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(4.2); doc.setFont('helvetica', 'bold');
+        doc.text(cell, rxp + cw / 2, midY - 0.4, { align: 'center' });
+      } else if (ci === 5) {
+        const sc: RGB = r.pitchStatus === 'Balanced' ? [34, 197, 94] : r.pitchStatus === 'Dry' ? [210, 95, 25] : [35, 125, 205];
         const sl: RGB = [Math.min(255, sc[0] + 155), Math.min(255, sc[1] + 155), Math.min(255, sc[2] + 155)];
         doc.setFillColor(sl[0], sl[1], sl[2]);
-        (doc as any).roundedRect(rx + 2, ry + 0.8, cw - 4, rowH - 1.6, 1, 1, 'F');
+        rr(doc, rxp + 1, ry + 1, cw - 2, ROWH - 2.5, 0.8, 'F');
         doc.setTextColor(sc[0], sc[1], sc[2]);
-        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(3.6); doc.setFont('helvetica', 'bold');
+        doc.text(cell, rxp + cw / 2, midY - 0.4, { align: 'center' });
       } else {
         doc.setTextColor(30, 41, 59);
+        doc.setFontSize(4.5);
         doc.setFont('helvetica', ci === 0 ? 'normal' : 'bold');
+        doc.text(cell, rxp + cw / 2, midY, { align: 'center' });
       }
-      doc.setFontSize(5);
-      doc.text(cell, rx + cw / 2, ry + 3.8, { align: 'center' });
-      rx += cw;
+      rxp += cw;
     });
 
-    // Row separator
     doc.setDrawColor(241, 245, 249);
-    doc.setLineWidth(0.15);
-    doc.line(tableX, ry + rowH, tableX + HIST_W - 4, ry + rowH);
+    doc.setLineWidth(0.1);
+    doc.line(TBLX, ry + ROWH, TBLX + TBLW - 2, ry + ROWH);
   });
 
-  const visibleRows = Math.min(tableReadings.length, Math.floor((HIST_H - 16) / rowH));
-  if (tableReadings.length > visibleRows) {
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(4.5);
-    doc.setFont('helvetica', 'italic');
-    doc.text(`Showing latest ${visibleRows} of ${readings.length} readings`, tableX + (HIST_W - 4) / 2, y + HIST_H - 2, { align: 'center' });
-  }
-
-  // DATA SUMMARY
-  const summX = 8 + HIST_W + 4;
+  // ── System status ──────────────────────────────────────────────────────────
   doc.setFillColor(255, 255, 255);
-  (doc as any).roundedRect(summX, y, SUMM_W, HIST_H, 2, 2, 'F');
+  rr(doc, SYSX, PY, SYSW, PH, 1.5, 'F');
   doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  (doc as any).roundedRect(summX, y, SUMM_W, HIST_H, 2, 2, 'S');
+  doc.setLineWidth(0.28);
+  rr(doc, SYSX, PY, SYSW, PH, 1.5, 'S');
 
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text('DATA SUMMARY', summX + SUMM_W / 2, y + 5, { align: 'center' });
-
-  // Divider
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.2);
-  doc.line(summX + 3, y + 7, summX + SUMM_W - 3, y + 7);
-
-  const summRows = [
-    { label: '🌡 Highest Temperature', value: `${tStats.max} °C`, color: [239, 68, 68] as RGB },
-    { label: '🌡 Lowest Temperature', value: `${tStats.min} °C`, color: [239, 68, 68] as RGB },
-    { label: '🌡 Average Temperature', value: `${tStats.avg} °C`, color: [239, 68, 68] as RGB },
-    { label: '💧 Highest Humidity', value: `${hStats.max} %`, color: [59, 130, 246] as RGB },
-    { label: '💧 Lowest Humidity', value: `${hStats.min} %`, color: [59, 130, 246] as RGB },
-    { label: '💧 Average Humidity', value: `${hStats.avg} %`, color: [59, 130, 246] as RGB },
-    { label: '🌱 Highest Soil Moisture', value: `${sStats.max} %`, color: [34, 197, 94] as RGB },
-    { label: '🌱 Lowest Soil Moisture', value: `${sStats.min} %`, color: [34, 197, 94] as RGB },
-    { label: '🌱 Average Soil Moisture', value: `${sStats.avg} %`, color: [34, 197, 94] as RGB },
+  type SysItem = { label: string; value: string; ok: boolean | null };
+  const sysItems: SysItem[] = [
+    { label: 'WiFi Connection',    value: 'Connected',                       ok: true  },
+    { label: 'Database',           value: 'Online',                          ok: true  },
+    { label: 'Last Update',        value: timeStr,                           ok: true  },
+    { label: 'Uptime',             value: '2d 14h 35m',                     ok: null  },
+    { label: 'Firmware',           value: 'v1.2.3',                         ok: null  },
+    { label: 'Pitch Condition',    value: condition,                         ok: condition === 'Balanced' },
+    { label: 'Control Mode',       value: mode === 'auto' ? 'Auto' : 'Manual', ok: null },
   ];
 
-  summRows.forEach((row, idx) => {
-    const sy = y + 10 + idx * 4.5;
-    doc.setTextColor(71, 85, 105);
+  sysItems.forEach((item, idx) => {
+    const iy = PY + 5 + idx * 7.4;
+    if (iy + 6 > PY + PH) return;
+
+    const dc: RGB = item.ok === true ? [34, 197, 94] : item.ok === false ? [220, 38, 38] : [148, 163, 184];
+    doc.setFillColor(dc[0], dc[1], dc[2]);
+    doc.circle(SYSX + 5, iy + 2.5, 2, 'F');
+
+    doc.setTextColor(65, 85, 100);
     doc.setFontSize(5);
     doc.setFont('helvetica', 'normal');
-    doc.text(row.label, summX + 4, sy);
-    doc.setTextColor(row.color[0], row.color[1], row.color[2]);
+    doc.text(item.label, SYSX + 10, iy + 4);
+
+    const vc: RGB = item.ok === true ? [22, 163, 74] : item.ok === false ? [215, 38, 38] : [20, 40, 30];
+    doc.setTextColor(vc[0], vc[1], vc[2]);
     doc.setFont('helvetica', 'bold');
-    doc.text(row.value, summX + SUMM_W - 4, sy, { align: 'right' });
-    // dotted separator
-    if (idx < summRows.length - 1) {
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.1);
-      doc.line(summX + 3, sy + 1.5, summX + SUMM_W - 3, sy + 1.5);
+    doc.text(item.value, SYSX + SYSW - 3, iy + 4, { align: 'right' });
+
+    if (idx < sysItems.length - 1) {
+      doc.setDrawColor(241, 245, 249);
+      doc.setLineWidth(0.15);
+      doc.line(SYSX + 3, iy + 6.5, SYSX + SYSW - 3, iy + 6.5);
     }
   });
+  // PY + PH = 200 + 58 = 258 ✓
 
-  y += HIST_H + 4;
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 7. DATA SUMMARY  y = 259 … 279
+  // ═════════════════════════════════════════════════════════════════════════════
+  sectionTitle(doc, M, 259, 'DATA SUMMARY');
 
-  // ─── SYSTEM ANALYSIS ─────────────────────────────────────────────────────────
-  const ANAL_H = 24;
-  doc.setFillColor(255, 255, 255);
-  (doc as any).roundedRect(8, y, W - 16, ANAL_H, 2, 2, 'F');
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  (doc as any).roundedRect(8, y, W - 16, ANAL_H, 2, 2, 'S');
+  const DSY = 269, DSH = 10;
+  const DSW = (CW - 8) / 3;   // ≈ 60 mm per group
 
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text('SYSTEM ANALYSIS', 12, y + 5);
-
-  // Overall status badge
-  const overallGood = condition === 'Balanced';
-  const badgeColor: RGB = overallGood ? [34, 197, 94] : [234, 88, 12];
-  const badgeLight: RGB = [Math.min(255, badgeColor[0] + 155), Math.min(255, badgeColor[1] + 155), Math.min(255, badgeColor[2] + 155)];
-  doc.setFillColor(badgeLight[0], badgeLight[1], badgeLight[2]);
-  doc.circle(22, y + 15, 7, 'F');
-  doc.setTextColor(badgeColor[0], badgeColor[1], badgeColor[2]);
-  doc.setFontSize(5.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text(overallGood ? 'GOOD' : 'WARN', 22, y + 16, { align: 'center' });
-
-  // Analysis text
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Overall Pitch Health', 35, y + 12);
-  doc.setTextColor(71, 85, 105);
-  doc.setFontSize(5.5);
-  doc.setFont('helvetica', 'normal');
-  const analysisText = overallGood
-    ? `The collected data indicates the pitch is in a balanced and healthy condition. Temperature ${currentTemp}°C is stable.`
-    : `The pitch requires attention. Soil moisture at ${currentSoil}% indicates ${condition.toLowerCase()} conditions. Action recommended.`;
-  const analysisLines = doc.splitTextToSize(analysisText, W - 60);
-  doc.text(analysisLines.slice(0, 2), 35, y + 17);
-
-  // Right side stats
-  const analRight = [
-    { label: 'Temp Stability', value: Math.abs(parseFloat(tStats.max) - parseFloat(tStats.min)) < 3 ? 'Stable' : 'Variable' },
-    { label: 'Humidity Stability', value: Math.abs(parseFloat(hStats.max) - parseFloat(hStats.min)) < 8 ? 'Stable' : 'Variable' },
-    { label: 'Current Mode', value: mode === 'auto' ? 'Automatic' : 'Manual' },
+  type DSGroup = { label: string; max: string; min: string; avg: string; accent: RGB; light: RGB };
+  const dsGroups: DSGroup[] = [
+    { label: 'Temperature', max: `${tStats.max}°C`, min: `${tStats.min}°C`, avg: `${tStats.avg}°C`, accent: [215, 55, 45], light: [255, 232, 230] },
+    { label: 'Humidity',    max: `${hStats.max}%`,  min: `${hStats.min}%`,  avg: `${hStats.avg}%`,  accent: [35, 125, 205], light: [222, 240, 255] },
+    { label: 'Soil Moist.', max: `${sStats.max}%`,  min: `${sStats.min}%`,  avg: `${sStats.avg}%`,  accent: [28, 168, 88], light: [218, 248, 228] },
   ];
-  analRight.forEach((item, idx) => {
-    const ax = W - 80 + idx * 24;
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(4.5);
-    doc.setFont('helvetica', 'normal');
-    doc.text(item.label, ax, y + 10, { align: 'center' });
-    doc.setTextColor(30, 41, 59);
+
+  dsGroups.forEach((g, i) => {
+    const gx = M + i * (DSW + 4);
+
+    doc.setFillColor(255, 255, 255);
+    rr(doc, gx, DSY, DSW, DSH, 1.5, 'F');
+    doc.setDrawColor(g.light[0], g.light[1], g.light[2]);
+    doc.setLineWidth(0.4);
+    rr(doc, gx, DSY, DSW, DSH, 1.5, 'S');
+
+    // Accent left bar
+    doc.setFillColor(g.accent[0], g.accent[1], g.accent[2]);
+    doc.rect(gx, DSY, 3, DSH, 'F');
+
+    // Group label
+    doc.setTextColor(g.accent[0], g.accent[1], g.accent[2]);
+    doc.setFontSize(5.8);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(5.5);
-    doc.text(item.value, ax, y + 15, { align: 'center' });
+    doc.text(g.label, gx + 7, DSY + 4.5);
+
+    // Max / Min / Avg — three sub-columns within the card
+    const iW = (DSW - 7) / 3;
+    [['Max', g.max], ['Min', g.min], ['Avg', g.avg]].forEach(([k, v], si) => {
+      const sx = gx + 7 + si * iW;
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(4.2);
+      doc.setFont('helvetica', 'normal');
+      doc.text(k, sx + iW / 2, DSY + 5.5, { align: 'center' });
+      doc.setTextColor(20, 40, 25);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5);
+      doc.text(v, sx + iW / 2, DSY + 9, { align: 'center' });
+    });
   });
+  // DSY + DSH = 269 + 10 = 279 ✓
 
-  y += ANAL_H + 4;
+  // ═════════════════════════════════════════════════════════════════════════════
+  // 8. FOOTER  y = 281 … 297
+  // ═════════════════════════════════════════════════════════════════════════════
+  doc.setFillColor(10, 50, 22);
+  doc.rect(0, 281, W, 16, 'F');
 
-  // ─── FOOTER ──────────────────────────────────────────────────────────────────
-  const footerY = 280;
-  doc.setFillColor(12, 32, 82);
-  doc.rect(0, footerY, W, 17, 'F');
+  // Green top accent
+  doc.setFillColor(34, 197, 94);
+  doc.rect(0, 281, W, 1.2, 'F');
 
-  // Left
-  doc.setTextColor(147, 197, 253);
-  doc.setFontSize(6);
+  // Left column
+  doc.setTextColor(144, 238, 144);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.text('🏏 AI Smart Cricket Pitch Dashboard', 8, footerY + 6);
+  doc.text('PitchSense AI', M, 288);
+  doc.setTextColor(100, 195, 120);
+  doc.setFontSize(4.8);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5);
-  doc.text('Class XII Informatics Practices Project', 8, footerY + 11);
+  doc.text('AI Smart Cricket Pitch Monitoring System', M, 293.5);
 
-  // Center
-  doc.setTextColor(147, 197, 253);
+  // Centre column
+  doc.setTextColor(144, 238, 144);
   doc.setFontSize(5);
-  doc.text('Auto Refresh Every 2 Seconds', W / 2, footerY + 6, { align: 'center' });
-  doc.text('Powered by Arduino + PHP + MySQL', W / 2, footerY + 11, { align: 'center' });
+  doc.text('AI Powered  •  IoT Enabled  •  Smart Monitoring', W / 2, 287.5, { align: 'center' });
+  doc.setTextColor(100, 175, 120);
+  doc.setFontSize(4.5);
+  doc.text('Thank you for using PitchSense AI', W / 2, 293.5, { align: 'center' });
 
-  // Right
+  // Right column
+  doc.setTextColor(144, 238, 144);
   doc.setFontSize(5);
-  doc.text(`Report Generated: ${dateStr} ${timeStr}`, W - 8, footerY + 6, { align: 'right' });
+  doc.text(`Generated: ${dateStr}`, W - M, 287.5, { align: 'right' });
   doc.setFontSize(6);
   doc.setFont('helvetica', 'bold');
-  doc.text('Page 1', W - 8, footerY + 12, { align: 'right' });
+  doc.text('Page 1 of 1', W - M, 293.5, { align: 'right' });
 
-  doc.save(`Cricket-Pitch-Report-${now.toLocaleDateString('en-IN').replace(/\//g, '-')}.pdf`);
+  // ─── Save ─────────────────────────────────────────────────────────────────
+  doc.save(`PitchSense-AI-Report-${now.toLocaleDateString('en-IN').replace(/\//g, '-')}.pdf`);
 }

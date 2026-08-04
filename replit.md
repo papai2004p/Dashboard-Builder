@@ -1,42 +1,35 @@
 # AI Smart Cricket Pitch Dashboard
 
-A full-stack cricket pitch monitoring dashboard with an AI voice assistant ("Ball").
+A real-time cricket pitch monitoring dashboard with sensor data visualization and an AI voice assistant.
 
 ## Stack
 
-- **Frontend**: React + Vite + Tailwind CSS v4 + shadcn/ui (`artifacts/cricket-dashboard`)
-- **Backend**: Express v5 API server (`artifacts/api-server`)
-- **Monorepo**: pnpm workspaces
+- **Frontend**: React + Vite + Tailwind CSS + shadcn/ui (`artifacts/cricket-dashboard`)
+- **Backend**: Express API server with Drizzle ORM + PostgreSQL (`artifacts/api-server`)
+- **Shared libraries**: `lib/db` (database schema), `lib/api-zod` (Zod validators), `lib/api-client-react` (React Query hooks), `lib/api-spec` (OpenAPI spec)
+- **Package manager**: pnpm (monorepo)
 
-## How to Run
+## Running the project
 
-Both services start automatically via configured workflows:
+Two workflows run automatically:
 
 | Workflow | Command | Port |
 |---|---|---|
-| `Cricket Dashboard` | `PORT=25954 BASE_PATH=/ pnpm --filter @workspace/cricket-dashboard run dev` | 25954 |
-| `API Server` | `PORT=8080 pnpm --filter @workspace/api-server run dev` | 8080 |
+| Cricket Dashboard | `pnpm --filter @workspace/cricket-dashboard run dev` | 25954 |
+| API Server | `pnpm --filter @workspace/api-server run dev` | 8080 |
 
-## Key Directories
+The dashboard is served at `/` and the API at `/api`.
 
+## Database
+
+Uses Replit's built-in PostgreSQL. `DATABASE_URL` is injected automatically at runtime — no manual setup needed.
+
+To push schema changes to the database:
+
+```bash
+pnpm --filter @workspace/db run push
 ```
-artifacts/
-  cricket-dashboard/   React frontend + Voice Assistant
-  api-server/          Express REST API
-lib/
-  db/                  Drizzle ORM schema
-  api-spec/            OpenAPI spec
-  api-zod/             Zod validation schemas (generated)
-  api-client-react/    React Query hooks (generated)
-```
 
-## Voice Assistant ("Ball")
+## User preferences
 
-Wake word: **"Hey Ball"** — say it to activate the assistant.
-
-- Wake-word detection: Web Speech API with fuzzy/phonetic matching (`artifacts/cricket-dashboard/src/lib/wakeWordEngine.ts`)
-- Command recognition: Web Speech API, language `en-IN`
-- Detection strategy: exact substring match → phonetic regex → fuzzy edit-distance bigram → standalone "ball" trigger
-- Can be upgraded to Picovoice Porcupine for offline <50 ms detection — see `wakeWordEngine.ts` for setup instructions
-
-## User Preferences
+- Keep existing project structure and stack — do not restructure or migrate.

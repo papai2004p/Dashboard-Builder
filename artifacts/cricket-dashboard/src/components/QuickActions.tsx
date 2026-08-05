@@ -134,25 +134,45 @@ function ExportReportCard({
 // ── Card 2: Export Excel ───────────────────────────────────────────────────────
 
 function ExportExcelCard({ readings, pumpOn, fanOn }: Pick<QuickActionsProps, 'readings' | 'pumpOn' | 'fanOn'>) {
-  function exportExcel() {
-    const header = ['Time', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)', 'Pitch Status', 'Pump', 'Fan', 'Mode'];
-    const rows = readings.map(r => [
-      r.time, r.temp, r.humidity, r.soil, r.pitchStatus,
-      r.pumpOn ? 'ON' : 'OFF', r.fanOn ? 'ON' : 'OFF', r.mode,
-    ]);
-    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
-    ws['!cols'] = [14, 18, 14, 18, 14, 10, 10, 12].map(w => ({ wch: w }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Readings');
-    const metaWs = XLSX.utils.aoa_to_sheet([
-      ['Report Title', 'AI Smart Cricket Pitch Dashboard'],
-      ['Export Date', new Date().toLocaleDateString()],
-      ['Export Time', new Date().toLocaleTimeString()],
-      ['Total Readings', readings.length],
-    ]);
-    metaWs['!cols'] = [{ wch: 16 }, { wch: 36 }];
-    XLSX.utils.book_append_sheet(wb, metaWs, 'Info');
-    XLSX.writeFile(wb, 'Cricket-Pitch-Readings.xlsx');
+  function exportExcel(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      const header = ['Time', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)', 'Pitch Status', 'Pump', 'Fan', 'Mode'];
+      const rows = readings.map(r => [
+        r.time, r.temp, r.humidity, r.soil, r.pitchStatus,
+        r.pumpOn ? 'ON' : 'OFF', r.fanOn ? 'ON' : 'OFF', r.mode,
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+      ws['!cols'] = [14, 18, 14, 18, 14, 10, 10, 12].map(w => ({ wch: w }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Readings');
+      const metaWs = XLSX.utils.aoa_to_sheet([
+        ['Report Title', 'AI Smart Cricket Pitch Dashboard'],
+        ['Export Date', new Date().toLocaleDateString()],
+        ['Export Time', new Date().toLocaleTimeString()],
+        ['Total Readings', readings.length],
+      ]);
+      metaWs['!cols'] = [{ wch: 16 }, { wch: 36 }];
+      XLSX.utils.book_append_sheet(wb, metaWs, 'Info');
+
+      const workbookData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([workbookData], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'Cricket-Pitch-Readings.xlsx';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error('Excel export error:', error);
+    }
   }
 
   return (
@@ -169,7 +189,7 @@ function ExportExcelCard({ readings, pumpOn, fanOn }: Pick<QuickActionsProps, 'r
       <p className="text-xs text-slate-500 flex-1 leading-relaxed line-clamp-3">
         Temperature, humidity, soil moisture, pitch status, pump & fan columns with project info on a separate sheet.
       </p>
-      <button onClick={exportExcel} className={BTN_GREEN}>
+      <button type="button" onClick={exportExcel} className={BTN_GREEN}>
         <FileSpreadsheet size={16} />
         Download Excel
       </button>

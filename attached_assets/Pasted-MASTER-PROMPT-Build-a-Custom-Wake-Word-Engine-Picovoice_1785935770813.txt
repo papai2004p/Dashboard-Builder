@@ -1,0 +1,239 @@
+MASTER PROMPT – Build a Custom Wake Word Engine (Picovoice-Inspired)
+
+DO NOT use Picovoice, Porcupine, or any paid SDK.
+
+I already have:
+
+Web Speech API
+Whisper Speech-to-Text
+
+I want to replace the wake-word detection with a completely custom wake-word engine built inside my project.
+
+The goal is to behave similarly to Picovoice, but implemented entirely in my own application.
+
+Objective
+
+Create a browser-based wake-word engine dedicated to my assistant.
+
+Wake phrase:
+
+"Hey Ball"
+
+Supported variations:
+
+Hey Ball
+Hi Ball
+Hello Ball
+Okay Ball
+Hey Cricket Ball
+Ball
+Hey Buddy (optional)
+Architecture
+Microphone
+        │
+        ▼
+Audio Buffer
+        │
+        ▼
+Voice Activity Detection (VAD)
+        │
+        ▼
+Noise Reduction
+        │
+        ▼
+Whisper / Web Speech
+        │
+        ▼
+Wake Word Engine
+        │
+        ▼
+Confidence Scoring
+        │
+        ▼
+Assistant Activated
+Continuous Listening
+
+The microphone should continuously listen using a lightweight audio pipeline.
+
+Do not constantly restart speech recognition.
+
+Maintain one continuous listening session.
+
+Automatically recover if recognition stops unexpectedly.
+
+Voice Activity Detection (VAD)
+
+Before sending audio to recognition:
+
+Detect whether speech exists.
+
+Ignore:
+
+silence
+keyboard sounds
+fan noise
+mouse clicks
+random environmental noise
+
+Only process actual human speech.
+
+Wake Word Matching
+
+Do not use exact string comparison.
+
+Instead implement:
+
+Fuzzy matching
+Levenshtein distance
+Token similarity
+Phonetic comparison
+Confidence scoring
+
+Examples:
+
+"Hey Ball"
+
+"Hay Ball"
+
+"Hi Ball"
+
+"Hey Bawl"
+
+"Hey Bowl"
+
+should still activate if confidence exceeds the threshold.
+
+Indian English Optimization
+
+Optimize recognition for Indian English pronunciation.
+
+Handle common accent variations naturally.
+
+Recognize softly spoken commands whenever possible.
+
+Speaker Lock
+
+When several people speak simultaneously:
+
+Lock onto the first detected speaker.
+
+Ignore everyone else until:
+
+command finishes
+timeout occurs
+assistant exits listening mode
+
+Then release the lock.
+
+Ignore Assistant's Own Voice
+
+When Ball is speaking:
+
+Disable wake-word detection.
+
+Ignore all TTS output.
+
+Resume listening automatically after speech ends.
+
+Prevent self-triggering.
+
+Confidence Engine
+
+Each detected wake phrase should generate a confidence score.
+
+Example:
+
+Hey Ball
+
+Confidence: 97%
+
+Activate
+
+----------------
+
+Hello Ball
+
+Confidence: 93%
+
+Activate
+
+----------------
+
+Play Ball
+
+Confidence: 32%
+
+Ignore
+
+Make the threshold configurable.
+
+Default:
+
+85%
+
+Smart Recovery
+
+If recognition crashes:
+
+Restart automatically.
+
+Never require the user to refresh the page.
+
+Low CPU Usage
+
+Target CPU usage below 5% while idle.
+
+Avoid constant React re-renders.
+
+Use:
+
+Web Workers
+requestAnimationFrame where appropriate
+AudioWorklet or efficient browser audio processing
+Circular audio buffers
+
+Keep the dashboard at 60 FPS.
+
+Wake Animation
+
+When confidence exceeds the threshold:
+
+Immediately:
+
+Grass ripple appears.
+Ball enters.
+Listening overlay opens.
+Intro speech plays (first activation only).
+Assistant waits for commands.
+
+Target activation latency:
+
+Less than 250 ms after the wake phrase is recognized.
+
+Modular Design
+
+Build the wake-word engine as a separate module.
+
+Example:
+
+WakeWordEngine.ts
+
+VoiceActivityDetector.ts
+
+AudioProcessor.ts
+
+ConfidenceMatcher.ts
+
+SpeakerTracker.ts
+
+RecognitionManager.ts
+
+The rest of the assistant should communicate only with WakeWordEngine.
+
+Future Compatibility
+
+Design the interface so that in the future I can replace the custom wake-word detector with Picovoice, OpenWakeWord, or another engine by changing only the wake-word module, without modifying the Ball Assistant or dashboard.
+
+Final Goal
+
+The finished system should feel like a premium always-listening voice assistant. It should wake quickly, ignore background noise and its own speech, support Indian English pronunciation, keep CPU usage low, and maintain smooth 60 FPS throughout the application. It does not need to match the accuracy of Picovoice, but it should provide a polished experience suitable for a professional IoT dashboard and Ball Assistant.

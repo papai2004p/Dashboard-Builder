@@ -1,6 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "AI Smart Cricket Pitch Dashboard"
+description = "A real-time cricket pitch monitoring dashboard with sensor data visualization (temperature, humidity, soil moisture, grass health) and an AI voice assistant. Designed for cricket ground staff and pitch curators."
 version = "1.0.0"
 id = "artifacts/cricket-dashboard"
 router = "path"

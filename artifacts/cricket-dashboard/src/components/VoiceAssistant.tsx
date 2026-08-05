@@ -10,6 +10,7 @@ import {
   detectWakeWord,
   stripWakeWord,
 } from '@/lib/wakeWordEngine';
+import { WhisperEngine, startMicRecording, type WhisperStatus, type Recorder } from '@/lib/whisperEngine';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1534,6 +1535,14 @@ export default function VoiceAssistant({
   const [showHints, setShowHints]       = useState(false);
   const [isJuggling, setIsJuggling]     = useState(false);
 
+  // ── Multi-engine recognition state ──────────────────────────────────────────
+  const [recEngine, setRecEngine]         = useState<'webspeech' | 'whisper' | 'hybrid'>(
+    () => (localStorage.getItem('ballEngine') as any) ?? 'webspeech',
+  );
+  const [whisperStatus, setWhisperStatus] = useState<WhisperStatus>('idle');
+  const [whisperProgress, setWhisperProgress] = useState(0);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+
   const ballControls = useAnimation();
 
   // ── Refs ──
@@ -1566,7 +1575,15 @@ export default function VoiceAssistant({
   const phase2TimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phase3TimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Whisper / multi-engine refs ──────────────────────────────────────────────
+  const whisperEngineRef      = useRef<WhisperEngine | null>(null);
+  const recEngineRef          = useRef<'webspeech' | 'whisper' | 'hybrid'>('webspeech');
+  const recorderRef           = useRef<Recorder | null>(null);
+  const stopAudioCaptureRef   = useRef<() => Promise<Blob | null>>(() => Promise.resolve(null));
+  const transcribeAudioRef    = useRef<(b: Blob) => Promise<string | null>>(() => Promise.resolve(null));
+
   useEffect(() => { stateRef.current = state; }, [state]);
+  useEffect(() => { recEngineRef.current = recEngine; }, [recEngine]);
   useEffect(() => {
     ctxRef.current = { readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel };
   });
@@ -1735,6 +1752,34 @@ export default function VoiceAssistant({
     }, 7000);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Audio capture helpers (Whisper / Hybrid modes) ────────────────────────────
+  const startAudioCapture = useCallback(async () => {
+    try {
+      const rec = await startMicRecording();
+      recorderRef.current = rec;
+      setIsRecordingAudio(true);
+    } catch (e) {
+      console.warn('[Ball] Audio capture failed:', e);
+    }
+  }, []);
+
+  const stopAudioCapture = useCallback(async (): Promise<Blob | null> => {
+    const rec = recorderRef.current;
+    recorderRef.current = null;
+    setIsRecordingAudio(false);
+    if (!rec) return null;
+    try { return await rec.stop(); } catch { return null; }
+  }, []);
+
+  const transcribeAudio = useCallback(async (blob: Blob): Promise<string | null> => {
+    try { return await whisperEngineRef.current?.transcribe(blob) ?? null; }
+    catch (e) { console.warn('[Ball] Whisper failed:', e); return null; }
+  }, []);
+
+  // Keep refs up to date so they can be called from inside the SR useEffect closure
+  useEffect(() => { stopAudioCaptureRef.current  = stopAudioCapture;  }, [stopAudioCapture]);
+  useEffect(() => { transcribeAudioRef.current   = transcribeAudio;   }, [transcribeAudio]);
+
   // ── TTS with phoneme mouth sync ───────────────────────────────────────────────
   // Pick one voice once and reuse it for every utterance
   const lockedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
@@ -1755,6 +1800,21 @@ export default function VoiceAssistant({
     window.speechSynthesis.onvoiceschanged = pick;
     return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
+
+  // ── WhisperEngine — init once, pre-warm when engine ≠ 'webspeech' ────────────
+  useEffect(() => {
+    whisperEngineRef.current = new WhisperEngine(setWhisperStatus, setWhisperProgress);
+    return () => { whisperEngineRef.current?.dispose(); };
+  }, []);
+
+  useEffect(() => {
+    if (recEngine !== 'webspeech') {
+      whisperEngineRef.current?.load().catch(err => {
+        console.warn('[Ball] Whisper pre-warm failed:', err);
+        setWhisperStatus('error');
+      });
+    }
+  }, [recEngine]);
 
   const speak = useCallback((text: string, onDone?: () => void) => {
     window.speechSynthesis.cancel();
@@ -1841,6 +1901,11 @@ export default function VoiceAssistant({
     setCommandText('');
     setResponseText('');
     setInterimText('');
+
+    // Hybrid mode: start parallel audio capture alongside Web Speech API
+    if (recEngineRef.current === 'hybrid') {
+      startAudioCapture();
+    }
 
     if (firstLaunchRef.current && !skipIntro) {
       firstLaunchRef.current = false;
@@ -2088,7 +2153,31 @@ export default function VoiceAssistant({
             lastFinalRef.current = deduped;
             setInterimText('');
             const cmd = stripWakeWord(deduped.toLowerCase());
-            if (cmd.length > 1) handleCommandRef.current(cmd || deduped);
+
+            if (recEngineRef.current === 'hybrid') {
+              // Stop mic → transcribe with Whisper → use more accurate result
+              stopAudioCaptureRef.current().then(blob => {
+                if (blob && whisperEngineRef.current?.isReady()) {
+                  setInterimText('✨ Refining with Whisper…');
+                  transcribeAudioRef.current(blob)
+                    .then(whisperText => {
+                      const refined = whisperText
+                        ? stripWakeWord(whisperText.toLowerCase())
+                        : cmd;
+                      setInterimText('');
+                      if ((refined || cmd).length > 1) handleCommandRef.current(refined || cmd);
+                    })
+                    .catch(() => {
+                      setInterimText('');
+                      if (cmd.length > 1) handleCommandRef.current(cmd);
+                    });
+                } else {
+                  if (cmd.length > 1) handleCommandRef.current(cmd || deduped);
+                }
+              });
+            } else {
+              if (cmd.length > 1) handleCommandRef.current(cmd || deduped);
+            }
           }
         }
       }
@@ -2390,6 +2479,93 @@ export default function VoiceAssistant({
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {/* ── Whisper hold-to-speak (whisper-only mode) ── */}
+                {recEngine === 'whisper' && state === 'listening' && (
+                  <motion.button
+                    className={`w-full mt-3 py-3 rounded-xl font-bold text-sm select-none transition-colors ${
+                      isRecordingAudio
+                        ? 'bg-red-500/20 border border-red-500/50 text-red-400'
+                        : 'bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/22'
+                    }`}
+                    onPointerDown={async (e) => {
+                      e.preventDefault();
+                      await startAudioCapture();
+                    }}
+                    onPointerUp={async () => {
+                      const blob = await stopAudioCapture();
+                      if (!blob) return;
+                      setInterimText('✨ Transcribing with Whisper…');
+                      const text = await transcribeAudio(blob);
+                      setInterimText('');
+                      if (text) {
+                        const cmd = stripWakeWord(text.toLowerCase());
+                        if (cmd.length > 1) handleCommandRef.current(cmd);
+                      }
+                    }}
+                    onPointerLeave={async () => {
+                      // Cancel if finger/cursor leaves button without releasing
+                      await stopAudioCapture();
+                    }}
+                  >
+                    {isRecordingAudio ? '🔴 Recording… release to send' : '🎤 Hold to speak'}
+                  </motion.button>
+                )}
+
+                {/* ── Recognition engine selector ── */}
+                <div className="mt-3 pt-2.5 border-t border-white/8">
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-2 font-semibold">
+                    Recognition Engine
+                  </p>
+                  <div className="flex gap-1.5">
+                    {([ 'webspeech', 'whisper', 'hybrid' ] as const).map(e => (
+                      <button
+                        key={e}
+                        onClick={() => { setRecEngine(e); localStorage.setItem('ballEngine', e); }}
+                        className={`flex-1 text-[9px] uppercase tracking-wide font-bold px-1.5 py-1.5 rounded-lg transition-all ${
+                          recEngine === e
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : 'bg-white/5 text-slate-500 border border-white/8 hover:bg-white/10 hover:text-slate-300'
+                        }`}
+                      >
+                        {e === 'webspeech' ? '⚡ Web' : e === 'whisper' ? '🧠 Whisper' : '🔀 Hybrid'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Whisper model load progress */}
+                  {whisperStatus === 'loading' && (
+                    <div className="mt-2.5">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-[9px] text-amber-400 font-medium">Downloading Whisper model…</span>
+                        <span className="text-[9px] text-amber-400">{whisperProgress}%</span>
+                      </div>
+                      <div className="h-1 bg-white/8 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full"
+                          animate={{ width: `${whisperProgress}%` }}
+                          transition={{ duration: 0.3 }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {whisperStatus === 'ready' && recEngine !== 'webspeech' && (
+                    <p className="text-[9px] text-emerald-400/80 mt-2 font-medium">
+                      ✓ Whisper ready · offline · no API key
+                    </p>
+                  )}
+                  {whisperStatus === 'transcribing' && (
+                    <p className="text-[9px] text-blue-400/80 mt-2 font-medium animate-pulse">
+                      ✨ Whisper transcribing…
+                    </p>
+                  )}
+                  {whisperStatus === 'error' && (
+                    <p className="text-[9px] text-red-400/80 mt-2 font-medium">
+                      ⚠ Whisper unavailable — using Web Speech API
+                    </p>
+                  )}
+                </div>
 
                 {isPorcupineConfigured() && (
                   <div className="mt-3 flex items-center gap-1.5">

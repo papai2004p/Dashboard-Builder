@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FileText,
   FileSpreadsheet,
@@ -38,8 +38,11 @@ export type { Reading, TimelineEvent };
 
 // ── Style constants ────────────────────────────────────────────────────────────
 
+// will-change-transform promotes each card to its own compositor layer, preventing
+// backdrop-blur repaint glitches on re-render. transition-[box-shadow,transform]
+// avoids animating unrelated CSS properties when data-driven re-renders happen.
 const CARD =
-  'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgb(0,0,0,0.10)] hover:shadow-[0_14px_44px_rgb(0,0,0,0.14)] hover:-translate-y-1 transition-all duration-300 rounded-[26px] p-6 flex flex-col';
+  'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgb(0,0,0,0.10)] hover:shadow-[0_14px_44px_rgb(0,0,0,0.14)] hover:-translate-y-1 transition-[box-shadow,transform] duration-300 rounded-[26px] p-6 flex flex-col will-change-transform';
 
 const BTN_RED_GRADIENT =
   'flex items-center justify-center gap-2 w-full py-3 px-6 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-bold rounded-xl shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-200 text-sm';
@@ -70,6 +73,16 @@ interface QuickActionsProps {
   onAnalysisClose?: () => void;
 }
 
+type FullSnapshot = {
+  readings: Reading[];
+  tempHistory: { time: number; value: number }[];
+  humHistory: { time: number; value: number }[];
+  soilHistory: { time: number; value: number }[];
+  pumpOn: boolean;
+  fanOn: boolean;
+  mode: 'auto' | 'manual';
+};
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function calcStats(history: { value: number }[]) {
@@ -84,16 +97,10 @@ function calcStats(history: { value: number }[]) {
 
 // ── Card 1: Export Report ──────────────────────────────────────────────────────
 
-function ExportReportCard({
-  readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode,
+const ExportReportCard = React.memo(function ExportReportCard({
+  getSnapshot,
 }: {
-  readings: Reading[];
-  tempHistory: { time: number; value: number }[];
-  humHistory: { time: number; value: number }[];
-  soilHistory: { time: number; value: number }[];
-  pumpOn: boolean;
-  fanOn: boolean;
-  mode: 'auto' | 'manual';
+  getSnapshot: () => FullSnapshot;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -101,6 +108,7 @@ function ExportReportCard({
     if (busy) return;
     setBusy(true);
     try {
+      const { readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode } = getSnapshot();
       generatePDF({ readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode });
     } catch (e) {
       console.error('PDF generation error:', e);
@@ -129,16 +137,21 @@ function ExportReportCard({
       </button>
     </div>
   );
-}
+});
 
 // ── Card 2: Export Excel ───────────────────────────────────────────────────────
 
-function ExportExcelCard({ readings, pumpOn, fanOn }: Pick<QuickActionsProps, 'readings' | 'pumpOn' | 'fanOn'>) {
+const ExportExcelCard = React.memo(function ExportExcelCard({
+  getSnapshot,
+}: {
+  getSnapshot: () => FullSnapshot;
+}) {
   function exportExcel(event: React.MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
 
     try {
+      const { readings, pumpOn, fanOn } = getSnapshot();
       const header = ['Time', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)', 'Pitch Status', 'Pump', 'Fan', 'Mode'];
       const rows = readings.map(r => [
         r.time, r.temp, r.humidity, r.soil, r.pitchStatus,
@@ -195,7 +208,7 @@ function ExportExcelCard({ readings, pumpOn, fanOn }: Pick<QuickActionsProps, 'r
       </button>
     </div>
   );
-}
+});
 
 // ── Sensor Analysis Modal ──────────────────────────────────────────────────────
 
@@ -211,7 +224,8 @@ function AnalysisModal({
 }) {
   const [chartTab, setChartTab] = useState<'bar' | 'trend' | 'radar'>('trend');
 
-  // Snapshot data at open time so live updates don't cause glitching
+  // Snapshot data at open time — live updates must not reach the modal's charts
+  // or recharts will re-animate every 2 s, causing visible glitching.
   const [snap] = useState(() => ({
     tempHistory: [...tempHistory],
     humHistory:  [...humHistory],
@@ -276,7 +290,7 @@ function AnalysisModal({
               Sensor Analytics
             </h2>
             <p className="text-sm text-slate-400 mt-1">
-              Live Snapshot · {tempHistory.length} total readings evaluated
+              Snapshot · {snap.tempHistory.length} readings evaluated
             </p>
           </div>
           <button
@@ -292,7 +306,7 @@ function AnalysisModal({
             {statCards.map(card => {
               const Icon = card.icon;
               return (
-                <div key={card.label} className={`bg-slate-800/60 backdrop-blur-xl border-l-4 ${card.borderColor} border border-slate-700/50 rounded-2xl p-6 hover:-translate-y-1 transition-all duration-300`}>
+                <div key={card.label} className={`bg-slate-800/60 backdrop-blur-xl border-l-4 ${card.borderColor} border border-slate-700/50 rounded-2xl p-6 hover:-translate-y-1 transition-[box-shadow,transform] duration-300`}>
                   <div className="flex items-center gap-3 mb-5">
                     <div className={`p-2 rounded-lg ${card.iconBg} ${card.iconText}`}><Icon size={20} /></div>
                     <h3 className="font-bold text-white">{card.label}</h3>
@@ -349,23 +363,24 @@ function AnalysisModal({
                     <YAxis stroke="#94a3b8" />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Legend wrapperStyle={{ color: '#cbd5e1' }} />
-                    <Bar dataKey="temperature" fill="#f97316" name="Temperature" radius={[4,4,0,0]} />
-                    <Bar dataKey="humidity"    fill="#3b82f6" name="Humidity"    radius={[4,4,0,0]} />
-                    <Bar dataKey="soil"        fill="#22c55e" name="Soil"        radius={[4,4,0,0]} />
+                    <Bar dataKey="temperature" fill="#f97316" name="Temperature" radius={[4,4,0,0]} isAnimationActive={false} />
+                    <Bar dataKey="humidity"    fill="#3b82f6" name="Humidity"    radius={[4,4,0,0]} isAnimationActive={false} />
+                    <Bar dataKey="soil"        fill="#22c55e" name="Soil"        radius={[4,4,0,0]} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
               {chartTab === 'trend' && (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={tempHistory}>
+                  {/* Use snap.* exclusively — live props would re-trigger Recharts animations */}
+                  <LineChart data={snap.tempHistory}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis dataKey="time" hide />
                     <YAxis stroke="#94a3b8" />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Legend wrapperStyle={{ color: '#cbd5e1' }} />
-                    <Line type="monotone" dataKey="value" data={tempHistory}  stroke="#f97316" strokeWidth={2} name="Temperature" dot={false} animationDuration={800} />
-                    <Line type="monotone" dataKey="value" data={humHistory}   stroke="#3b82f6" strokeWidth={2} name="Humidity"    dot={false} animationDuration={800} />
-                    <Line type="monotone" dataKey="value" data={soilHistory}  stroke="#22c55e" strokeWidth={2} name="Soil"        dot={false} animationDuration={800} />
+                    <Line type="monotone" dataKey="value" data={snap.tempHistory}  stroke="#f97316" strokeWidth={2} name="Temperature" dot={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="value" data={snap.humHistory}   stroke="#3b82f6" strokeWidth={2} name="Humidity"    dot={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="value" data={snap.soilHistory}  stroke="#22c55e" strokeWidth={2} name="Soil"        dot={false} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -375,7 +390,7 @@ function AnalysisModal({
                     <PolarGrid stroke="#475569" />
                     <PolarAngleAxis dataKey="metric" stroke="#94a3b8" tick={{ fontSize: 12 }} />
                     <PolarRadiusAxis stroke="#475569" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                    <Radar name="System Metrics" dataKey="value" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.3} />
+                    <Radar name="System Metrics" dataKey="value" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.3} isAnimationActive={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Legend wrapperStyle={{ color: '#cbd5e1' }} />
                   </RadarChart>
@@ -391,11 +406,34 @@ function AnalysisModal({
 
 // ── Card 3: Sensor Analysis ────────────────────────────────────────────────────
 
-function SensorAnalysisCard(props: Pick<QuickActionsProps, 'tempHistory' | 'humHistory' | 'soilHistory' | 'pumpOn' | 'fanOn' | 'analysisOpen' | 'onAnalysisClose' | 'onOpenAnalysis'>) {
+// Memoized — only re-renders when analysisOpen changes. History is fetched via
+// getSnapshot() at open time so the card stays completely still while data ticks.
+const SensorAnalysisCard = React.memo(function SensorAnalysisCard({
+  getSnapshot,
+  onOpenAnalysis,
+  analysisOpen,
+  onAnalysisClose,
+}: {
+  getSnapshot: () => FullSnapshot;
+  onOpenAnalysis?: () => void;
+  analysisOpen?: boolean;
+  onAnalysisClose?: () => void;
+}) {
   const [internalOpen, setInternalOpen] = useState(false);
-  const open = props.analysisOpen ?? internalOpen;
-  const handleOpen = () => { props.onOpenAnalysis?.(); setInternalOpen(true); };
-  const handleClose = () => { props.onAnalysisClose?.(); setInternalOpen(false); };
+  const open = analysisOpen ?? internalOpen;
+
+  // Capture a fresh snapshot every time the modal opens (works for both button
+  // clicks and external triggers like the voice assistant).
+  const [modalData, setModalData] = useState<FullSnapshot | null>(null);
+  const wasOpen = useRef(open);
+  if (open && !wasOpen.current) {
+    // Modal just opened — grab fresh data synchronously before render
+    setModalData(getSnapshot());
+  }
+  wasOpen.current = open;
+
+  const handleOpen  = () => { setModalData(getSnapshot()); onOpenAnalysis?.(); setInternalOpen(true); };
+  const handleClose = () => { onAnalysisClose?.(); setInternalOpen(false); };
 
   return (
     <>
@@ -416,23 +454,23 @@ function SensorAnalysisCard(props: Pick<QuickActionsProps, 'tempHistory' | 'humH
         </button>
       </div>
 
-      {open && (
+      {open && modalData && (
         <AnalysisModal
           onClose={handleClose}
-          tempHistory={props.tempHistory}
-          humHistory={props.humHistory}
-          soilHistory={props.soilHistory}
-          pumpOn={props.pumpOn}
-          fanOn={props.fanOn}
+          tempHistory={modalData.tempHistory}
+          humHistory={modalData.humHistory}
+          soilHistory={modalData.soilHistory}
+          pumpOn={modalData.pumpOn}
+          fanOn={modalData.fanOn}
         />
       )}
     </>
   );
-}
+});
 
 // ── Card 4: Reset Dashboard ────────────────────────────────────────────────────
 
-function ResetDashboardCard({ onReset }: { onReset: () => void }) {
+const ResetDashboardCard = React.memo(function ResetDashboardCard({ onReset }: { onReset: () => void }) {
   const [showConfirm, setShowConfirm] = useState(false);
 
   return (
@@ -474,7 +512,7 @@ function ResetDashboardCard({ onReset }: { onReset: () => void }) {
       )}
     </>
   );
-}
+});
 
 // ── Main QuickActions Component ────────────────────────────────────────────────
 
@@ -482,6 +520,28 @@ export default function QuickActions({
   readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode,
   onReset, onOpenAnalysis, analysisOpen, onAnalysisClose,
 }: QuickActionsProps) {
+  // Keep refs always in sync with the latest state values. This lets us hand
+  // stable getter callbacks to the memoized cards so they never re-render due
+  // to live data changes — they only call getSnapshot() when they actually need
+  // the data (on button press / modal open).
+  const snapshotRef = useRef<FullSnapshot>({ readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode });
+  snapshotRef.current = { readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, mode };
+
+  const getSnapshot = useCallback((): FullSnapshot => ({ ...snapshotRef.current }), []);
+
+  // Stable wrappers for parent callbacks so memoized cards aren't invalidated
+  // when App re-renders with new inline-lambda props.
+  const onOpenRef  = useRef(onOpenAnalysis);
+  const onCloseRef = useRef(onAnalysisClose);
+  const onResetRef = useRef(onReset);
+  onOpenRef.current  = onOpenAnalysis;
+  onCloseRef.current = onAnalysisClose;
+  onResetRef.current = onReset;
+
+  const stableOpen  = useCallback(() => onOpenRef.current?.(),  []);
+  const stableClose = useCallback(() => onCloseRef.current?.(), []);
+  const stableReset = useCallback(() => onResetRef.current(),   []);
+
   return (
     <div className="w-full">
       <h2 className="text-xl font-bold text-slate-800 mb-5 flex items-center gap-2">
@@ -490,27 +550,15 @@ export default function QuickActions({
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <ExportReportCard
-          readings={readings}
-          tempHistory={tempHistory}
-          humHistory={humHistory}
-          soilHistory={soilHistory}
-          pumpOn={pumpOn}
-          fanOn={fanOn}
-          mode={mode}
-        />
-        <ExportExcelCard readings={readings} pumpOn={pumpOn} fanOn={fanOn} />
+        <ExportReportCard getSnapshot={getSnapshot} />
+        <ExportExcelCard  getSnapshot={getSnapshot} />
         <SensorAnalysisCard
-          tempHistory={tempHistory}
-          humHistory={humHistory}
-          soilHistory={soilHistory}
-          pumpOn={pumpOn}
-          fanOn={fanOn}
-          onOpenAnalysis={onOpenAnalysis}
+          getSnapshot={getSnapshot}
+          onOpenAnalysis={stableOpen}
           analysisOpen={analysisOpen}
-          onAnalysisClose={onAnalysisClose}
+          onAnalysisClose={stableClose}
         />
-        <ResetDashboardCard onReset={onReset} />
+        <ResetDashboardCard onReset={stableReset} />
       </div>
     </div>
   );

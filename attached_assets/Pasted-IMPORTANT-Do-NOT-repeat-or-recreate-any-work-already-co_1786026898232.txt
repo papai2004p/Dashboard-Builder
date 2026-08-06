@@ -1,0 +1,378 @@
+IMPORTANT
+
+Do NOT repeat or recreate any work already completed.
+
+The following modules already exist and should be reused exactly as they are:
+
+• ConfidenceMatcher.ts
+• VoiceActivityDetector.ts
+• SpeakerTracker.ts
+• RecognitionManager.ts
+• WakeWordEngine.ts
+• wakeWordEngine.ts
+
+Assume they are implemented correctly.
+
+Your job is ONLY to finish the remaining work.
+
+========================================================
+PART 1
+MAKE THE CUSTOM WAKE WORD ENGINE ACT LIKE PICOVOICE
+========================================================
+
+The current implementation is still mainly using Web Speech API.
+
+I DO NOT WANT THAT.
+
+I want my own wake word detection pipeline.
+
+The browser SpeechRecognition should NOT decide if "Hey Ball" was spoken.
+
+Instead create a pipeline like Picovoice.
+
+Microphone
+
+↓
+
+Voice Activity Detection
+
+↓
+
+Audio Buffer
+
+↓
+
+Feature Extraction
+(RMS
+MFCC
+Zero Crossing Rate
+Spectral Energy)
+
+↓
+
+Wake Word Detector
+
+↓
+
+Confidence Score
+
+↓
+
+Only then start speech recognition.
+
+The wake word engine should continuously analyze microphone audio.
+
+SpeechRecognition must only start AFTER wake word detection.
+
+Never keep SpeechRecognition running 24/7.
+
+========================================================
+PART 2
+HYBRID ENGINE
+========================================================
+
+Always use Hybrid internally.
+
+Remove every option from UI.
+
+Remove
+
+WEB
+
+WHISPER
+
+HYBRID
+
+buttons completely.
+
+There should be NO engine selector.
+
+Internally always use
+
+Custom Wake Engine
+
++
+
+Web Speech
+
++
+
+Whisper refinement
+
+automatically.
+
+The user should never know which engine is running.
+
+========================================================
+PART 3
+MAKE THE WAKE WORD MORE RELIABLE
+========================================================
+
+Support
+
+Hey Ball
+
+Hi Ball
+
+Hello Ball
+
+Ball
+
+Ball Assistant
+
+Hey Buddy
+
+Hey Bowl
+
+Hey Bal
+
+Heybal
+
+Hey Bawl
+
+Ball AI
+
+Use
+
+phonetic matching
+
+fuzzy matching
+
+confidence scoring
+
+temporal smoothing
+
+multiple confirmations
+
+minimum confidence
+
+speaker lock
+
+adaptive threshold
+
+cooldown
+
+anti false trigger logic
+
+If confidence is below threshold
+
+ignore it.
+
+========================================================
+PART 4
+NOISE FILTERING
+========================================================
+
+The wake engine should ignore
+
+Fan noise
+
+Pump
+
+Keyboard
+
+Mouse
+
+TV
+
+Music
+
+Echo
+
+Background talking
+
+Children
+
+Wind
+
+Only human speech should activate.
+
+========================================================
+PART 5
+MULTI STAGE CONFIDENCE
+========================================================
+
+Instead of
+
+confidence > 80
+
+use
+
+Stage 1
+
+Speech detected
+
+↓
+
+Stage 2
+
+Looks similar to wake word
+
+↓
+
+Stage 3
+
+Phonetic similarity
+
+↓
+
+Stage 4
+
+Context score
+
+↓
+
+Stage 5
+
+Final confidence
+
+Only then wake Ball.
+
+========================================================
+PART 6
+LATENCY
+========================================================
+
+Wake word
+
+<150ms
+
+Speech recognition
+
+starts immediately after wake word.
+
+No noticeable delay.
+
+========================================================
+PART 7
+BALL UI
+========================================================
+
+Remove
+
+Recognition Engine
+
+title.
+
+Remove
+
+WEB
+
+WHISPER
+
+HYBRID
+
+buttons.
+
+Remove every engine selector.
+
+The popup should only contain
+
+Listening...
+
+Wave animation
+
+Microphone icon
+
+Text input
+
+Nothing else.
+
+Much cleaner.
+
+========================================================
+PART 8
+THINKING
+========================================================
+
+When wake word detected
+
+show
+
+Listening animation.
+
+When command ends
+
+Thinking animation.
+
+During thinking
+
+show magnifying glass animation.
+
+Only after response is ready
+
+start speaking.
+
+========================================================
+PART 9
+CPU
+========================================================
+
+CPU usage
+
+below 5%
+
+Memory stable
+
+No polling
+
+No memory leaks
+
+Reuse AudioContext
+
+Reuse buffers
+
+Avoid unnecessary allocations.
+
+========================================================
+PART 10
+QUALITY
+========================================================
+
+This assistant should feel like
+
+Picovoice
+
+Google Assistant
+
+Alexa
+
+Siri
+
+not a browser demo.
+
+Everything must feel smooth,
+
+professional,
+
+responsive,
+
+and production ready.
+
+========================================================
+VERY IMPORTANT
+========================================================
+
+DO NOT rewrite modules already finished.
+
+DO NOT recreate existing files.
+
+Only improve the remaining implementation.
+
+Reuse everything already built.
+
+Finish the remaining 40%.
+
+When finished,
+
+verify
+
+• wake word accuracy
+• false trigger rate
+• latency
+• CPU usage
+• UI cleanup
+• thinking flow
+• hybrid pipeline
+
+until everything behaves like a premium commercial voice assistant.

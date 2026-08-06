@@ -34,6 +34,8 @@ export type { SpeakerTrackerOptions }         from './wake/SpeakerTracker';
 export { RecognitionManager }                 from './wake/RecognitionManager';
 export type { RecognitionManagerOptions,
               RecognitionResult }             from './wake/RecognitionManager';
+export { AudioFeatureExtractor }              from './wake/AudioFeatureExtractor';
+export type { AudioFeatureExtractorOptions }  from './wake/AudioFeatureExtractor';
 
 // ── Backward-compatible exports (keep VoiceAssistant working unchanged) ────
 import { ConfidenceMatcher as _CM, WAKE_REGEX, stripWakeWord as _strip }

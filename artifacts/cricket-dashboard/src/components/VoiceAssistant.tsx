@@ -4,14 +4,12 @@ import type { Reading } from '@/lib/types';
 import { generatePDF } from '@/lib/generatePDF';
 import * as XLSX from 'xlsx';
 import {
-  WAKE_WORDS,
   COMMAND_LANG,
-  isPorcupineConfigured,
-  detectWakeWord,
   stripWakeWord,
   WakeWordEngine,
   RecognitionManager,
   VoiceActivityDetector,
+  AudioFeatureExtractor,
 } from '@/lib/wakeWordEngine';
 import { WhisperEngine, startMicRecording, type WhisperStatus, type Recorder } from '@/lib/whisperEngine';
 
@@ -1538,10 +1536,7 @@ export default function VoiceAssistant({
   const [showHints, setShowHints]       = useState(false);
   const [isJuggling, setIsJuggling]     = useState(false);
 
-  // ── Multi-engine recognition state ──────────────────────────────────────────
-  const [recEngine, setRecEngine]         = useState<'webspeech' | 'whisper' | 'hybrid'>(
-    () => (localStorage.getItem('ballEngine') as any) ?? 'webspeech',
-  );
+  // ── Internal engine state (always hybrid — no user-facing selector) ─────────
   const [whisperStatus, setWhisperStatus] = useState<WhisperStatus>('idle');
   const [whisperProgress, setWhisperProgress] = useState(0);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
@@ -1582,17 +1577,25 @@ export default function VoiceAssistant({
   // ── Wake engine sub-system refs ──────────────────────────────────────────────
   const recMgrRef    = useRef<RecognitionManager | null>(null);
   const vadRef       = useRef<VoiceActivityDetector | null>(null);
+  const feRef        = useRef<AudioFeatureExtractor | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
 
-  // ── Whisper / multi-engine refs ──────────────────────────────────────────────
+  // ── Picovoice-style pipeline state refs ──────────────────────────────────────
+  // dormant: SR stopped, only VAD/AudioFE running
+  // primed:  speech onset detected, SR active for wake-word window (3.5 s)
+  // command: wake word confirmed, SR stays on for command capture
+  const srPipelineRef    = useRef<'dormant' | 'primed' | 'command'>('dormant');
+  const srActiveRef      = useRef(false); // true while RecognitionManager.running
+  const enterDormantRef  = useRef<() => void>(() => {});    // stops SR, back to VAD-only
+  const startCommandSRRef = useRef<() => void>(() => {});   // activates command-mode SR
+
+  // ── Whisper / hybrid refs (always hybrid internally) ─────────────────────────
   const whisperEngineRef      = useRef<WhisperEngine | null>(null);
-  const recEngineRef          = useRef<'webspeech' | 'whisper' | 'hybrid'>('webspeech');
   const recorderRef           = useRef<Recorder | null>(null);
   const stopAudioCaptureRef   = useRef<() => Promise<Blob | null>>(() => Promise.resolve(null));
   const transcribeAudioRef    = useRef<(b: Blob) => Promise<string | null>>(() => Promise.resolve(null));
 
   useEffect(() => { stateRef.current = state; }, [state]);
-  useEffect(() => { recEngineRef.current = recEngine; }, [recEngine]);
   useEffect(() => {
     ctxRef.current = { readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel };
   });
@@ -1810,20 +1813,16 @@ export default function VoiceAssistant({
     return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
 
-  // ── WhisperEngine — init once, pre-warm when engine ≠ 'webspeech' ────────────
+  // ── WhisperEngine — init once and always pre-warm (always hybrid internally) ──
   useEffect(() => {
     whisperEngineRef.current = new WhisperEngine(setWhisperStatus, setWhisperProgress);
+    // Pre-warm on mount so Whisper refinement is ready when the first command arrives
+    whisperEngineRef.current.load().catch(err => {
+      console.warn('[Ball] Whisper pre-warm failed (non-fatal):', err);
+      setWhisperStatus('error');
+    });
     return () => { whisperEngineRef.current?.dispose(); };
   }, []);
-
-  useEffect(() => {
-    if (recEngine !== 'webspeech') {
-      whisperEngineRef.current?.load().catch(err => {
-        console.warn('[Ball] Whisper pre-warm failed:', err);
-        setWhisperStatus('error');
-      });
-    }
-  }, [recEngine]);
 
   const speak = useCallback((text: string, onDone?: () => void) => {
     window.speechSynthesis.cancel();
@@ -1896,6 +1895,7 @@ export default function VoiceAssistant({
     if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
     recModeRef.current   = 'wakeword';
     wakeEngineRef.current.releaseLock(); // release speaker lock so next wake word is heard
+    enterDormantRef.current(); // stop SR — VAD controls next start
     lastFinalRef.current = '';
     setState('idle');
     setStatusText('');
@@ -1914,10 +1914,10 @@ export default function VoiceAssistant({
     setResponseText('');
     setInterimText('');
 
-    // Hybrid mode: start parallel audio capture alongside Web Speech API
-    if (recEngineRef.current === 'hybrid') {
-      startAudioCapture();
-    }
+    // Always hybrid: start parallel audio capture for Whisper refinement
+    startAudioCapture();
+    // Ensure SR is active in command mode (no-op if already running)
+    startCommandSRRef.current();
 
     if (firstLaunchRef.current && !skipIntro) {
       firstLaunchRef.current = false;
@@ -2067,30 +2067,34 @@ export default function VoiceAssistant({
 
   useEffect(() => { handleCommandRef.current = handleCommand; }, [handleCommand]);
 
-  // ── Speech Recognition + VAD — created ONCE ─────────────────────────────────
-  // RecognitionManager handles auto-restart, pause/resume, and alternatives.
-  // VoiceActivityDetector (VAD) gates transcript processing so silence / fan /
-  // keyboard / pump noise is ignored before transcripts reach the wake engine.
+  // ── Picovoice-style pipeline — created ONCE ──────────────────────────────────
+  //
+  // Architecture:
+  //   Mic → VAD + AudioFeatureExtractor (always running, low CPU)
+  //         ↓  speech onset + speech-like audio
+  //   RecognitionManager starts (3.5 s wake-word window)
+  //         ↓  transcript → ConfidenceMatcher multi-stage scoring
+  //   Wake word confirmed → command mode (SR stays on)
+  //   Command received → Whisper refinement → response → SR stops → VAD loop
+  //
+  // SpeechRecognition NEVER runs 24/7 — only during a VAD-gated window.
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setIsSupported(false); return; }
 
-    // ── VAD: connect to mic stream (best-effort — recognition continues without it) ──
+    // ── Voice Activity Detector ───────────────────────────────────────────────
     const vad = new VoiceActivityDetector({
-      energyThreshold:   0.010,  // low threshold for soft/low-volume speech
+      energyThreshold:   0.010,
       speechDebounceMs:  80,
       silenceDebounceMs: 400,
     });
     vadRef.current = vad;
 
-    navigator.mediaDevices?.getUserMedia({ audio: true, video: false })
-      .then(stream => {
-        micStreamRef.current = stream;
-        vad.connect(stream);
-      })
-      .catch(() => { /* VAD disabled silently — recognition continues */ });
+    // ── Audio Feature Extractor (5-stage noise filter) ────────────────────────
+    const fe = new AudioFeatureExtractor({ minEnergy: 0.007, minSpeechBandRatio: 0.50 });
+    feRef.current = fe;
 
-    // ── RecognitionManager: single SR instance with built-in auto-restart ──
+    // ── RecognitionManager: starts DORMANT — VAD controls when SR is active ───
     const mgr = new RecognitionManager({
       language:        COMMAND_LANG,
       maxAlternatives: 3,
@@ -2098,35 +2102,117 @@ export default function VoiceAssistant({
     });
     recMgrRef.current = mgr;
 
-    // Shim recRef so existing speak() code (pause/resume via .stop/.start) works
+    // ── Pipeline helpers ──────────────────────────────────────────────────────
+    let primingTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const cancelPriming = () => {
+      if (primingTimer) { clearTimeout(primingTimer); primingTimer = null; }
+    };
+
+    // Stop SR completely — back to VAD-only dormant mode
+    const enterDormant = () => {
+      cancelPriming();
+      if (srPipelineRef.current === 'dormant') return;
+      srPipelineRef.current = 'dormant';
+      srActiveRef.current   = false;
+      mgr.stop();
+    };
+
+    // Activate SR for wake-word detection (3.5 s window, then auto-stop)
+    const primeSR = () => {
+      if (srPipelineRef.current !== 'dormant') return; // already running
+      if (isSpeakingRef.current) return;
+      srPipelineRef.current = 'primed';
+      srActiveRef.current   = true;
+      recModeRef.current    = 'wakeword';
+      mgr.start(); // fresh SR session — lowest latency start
+
+      // Auto-cancel if no wake word is heard within 3.5 s
+      primingTimer = setTimeout(() => {
+        if (srPipelineRef.current === 'primed') enterDormant();
+      }, 3_500);
+    };
+
+    // Transition into full command-mode SR (wake word already confirmed)
+    const enterCommandSR = () => {
+      cancelPriming();
+      srPipelineRef.current = 'command';
+      if (!srActiveRef.current) {
+        srActiveRef.current = true;
+        mgr.start();
+      }
+    };
+
+    // Expose via refs so goIdle() and enterListening() can call them
+    enterDormantRef.current  = enterDormant;
+    startCommandSRRef.current = enterCommandSR;
+
+    // ── Shim recRef so speak()'s TTS pause/resume works unchanged ────────────
+    // speak() calls recRef.stop() before TTS and recRef.start() after.
     recRef.current = {
       stop:  () => { try { mgr.pause();  } catch (_) {} },
-      start: () => { try { mgr.resume(); } catch (_) {} },
+      start: () => {
+        // After TTS: only resume SR if a session is still logically active
+        if (srActiveRef.current) { try { mgr.resume(); } catch (_) {} }
+        // If dormant, do nothing — VAD will prime a new session on next speech
+      },
     } as any;
 
+    // ── VAD callbacks: gate when SR starts / stops ────────────────────────────
+    vad.onSpeechStart = () => {
+      if (isSpeakingRef.current) return;
+
+      // Stage 1 (VAD) ✓  — already confirmed by this callback firing.
+      // Stage 2 (AudioFeatureExtractor) — reject obvious non-speech noise.
+      // Only block when the extractor has meaningful data (rms > quiet threshold).
+      if (fe.isConnected() && fe.getSmoothedRms() > 0.015 && !fe.isSpeechLike()) return;
+
+      primeSR(); // start SR session for wake-word window
+    };
+
+    vad.onSpeechEnd = () => {
+      // After speech ends give SR a short grace period to finalise the transcript
+      if (srPipelineRef.current === 'primed') {
+        cancelPriming();
+        primingTimer = setTimeout(() => {
+          if (srPipelineRef.current === 'primed') enterDormant();
+        }, 800);
+      }
+    };
+
+    // ── Recognition results ───────────────────────────────────────────────────
     mgr.onResult = (result) => {
       if (isSpeakingRef.current) return;
+      if (srPipelineRef.current === 'dormant') return;
 
       const { transcript, alternatives, isFinal } = result;
       const mode         = recModeRef.current;
       const currentState = stateRef.current;
 
-      // ── VAD gate: ignore transcripts when VAD is active AND reports silence.
-      // Only skips when VAD is connected (smoothedEnergy > 0) to avoid blocking
-      // on browser startup before the AudioContext has warmed up.
-      const vadEnergy = vadRef.current?.getSmoothedEnergy() ?? 0;
-      if (vadEnergy > 0.001 && !vadRef.current?.isSpeechDetected()) return;
+      // Stage 2 (in-result check): reject non-speech audio frames.
+      // Only blocks when extractor has data AND energy is above silence floor.
+      if (fe.isConnected() && fe.getSmoothedRms() > 0.015 && !fe.isSpeechLike()) return;
 
-      // ── Wake word ──
-      if (mode === 'wakeword' && (currentState === 'idle' || currentState === 'sleeping')) {
-        // Use primary transcript + all alternatives for maximum sensitivity
+      // ── Wake-word window (primed mode) ────────────────────────────────────
+      if (srPipelineRef.current === 'primed' &&
+          mode === 'wakeword' &&
+          (currentState === 'idle' || currentState === 'sleeping')) {
+
         const allText   = transcript.toLowerCase().trim();
+        // Use all alternatives for maximum sensitivity across accents
         const checkText = allText + ' ' + alternatives.join(' ').toLowerCase();
+
         if (allText && !wakeDebounceRef.current) {
+          // Stage 3: transcript present  ✓
+          // Stage 4: ConfidenceMatcher phonetic / fuzzy scoring  ↓
+          // Stage 5: final confidence gating (threshold inside ConfidenceMatcher)
           const found = wakeEngineRef.current.processTranscript(checkText).matched;
+
           if (found) {
+            enterCommandSR(); // SR stays on for command
             wakeDebounceRef.current = true;
-            setTimeout(() => { wakeDebounceRef.current = false; }, 2500);
+            setTimeout(() => { wakeDebounceRef.current = false; }, 2_500);
+
             const stripped = stripWakeWord(allText);
             if (stripped.length > 2) {
               recModeRef.current   = 'command';
@@ -2170,13 +2256,11 @@ export default function VoiceAssistant({
         return;
       }
 
-      // ── Command ──
-      if (mode === 'command' && currentState === 'listening') {
+      // ── Command mode ──────────────────────────────────────────────────────
+      if (srPipelineRef.current === 'command' && mode === 'command' && currentState === 'listening') {
         if (!isFinal) {
-          // Interim result
           if (transcript) { resetCommandTimeout(); setInterimText(transcript); }
         } else {
-          // Final result
           if (transcript) resetCommandTimeout();
           const deduped = transcript.trim();
           if (deduped && deduped !== lastFinalRef.current) {
@@ -2184,30 +2268,24 @@ export default function VoiceAssistant({
             setInterimText('');
             const cmd = stripWakeWord(deduped.toLowerCase());
 
-            if (recEngineRef.current === 'hybrid') {
-              // Stop mic → transcribe with Whisper → use more accurate result
-              stopAudioCaptureRef.current().then(blob => {
-                if (blob && whisperEngineRef.current?.isReady()) {
-                  setInterimText('✨ Refining with Whisper…');
-                  transcribeAudioRef.current(blob)
-                    .then(whisperText => {
-                      const refined = whisperText
-                        ? stripWakeWord(whisperText.toLowerCase())
-                        : cmd;
-                      setInterimText('');
-                      if ((refined || cmd).length > 1) handleCommandRef.current(refined || cmd);
-                    })
-                    .catch(() => {
-                      setInterimText('');
-                      if (cmd.length > 1) handleCommandRef.current(cmd);
-                    });
-                } else {
-                  if (cmd.length > 1) handleCommandRef.current(cmd || deduped);
-                }
-              });
-            } else {
-              if (cmd.length > 1) handleCommandRef.current(cmd || deduped);
-            }
+            // Always hybrid: Web Speech result → Whisper refinement if model ready
+            stopAudioCaptureRef.current().then(blob => {
+              if (blob && whisperEngineRef.current?.isReady()) {
+                setInterimText('✨ Refining…');
+                transcribeAudioRef.current(blob)
+                  .then(whisperText => {
+                    const refined = whisperText ? stripWakeWord(whisperText.toLowerCase()) : cmd;
+                    setInterimText('');
+                    if ((refined || cmd).length > 1) handleCommandRef.current(refined || cmd);
+                  })
+                  .catch(() => {
+                    setInterimText('');
+                    if (cmd.length > 1) handleCommandRef.current(cmd);
+                  });
+              } else {
+                if (cmd.length > 1) handleCommandRef.current(cmd || deduped);
+              }
+            });
           }
         }
       }
@@ -2220,13 +2298,24 @@ export default function VoiceAssistant({
     };
     mgr.onUnsupported = () => { setIsSupported(false); };
 
+    // ── Connect mic stream to VAD + AudioFeatureExtractor ────────────────────
+    navigator.mediaDevices?.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        micStreamRef.current = stream;
+        vad.connect(stream); // VAD on same stream — no extra getUserMedia call
+        fe.connect(stream);  // AudioFeatureExtractor shares the stream
+      })
+      .catch(() => { /* VAD/FE disabled silently — SR still works */ });
+
     wakeEngineRef.current.start();
-    mgr.start();
+    // SR starts DORMANT — VAD's onSpeechStart will call primeSR() when ready
 
     return () => {
       shouldListenRef.current = false;
+      cancelPriming();
       mgr.stop();
       vad.disconnect();
+      fe.disconnect();
       micStreamRef.current?.getTracks().forEach(t => t.stop());
       micStreamRef.current = null;
       wakeEngineRef.current.stop();
@@ -2507,99 +2596,6 @@ export default function VoiceAssistant({
                   )}
                 </AnimatePresence>
 
-                {/* ── Whisper hold-to-speak (whisper-only mode) ── */}
-                {recEngine === 'whisper' && state === 'listening' && (
-                  <motion.button
-                    className={`w-full mt-3 py-3 rounded-xl font-bold text-sm select-none transition-colors ${
-                      isRecordingAudio
-                        ? 'bg-red-500/20 border border-red-500/50 text-red-400'
-                        : 'bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/22'
-                    }`}
-                    onPointerDown={async (e) => {
-                      e.preventDefault();
-                      await startAudioCapture();
-                    }}
-                    onPointerUp={async () => {
-                      const blob = await stopAudioCapture();
-                      if (!blob) return;
-                      setInterimText('✨ Transcribing with Whisper…');
-                      const text = await transcribeAudio(blob);
-                      setInterimText('');
-                      if (text) {
-                        const cmd = stripWakeWord(text.toLowerCase());
-                        if (cmd.length > 1) handleCommandRef.current(cmd);
-                      }
-                    }}
-                    onPointerLeave={async () => {
-                      // Cancel if finger/cursor leaves button without releasing
-                      await stopAudioCapture();
-                    }}
-                  >
-                    {isRecordingAudio ? '🔴 Recording… release to send' : '🎤 Hold to speak'}
-                  </motion.button>
-                )}
-
-                {/* ── Recognition engine selector ── */}
-                <div className="mt-3 pt-2.5 border-t border-white/8">
-                  <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-2 font-semibold">
-                    Recognition Engine
-                  </p>
-                  <div className="flex gap-1.5">
-                    {([ 'webspeech', 'whisper', 'hybrid' ] as const).map(e => (
-                      <button
-                        key={e}
-                        onClick={() => { setRecEngine(e); localStorage.setItem('ballEngine', e); }}
-                        className={`flex-1 text-[9px] uppercase tracking-wide font-bold px-1.5 py-1.5 rounded-lg transition-all ${
-                          recEngine === e
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                            : 'bg-white/5 text-slate-500 border border-white/8 hover:bg-white/10 hover:text-slate-300'
-                        }`}
-                      >
-                        {e === 'webspeech' ? '⚡ Web' : e === 'whisper' ? '🧠 Whisper' : '🔀 Hybrid'}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Whisper model load progress */}
-                  {whisperStatus === 'loading' && (
-                    <div className="mt-2.5">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-[9px] text-amber-400 font-medium">Downloading Whisper model…</span>
-                        <span className="text-[9px] text-amber-400">{whisperProgress}%</span>
-                      </div>
-                      <div className="h-1 bg-white/8 rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full"
-                          animate={{ width: `${whisperProgress}%` }}
-                          transition={{ duration: 0.3 }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {whisperStatus === 'ready' && recEngine !== 'webspeech' && (
-                    <p className="text-[9px] text-emerald-400/80 mt-2 font-medium">
-                      ✓ Whisper ready · offline · no API key
-                    </p>
-                  )}
-                  {whisperStatus === 'transcribing' && (
-                    <p className="text-[9px] text-blue-400/80 mt-2 font-medium animate-pulse">
-                      ✨ Whisper transcribing…
-                    </p>
-                  )}
-                  {whisperStatus === 'error' && (
-                    <p className="text-[9px] text-red-400/80 mt-2 font-medium">
-                      ⚠ Whisper unavailable — using Web Speech API
-                    </p>
-                  )}
-                </div>
-
-                {isPorcupineConfigured() && (
-                  <div className="mt-3 flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span className="text-[9px] text-emerald-400/70 font-bold uppercase tracking-wider">Porcupine Wake Engine</span>
-                  </div>
-                )}
               </div>
             </motion.div>
           )}

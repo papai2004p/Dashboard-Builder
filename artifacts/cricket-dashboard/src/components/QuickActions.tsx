@@ -38,11 +38,12 @@ export type { Reading, TimelineEvent };
 
 // ── Style constants ────────────────────────────────────────────────────────────
 
-// will-change-transform promotes each card to its own compositor layer, preventing
-// backdrop-blur repaint glitches on re-render. transition-[box-shadow,transform]
-// avoids animating unrelated CSS properties when data-driven re-renders happen.
+// No backdrop-blur here — blur compositing causes repaint flicker on every
+// 2-second data tick. Solid semi-opaque white avoids all compositor issues
+// while preserving the card aesthetic. transition-[box-shadow,transform]
+// ensures only hover-lift and shadow animate, not the entire CSS state.
 const CARD =
-  'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_32px_rgb(0,0,0,0.10)] hover:shadow-[0_14px_44px_rgb(0,0,0,0.14)] hover:-translate-y-1 transition-[box-shadow,transform] duration-300 rounded-[26px] p-6 flex flex-col will-change-transform';
+  'bg-white/92 border border-slate-200/70 shadow-[0_6px_24px_rgb(0,0,0,0.07)] hover:shadow-[0_16px_40px_rgb(0,0,0,0.11)] hover:-translate-y-1 transition-[box-shadow,transform] duration-300 rounded-[26px] p-6 flex flex-col';
 
 const BTN_RED_GRADIENT =
   'flex items-center justify-center gap-2 w-full py-3 px-6 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-bold rounded-xl shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-200 text-sm';
@@ -408,6 +409,7 @@ function AnalysisModal({
 
 // Memoized — only re-renders when analysisOpen changes. History is fetched via
 // getSnapshot() at open time so the card stays completely still while data ticks.
+// No internalOpen state: analysisOpen from App.tsx is always the source of truth.
 const SensorAnalysisCard = React.memo(function SensorAnalysisCard({
   getSnapshot,
   onOpenAnalysis,
@@ -419,21 +421,30 @@ const SensorAnalysisCard = React.memo(function SensorAnalysisCard({
   analysisOpen?: boolean;
   onAnalysisClose?: () => void;
 }) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = analysisOpen ?? internalOpen;
-
-  // Capture a fresh snapshot every time the modal opens (works for both button
-  // clicks and external triggers like the voice assistant).
+  // analysisOpen is always provided by App.tsx; default to false when absent.
+  const open = analysisOpen ?? false;
   const [modalData, setModalData] = useState<FullSnapshot | null>(null);
-  const wasOpen = useRef(open);
-  if (open && !wasOpen.current) {
-    // Modal just opened — grab fresh data synchronously before render
-    setModalData(getSnapshot());
-  }
-  wasOpen.current = open;
 
-  const handleOpen  = () => { setModalData(getSnapshot()); onOpenAnalysis?.(); setInternalOpen(true); };
-  const handleClose = () => { onAnalysisClose?.(); setInternalOpen(false); };
+  // Capture a fresh snapshot whenever the modal transitions from closed → open.
+  // Using useEffect (not render-phase setState) avoids extra render cycles.
+  const prevOpenRef = useRef(false);
+  useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      setModalData(getSnapshot());
+    }
+    prevOpenRef.current = open;
+  }, [open, getSnapshot]);
+
+  // Stable handlers — deps are all stable callbacks so these never change.
+  const handleOpen = useCallback(() => {
+    // Pre-populate modal data immediately so there is zero flash on open.
+    setModalData(getSnapshot());
+    onOpenAnalysis?.();
+  }, [getSnapshot, onOpenAnalysis]);
+
+  const handleClose = useCallback(() => {
+    onAnalysisClose?.();
+  }, [onAnalysisClose]);
 
   return (
     <>

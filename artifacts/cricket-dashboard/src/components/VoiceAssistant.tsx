@@ -9,6 +9,7 @@ import {
   isPorcupineConfigured,
   detectWakeWord,
   stripWakeWord,
+  WakeWordEngine,
 } from '@/lib/wakeWordEngine';
 import { WhisperEngine, startMicRecording, type WhisperStatus, type Recorder } from '@/lib/whisperEngine';
 
@@ -1549,6 +1550,7 @@ export default function VoiceAssistant({
   const stateRef          = useRef<AssistantState>('idle');
   const ctxRef            = useRef({ readings, tempHistory, humHistory, soilHistory, pumpOn, fanOn, systemMode, onPumpToggle, onFanToggle, onModeChange, onReset, onOpenAnalysis, onExportExcel });
   const recRef            = useRef<any>(null);
+  const wakeEngineRef     = useRef<WakeWordEngine>(new WakeWordEngine({ threshold: 85 }));
   const recModeRef        = useRef<'wakeword' | 'command'>('wakeword');
   const isSpeakingRef     = useRef(false);
   const shouldListenRef   = useRef(true);
@@ -1819,6 +1821,7 @@ export default function VoiceAssistant({
   const speak = useCallback((text: string, onDone?: () => void) => {
     window.speechSynthesis.cancel();
     isSpeakingRef.current = true;
+    wakeEngineRef.current.setAssistantSpeaking(true); // mute wake detection while speaking
     try { recRef.current?.stop(); } catch (_) {}
 
     const utter = new SpeechSynthesisUtterance(text);
@@ -1866,6 +1869,7 @@ export default function VoiceAssistant({
       setMouthOpen(0);
       setSpeechBeat(0);
       isSpeakingRef.current = false;
+      wakeEngineRef.current.setAssistantSpeaking(false); // resume wake detection after TTS
       if (shouldListenRef.current) {
         setTimeout(() => { try { recRef.current?.start(); } catch (_) {} }, 200);
       }
@@ -1884,6 +1888,7 @@ export default function VoiceAssistant({
     setIsJuggling(false);
     if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
     recModeRef.current   = 'wakeword';
+    wakeEngineRef.current.releaseLock(); // release speaker lock so next wake word is heard
     lastFinalRef.current = '';
     setState('idle');
     setStatusText('');
@@ -2096,7 +2101,9 @@ export default function VoiceAssistant({
         const allText = (interimTxt + ' ' + finalTxt).toLowerCase().trim();
         const checkText = allText + ' ' + allAlternativesTxt.toLowerCase();
         if (allText && !wakeDebounceRef.current) {
-          const found = detectWakeWord(checkText);
+          // Custom wake-word engine: confidence-scored, phonetic,
+          // speaker-locked, self-trigger-proof.
+          const found = wakeEngineRef.current.processTranscript(checkText).matched;
           if (found) {
             wakeDebounceRef.current = true;
             setTimeout(() => { wakeDebounceRef.current = false; }, 2500);
@@ -2202,8 +2209,13 @@ export default function VoiceAssistant({
       // let onend handle the restart; no state change needed.
     };
 
+    wakeEngineRef.current.start();
     try { rec.start(); } catch (_) {}
-    return () => { shouldListenRef.current = false; try { rec.stop(); } catch (_) {} };
+    return () => {
+      shouldListenRef.current = false;
+      try { rec.stop(); } catch (_) {}
+      wakeEngineRef.current.stop();
+    };
   }, []); // Created ONCE
 
   // ── Idle animation cycle (phase-aware) ───────────────────────────────────────

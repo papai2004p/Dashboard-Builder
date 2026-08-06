@@ -41,7 +41,7 @@ export class VoiceActivityDetector {
   private audioCtx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
-  private dataArray: Float32Array = new Float32Array(0);
+  private dataArray: Float32Array<ArrayBuffer> = new Float32Array(0) as Float32Array<ArrayBuffer>;
 
   private rafId = 0;
   private running = false;

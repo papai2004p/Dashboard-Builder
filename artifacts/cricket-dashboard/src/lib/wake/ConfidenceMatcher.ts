@@ -13,6 +13,9 @@
  *  6. Levenshtein bigram      →  76-86
  *  7. Jaro-Winkler similarity →  threshold-scaled
  *
+ * Each matched result may receive a +5 position bonus when the wake phrase
+ * appears at the START of the utterance (common in natural speech).
+ *
  * Optimised for Indian English pronunciation variations.
  */
 
@@ -21,17 +24,24 @@ const PRIMARY_PHRASES = [
   'hey ball', 'hi ball', 'hello ball',
   'okay ball', 'ok ball', 'yo ball',
   'hey cricket ball', 'hi cricket ball',
-  'ball please', 'hey buddy',
+  'ball assistant', 'ball please', 'hey buddy',
   'wake up ball',
 ] as const;
 
 // Phonetic variants covering Indian English accent mishearings
 const PHONETIC_VARIANTS = [
+  // hay / hay-b variants
   'hay ball', 'hay bol',
+  // hey bXXX variants
   'hey bawl', 'hey bowl', 'hey baal', 'hey bal', 'hey bol', 'hey boll', 'hey bool',
+  // hai / hei variants
   'hai ball', 'hai bol', 'hei ball', 'hei bol',
+  // a-ball variants (aspiration drop)
   'a ball', 'a bol', 'a boll', 'a baal',
+  // fused no-space variants (fast/slurred speech)
   'heyball', 'hiball', 'heybol', 'okball',
+  'heybal', 'haybal', 'hibal',         // single-l fused variants
+  // ok variants
   'ok bol', 'okay bol',
 ] as const;
 
@@ -111,6 +121,22 @@ function phoneticNormalize(word: string): string {
     .replace(/ph/g, 'f');
 }
 
+/**
+ * Returns true if the text begins with a wake phrase
+ * (first 3 words contain a match).
+ */
+function startsWithWakePhrase(text: string): boolean {
+  const prefix = text.split(/\s+/).slice(0, 3).join(' ');
+  if (WAKE_REGEX.test(prefix)) return true;
+  for (const phrase of PRIMARY_PHRASES) {
+    if (prefix.startsWith(phrase)) return true;
+  }
+  for (const phrase of PHONETIC_VARIANTS) {
+    if (prefix.startsWith(phrase)) return true;
+  }
+  return false;
+}
+
 // --- Public API ------------------------------------------------------------
 
 export interface MatchResult {
@@ -127,7 +153,7 @@ export interface MatchResult {
  */
 export class ConfidenceMatcher {
   private threshold: number;
-  private readonly fuzzyTargets = ['hey ball', 'hi ball', 'ok ball', 'hey bol'];
+  private readonly fuzzyTargets = ['hey ball', 'hi ball', 'ok ball', 'hey bol', 'hey bal'];
 
   constructor(threshold = 85) {
     this.threshold = threshold;
@@ -143,6 +169,19 @@ export class ConfidenceMatcher {
    * Call `.matched` to decide whether to wake the assistant.
    */
   score(rawText: string): MatchResult {
+    const result = this._scoreInternal(rawText);
+    if (result.matched) {
+      // Position bonus +5: wake phrase at the start of utterance
+      const text = rawText.toLowerCase().trim();
+      if (startsWithWakePhrase(text)) {
+        return { ...result, confidence: Math.min(100, result.confidence + 5) };
+      }
+    }
+    return result;
+  }
+
+  /** Internal scoring — strategies in confidence order. */
+  private _scoreInternal(rawText: string): MatchResult {
     const text = rawText.toLowerCase().trim();
     if (!text) return { matched: false, confidence: 0, strategy: 'empty' };
 

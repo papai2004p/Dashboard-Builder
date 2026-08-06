@@ -10,6 +10,8 @@ import {
   detectWakeWord,
   stripWakeWord,
   WakeWordEngine,
+  RecognitionManager,
+  VoiceActivityDetector,
 } from '@/lib/wakeWordEngine';
 import { WhisperEngine, startMicRecording, type WhisperStatus, type Recorder } from '@/lib/whisperEngine';
 
@@ -1577,6 +1579,11 @@ export default function VoiceAssistant({
   const phase2TimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phase3TimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Wake engine sub-system refs ──────────────────────────────────────────────
+  const recMgrRef    = useRef<RecognitionManager | null>(null);
+  const vadRef       = useRef<VoiceActivityDetector | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+
   // ── Whisper / multi-engine refs ──────────────────────────────────────────────
   const whisperEngineRef      = useRef<WhisperEngine | null>(null);
   const recEngineRef          = useRef<'webspeech' | 'whisper' | 'hybrid'>('webspeech');
@@ -2060,49 +2067,62 @@ export default function VoiceAssistant({
 
   useEffect(() => { handleCommandRef.current = handleCommand; }, [handleCommand]);
 
-  // ── Speech Recognition — created ONCE ────────────────────────────────────────
+  // ── Speech Recognition + VAD — created ONCE ─────────────────────────────────
+  // RecognitionManager handles auto-restart, pause/resume, and alternatives.
+  // VoiceActivityDetector (VAD) gates transcript processing so silence / fan /
+  // keyboard / pump noise is ignored before transcripts reach the wake engine.
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setIsSupported(false); return; }
 
-    const rec = new SR();
-    rec.lang            = COMMAND_LANG;
-    rec.continuous      = true;
-    rec.interimResults  = true;
-    rec.maxAlternatives = 3;
-    recRef.current      = rec;
+    // ── VAD: connect to mic stream (best-effort — recognition continues without it) ──
+    const vad = new VoiceActivityDetector({
+      energyThreshold:   0.010,  // low threshold for soft/low-volume speech
+      speechDebounceMs:  80,
+      silenceDebounceMs: 400,
+    });
+    vadRef.current = vad;
 
-    rec.onresult = (e: any) => {
+    navigator.mediaDevices?.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        micStreamRef.current = stream;
+        vad.connect(stream);
+      })
+      .catch(() => { /* VAD disabled silently — recognition continues */ });
+
+    // ── RecognitionManager: single SR instance with built-in auto-restart ──
+    const mgr = new RecognitionManager({
+      language:        COMMAND_LANG,
+      maxAlternatives: 3,
+      interimResults:  true,
+    });
+    recMgrRef.current = mgr;
+
+    // Shim recRef so existing speak() code (pause/resume via .stop/.start) works
+    recRef.current = {
+      stop:  () => { try { mgr.pause();  } catch (_) {} },
+      start: () => { try { mgr.resume(); } catch (_) {} },
+    } as any;
+
+    mgr.onResult = (result) => {
       if (isSpeakingRef.current) return;
 
-      let interimTxt = '';
-      let finalTxt   = '';
-      // Collect all alternatives for wake-word checking (not just highest-confidence)
-      let allAlternativesTxt = '';
-
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        let best = e.results[i][0].transcript;
-        for (let a = 1; a < e.results[i].length; a++) {
-          const alt = e.results[i][a];
-          allAlternativesTxt += ' ' + alt.transcript;
-          if (alt.confidence > e.results[i][0].confidence) best = alt.transcript;
-        }
-        allAlternativesTxt += ' ' + e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalTxt += best;
-        else interimTxt += best;
-      }
-
+      const { transcript, alternatives, isFinal } = result;
+      const mode         = recModeRef.current;
       const currentState = stateRef.current;
-      const mode = recModeRef.current;
+
+      // ── VAD gate: ignore transcripts when VAD is active AND reports silence.
+      // Only skips when VAD is connected (smoothedEnergy > 0) to avoid blocking
+      // on browser startup before the AudioContext has warmed up.
+      const vadEnergy = vadRef.current?.getSmoothedEnergy() ?? 0;
+      if (vadEnergy > 0.001 && !vadRef.current?.isSpeechDetected()) return;
 
       // ── Wake word ──
       if (mode === 'wakeword' && (currentState === 'idle' || currentState === 'sleeping')) {
-        // Check primary transcript + all alternatives for maximum sensitivity
-        const allText = (interimTxt + ' ' + finalTxt).toLowerCase().trim();
-        const checkText = allText + ' ' + allAlternativesTxt.toLowerCase();
+        // Use primary transcript + all alternatives for maximum sensitivity
+        const allText   = transcript.toLowerCase().trim();
+        const checkText = allText + ' ' + alternatives.join(' ').toLowerCase();
         if (allText && !wakeDebounceRef.current) {
-          // Custom wake-word engine: confidence-scored, phonetic,
-          // speaker-locked, self-trigger-proof.
           const found = wakeEngineRef.current.processTranscript(checkText).matched;
           if (found) {
             wakeDebounceRef.current = true;
@@ -2152,10 +2172,13 @@ export default function VoiceAssistant({
 
       // ── Command ──
       if (mode === 'command' && currentState === 'listening') {
-        if (interimTxt || finalTxt) resetCommandTimeout();
-        if (interimTxt) setInterimText(interimTxt);
-        if (finalTxt) {
-          const deduped = finalTxt.trim();
+        if (!isFinal) {
+          // Interim result
+          if (transcript) { resetCommandTimeout(); setInterimText(transcript); }
+        } else {
+          // Final result
+          if (transcript) resetCommandTimeout();
+          const deduped = transcript.trim();
           if (deduped && deduped !== lastFinalRef.current) {
             lastFinalRef.current = deduped;
             setInterimText('');
@@ -2190,33 +2213,25 @@ export default function VoiceAssistant({
       }
     };
 
-    rec.onend = () => {
-      if (!shouldListenRef.current || isSpeakingRef.current) return;
-      const delay = restartDelayRef.current;
-      restartDelayRef.current = Math.min(delay * 1.5, 2000);
-      setTimeout(() => { restartDelayRef.current = 150; try { rec.start(); } catch (_) {} }, delay);
+    mgr.onPermissionDenied = () => {
+      shouldListenRef.current = false;
+      setIsSupported(false);
+      setPermDenied(true);
     };
-
-    rec.onerror = (e: any) => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        shouldListenRef.current = false;
-        try { rec.stop(); } catch (_) {}
-        setIsSupported(false);
-        setPermDenied(true);
-        return;
-      }
-      // 'no-speech', 'aborted', 'network', 'audio-capture' are transient —
-      // let onend handle the restart; no state change needed.
-    };
+    mgr.onUnsupported = () => { setIsSupported(false); };
 
     wakeEngineRef.current.start();
-    try { rec.start(); } catch (_) {}
+    mgr.start();
+
     return () => {
       shouldListenRef.current = false;
-      try { rec.stop(); } catch (_) {}
+      mgr.stop();
+      vad.disconnect();
+      micStreamRef.current?.getTracks().forEach(t => t.stop());
+      micStreamRef.current = null;
       wakeEngineRef.current.stop();
     };
-  }, []); // Created ONCE
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Idle animation cycle (phase-aware) ───────────────────────────────────────
   useEffect(() => {
